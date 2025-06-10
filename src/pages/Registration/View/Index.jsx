@@ -255,7 +255,7 @@ const RegistrationForm = () => {
       open: false,
     });
   };
-
+// the style
   return (
     <Container maxWidth="md" sx={{ py: 4 }}>
       <Paper elevation={0} sx={{ p: 4, borderRadius: 2 }}>
