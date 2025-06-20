@@ -41,6 +41,8 @@ function LoginPage({ onLogin }) {
     const typeParam = urlParams.get("type")
     if (typeParam === "agent") {
       setUserType("agent")
+    } else if (typeParam === "admin") {
+      setUserType("admin")
     }
   }, [location])
 
@@ -63,6 +65,62 @@ function LoginPage({ onLogin }) {
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       setError("Please enter a valid email address")
       setIsLoading(false)
+      return
+    }
+
+    if (userType === "admin") {
+      // Admin login with backend authentication
+      try {
+        const response = await axios.post(
+          `${import.meta.env.VITE_API_URL}/auth/admin-login`,
+          {
+            email: email.trim(),
+            password,
+          },
+          {
+            headers: { "Content-Type": "application/json" },
+          }
+        )
+
+        console.log("Admin login response:", response.data)
+
+        const { token, user } = response.data
+
+        if (response.status === 200 && token && user) {
+          // Store JWT token and user data
+          localStorage.setItem("authToken", token)
+          localStorage.setItem("currentUser", JSON.stringify({
+            id: user.id,
+            email: user.email,
+            username: user.name || email.split("@")[0],
+            userType: "admin",
+          }))
+
+          setSuccessMessage("Admin login successful! Redirecting...")
+
+          if (onLogin) {
+            onLogin({
+              id: user.id,
+              email: user.email,
+              username: user.name,
+              userType: "admin",
+            })
+          }
+
+          setTimeout(() => {
+            navigate("/admin-dashboard")
+          }, 1500)
+        } else {
+          throw new Error("Invalid response from server")
+        }
+      } catch (err) {
+        console.error("Admin login error:", err.response?.data || err.message)
+        const errorMessage =
+          err.response?.data?.message ||
+          "Admin login failed. Please check your email and password."
+        setError(errorMessage)
+        setIsLoading(false)
+      }
       return
     }
 
@@ -208,6 +266,7 @@ function LoginPage({ onLogin }) {
             >
               <FormControlLabel value="customer" control={<Radio />} label="Customer" />
               <FormControlLabel value="agent" control={<Radio />} label="Sales Agent" />
+              <FormControlLabel value="admin" control={<Radio />} label="Admin" />
             </RadioGroup>
           </FormControl>
 
@@ -261,7 +320,7 @@ function LoginPage({ onLogin }) {
 
           <Box sx={{ mt: 2, mb: 2, p: 2, bgcolor: "#f5f5f5", borderRadius: 1 }}>
             <Typography variant="body2" color="text.secondary">
-              <strong>Note:</strong> For Sales Agent login, use your registered email and password. For Customer login, use your registered email and password.
+              <strong>Note:</strong> Please select your login type and use your registered credentials.
             </Typography>
           </Box>
 
@@ -276,7 +335,7 @@ function LoginPage({ onLogin }) {
             {isLoading ? (
               <CircularProgress size={24} />
             ) : (
-              `Sign In as ${userType === "agent" ? "Sales Agent" : "Customer"}`
+              `Sign In as ${userType === "agent" ? "Sales Agent" : userType === "admin" ? "Admin" : "Customer"}`
             )}
           </Button>
         </form>

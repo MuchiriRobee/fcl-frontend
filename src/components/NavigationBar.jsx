@@ -1,3 +1,5 @@
+"use client"
+
 import React, { useState, useRef, useEffect } from "react"
 import {
   AppBar,
@@ -51,14 +53,15 @@ import {
   ExitToApp,
   Inbox,
   ShoppingBag,
+  AdminPanelSettings,
 } from "@mui/icons-material"
 import { styled, alpha, useTheme } from "@mui/material/styles"
-import { useNavigate } from "react-router-dom"
+import { useNavigate, useLocation } from "react-router-dom"
 import FirstCraftLogo from "../assets/images/FirstCraft-logo.png"
-import RegistrationForm from "../pages/Registration/View/Index" // Update this path to match your file structure
-import LoginPage from "../pages/Login/View/Index" // Import LoginPage
+import RegistrationForm from "../pages/Registration/View/Index"
+import LoginPage from "../pages/Login/View/Index"
 
-// Styled Components
+// Styled Components (keeping existing styles)
 const Search = styled("div")(({ theme }) => ({
   position: "relative",
   borderRadius: theme.shape.borderRadius,
@@ -68,9 +71,9 @@ const Search = styled("div")(({ theme }) => ({
   },
   marginRight: theme.spacing(2),
   marginLeft: 0,
-  width: "auto", // Original width setting
+  width: "auto",
   [theme.breakpoints.down("sm")]: {
-    marginRight: theme.spacing(1), // Less margin on mobile
+    marginRight: theme.spacing(1),
   },
   [theme.breakpoints.up("sm")]: {
     marginLeft: theme.spacing(3),
@@ -88,7 +91,7 @@ const SearchIconWrapper = styled("div")(({ theme }) => ({
   justifyContent: "center",
   color: theme.palette.grey[500],
   [theme.breakpoints.down("sm")]: {
-    padding: theme.spacing(0, 1), // Less padding on mobile
+    padding: theme.spacing(0, 1),
   },
 }))
 
@@ -98,11 +101,11 @@ const StyledInputBase = styled(InputBase)(({ theme }) => ({
     padding: theme.spacing(1, 1, 1, 0),
     paddingLeft: `calc(1em + ${theme.spacing(4)})`,
     transition: theme.transitions.create("width"),
-    width: "20ch", // Original fixed width
+    width: "20ch",
     [theme.breakpoints.down("sm")]: {
-      width: "15ch", // Smaller width on mobile
-      paddingLeft: `calc(1em + ${theme.spacing(3)})`, // Less padding on mobile
-      fontSize: "0.875rem", // Smaller font on mobile
+      width: "15ch",
+      paddingLeft: `calc(1em + ${theme.spacing(3)})`,
+      fontSize: "0.875rem",
     },
     [theme.breakpoints.up("md")]: {
       width: "20ch",
@@ -135,8 +138,8 @@ const RegisterButton = styled(Button)(({ theme }) => ({
     backgroundColor: alpha(theme.palette.primary.contrastText, 0.3),
   },
   [theme.breakpoints.down("sm")]: {
-    marginLeft: theme.spacing(0.5), // Less margin on mobile
-    padding: "4px 8px", // Less padding on mobile
+    marginLeft: theme.spacing(0.5),
+    padding: "4px 8px",
   },
 }))
 
@@ -153,22 +156,20 @@ const WalletButton = styled(Button)(({ theme }) => ({
     backgroundColor: alpha(theme.palette.primary.contrastText, 0.3),
   },
   [theme.breakpoints.down("sm")]: {
-    marginLeft: theme.spacing(0.5), // Less margin on mobile
-    padding: "4px 8px", // Less padding on mobile
+    marginLeft: theme.spacing(0.5),
+    padding: "4px 8px",
   },
 }))
 
-// Styled dropdown content
 const DropdownContent = styled(Paper)(({ theme }) => ({
   padding: theme.spacing(1),
   backgroundColor: theme.palette.background.paper,
-  boxShadow: theme.shadows[4], // Stronger shadow
+  boxShadow: theme.shadows[4],
   borderRadius: theme.shape.borderRadius,
   minWidth: 180,
-  zIndex: 1500, // Higher z-index to ensure it appears above other content
+  zIndex: 1500,
 }))
 
-// Styled dropdown item
 const DropdownItem = styled("div")(({ theme }) => ({
   padding: theme.spacing(1, 2),
   cursor: "pointer",
@@ -177,8 +178,9 @@ const DropdownItem = styled("div")(({ theme }) => ({
   },
 }))
 
-const NavigationBar = ({ isLoggedIn, currentUser, onLogout }) => {
+const NavigationBar = ({ isLoggedIn, currentUser, onLogout, isAdminPage }) => {
   const navigate = useNavigate()
+  const location = useLocation()
   const theme = useTheme()
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"))
   const isTablet = useMediaQuery(theme.breakpoints.down("md"))
@@ -205,10 +207,8 @@ const NavigationBar = ({ isLoggedIn, currentUser, onLogout }) => {
     setCartItemsCount(storedCartItems.length)
   }, [])
 
-  // State for tooltips
+  // State for tooltips and dropdowns
   const [activeTooltip, setActiveTooltip] = useState("")
-
-  // State for dropdowns
   const [activeDropdown, setActiveDropdown] = useState("")
 
   const menus = {
@@ -217,35 +217,18 @@ const NavigationBar = ({ isLoggedIn, currentUser, onLogout }) => {
     "Office Machines": ["Printers", "Shredders", "Laminators"],
   }
 
-  // Handle dropdown open
-  const handleDropdownOpen = (menuName) => {
-    setActiveDropdown(menuName)
-  }
+  // Check if user is admin
+  const isAdmin = currentUser?.isAdmin || currentUser?.email?.toLowerCase().includes("admin")
 
-  // Handle dropdown close
-  const handleDropdownClose = () => {
-    setActiveDropdown("")
-  }
+  // Handle dropdown functions
+  const handleDropdownOpen = (menuName) => setActiveDropdown(menuName)
+  const handleDropdownClose = () => setActiveDropdown("")
+  const handleTooltipOpen = (tooltipName) => setActiveTooltip(tooltipName)
+  const handleTooltipClose = () => setActiveTooltip("")
 
-  // Handle tooltip open
-  const handleTooltipOpen = (tooltipName) => {
-    setActiveTooltip(tooltipName)
-  }
-
-  // Handle tooltip close
-  const handleTooltipClose = () => {
-    setActiveTooltip("")
-  }
-
-  const toggleDrawer = () => {
-    setDrawerOpen((prev) => !prev)
-  }
-
+  const toggleDrawer = () => setDrawerOpen((prev) => !prev)
   const toggleSubmenu = (key) => {
-    setDrawerSubmenus((prev) => ({
-      ...prev,
-      [key]: !prev[key],
-    }))
+    setDrawerSubmenus((prev) => ({ ...prev, [key]: !prev[key] }))
   }
 
   const handleOpenRegistration = () => {
@@ -253,391 +236,381 @@ const NavigationBar = ({ isLoggedIn, currentUser, onLogout }) => {
     setLoginOpen(false)
   }
 
-  const handleCloseRegistration = () => {
-    setRegistrationOpen(false)
-  }
+  const handleCloseRegistration = () => setRegistrationOpen(false)
 
   const handleOpenLogin = () => {
     setLoginOpen(true)
     setRegistrationOpen(false)
   }
 
-  const handleCloseLogin = () => {
-    setLoginOpen(false)
-  }
+  const handleCloseLogin = () => setLoginOpen(false)
 
-  // Toggle mobile search
-  const toggleMobileSearch = () => {
-    setMobileSearchOpen((prev) => !prev)
-  }
+  const toggleMobileSearch = () => setMobileSearchOpen((prev) => !prev)
 
-  // Handle dropdown item click
   const handleDropdownItemClick = (item) => {
     console.log(`Clicked on ${item}`)
     handleDropdownClose()
-    // In a real app, you might want to navigate here
   }
 
-  // Initialize refs for menu items
   const setMenuRef = (menuName, element) => {
     menuRefs.current[menuName] = element
   }
 
-  // Handle user menu open
-  const handleUserMenuOpen = (event) => {
-    setUserMenuAnchorEl(event.currentTarget)
-  }
+  const handleUserMenuOpen = (event) => setUserMenuAnchorEl(event.currentTarget)
+  const handleUserMenuClose = () => setUserMenuAnchorEl(null)
 
-  // Handle user menu close
-  const handleUserMenuClose = () => {
-    setUserMenuAnchorEl(null)
-  }
-
-  // Handle logout
   const handleLogout = () => {
     handleUserMenuClose()
     if (onLogout) onLogout()
     navigate("/")
   }
 
-  // Handle login success
   const handleLoginSuccess = (userData) => {
     handleCloseLogin()
-    // In a real app, you would update the user state here
+    // The login component will handle navigation
   }
 
   return (
     <>
-      <AppBar
-        position="static"
-        sx={{
-          boxShadow: 0,
-          backgroundColor: theme.palette.background.paper,
-          color: theme.palette.text.primary,
-          overflowX: "hidden", // Prevent horizontal scrolling
-          zIndex: 1200, // Set a base z-index for the AppBar
-        }}
-      >
-        {/* Mobile Top Bar - Contact Info */}
-
-        <Container
-          maxWidth="xl"
+      {isAdminPage ? null : (
+        <AppBar
+          position="static"
           sx={{
-            px: { xs: 1, sm: 2 }, // Reduce padding on small screens
-            overflowX: "hidden", // Prevent horizontal scrolling
+            boxShadow: 0,
+            backgroundColor: theme.palette.background.paper,
+            color: theme.palette.text.primary,
+            overflowX: "hidden",
+            zIndex: 1200,
           }}
         >
-          <Toolbar
-            disableGutters
+          <Container
+            maxWidth="xl"
             sx={{
-              justifyContent: "space-between",
-              flexDirection: { xs: "row", sm: "row" }, // Row on all screens for better layout
-              alignItems: "center",
-              flexWrap: "wrap", // Allow wrapping on very small screens
-              minHeight: { xs: "56px" }, // Standard height on mobile
-              py: { xs: 1, sm: 1 }, // Consistent padding
-              gap: { xs: 1, sm: 0 }, // Add gap between elements on mobile
+              px: { xs: 1, sm: 2 },
+              overflowX: "hidden",
             }}
           >
-            {/* Logo and Mobile Menu Button */}
-            <Box
+            <Toolbar
+              disableGutters
               sx={{
-                display: "flex",
+                justifyContent: "space-between",
+                flexDirection: { xs: "row", sm: "row" },
                 alignItems: "center",
-                justifyContent: "space-between", // Space between logo and menu button
-                width: { xs: "100%", sm: "auto" }, // Full width on mobile
-                mb: { xs: 0, sm: 0 }, // No margin bottom
+                flexWrap: "wrap",
+                minHeight: { xs: "56px" },
+                py: { xs: 1, sm: 1 },
+                gap: { xs: 1, sm: 0 },
               }}
             >
-              {/* Logo */}
+              {/* Logo and Mobile Menu Button */}
               <Box
                 sx={{
                   display: "flex",
                   alignItems: "center",
-                  cursor: "pointer",
+                  justifyContent: "space-between",
+                  width: { xs: "100%", sm: "auto" },
+                  mb: { xs: 0, sm: 0 },
                 }}
-                onClick={() => navigate("/")}
               >
-                <Typography variant="h6" noWrap sx={{ fontWeight: 700, display: "flex", alignItems: "center" }}>
-                  <Box
-                    component="img"
-                    src={FirstCraftLogo}
-                    alt="FirstCraft Logo"
+                {/* Logo */}
+                <Box
+                  sx={{
+                    display: "flex",
+                    alignItems: "center",
+                    cursor: "pointer",
+                  }}
+                  onClick={() => navigate("/")}
+                >
+                  <Typography variant="h6" noWrap sx={{ fontWeight: 700, display: "flex", alignItems: "center" }}>
+                    <Box
+                      component="img"
+                      src={FirstCraftLogo}
+                      alt="FirstCraft Logo"
+                      sx={{
+                        height: { xs: "70px", sm: "70px" },
+                        maxWidth: "100%",
+                        objectFit: "contain",
+                      }}
+                    />
+                  </Typography>
+                </Box>
+
+                {/* Mobile Menu Button */}
+                {isMobile && (
+                  <IconButton sx={{ color: theme.palette.primary.main }} onClick={toggleDrawer} aria-label="menu">
+                    <MenuIcon />
+                  </IconButton>
+                )}
+              </Box>
+
+              {/* Mobile Search Bar - Expandable */}
+              {isMobile && mobileSearchOpen && (
+                <Box
+                  sx={{
+                    width: "100%",
+                    py: 1,
+                    display: "flex",
+                    alignItems: "center",
+                  }}
+                >
+                  <TextField
+                    fullWidth
+                    size="small"
+                    placeholder={isAdminPage ? "Search admin..." : "Search products..."}
+                    variant="outlined"
+                    autoFocus
+                    InputProps={{
+                      startAdornment: (
+                        <InputAdornment position="start">
+                          <SearchIcon fontSize="small" />
+                        </InputAdornment>
+                      ),
+                      endAdornment: (
+                        <InputAdornment position="end">
+                          <IconButton size="small" onClick={toggleMobileSearch}>
+                            <CloseIcon fontSize="small" />
+                          </IconButton>
+                        </InputAdornment>
+                      ),
+                    }}
                     sx={{
-                      height: { xs: "70px", sm: "70px" }, // Smaller on mobile
-                      maxWidth: "100%", // Ensure it doesn't overflow
-                      objectFit: "contain", // Maintain aspect ratio
+                      "& .MuiOutlinedInput-root": {
+                        borderRadius: "4px",
+                      },
                     }}
                   />
-                </Typography>
-              </Box>
-
-              {/* Mobile Menu Button */}
-              {isMobile && (
-                <IconButton sx={{ color: theme.palette.primary.main }} onClick={toggleDrawer} aria-label="menu">
-                  <MenuIcon />
-                </IconButton>
-              )}
-            </Box>
-
-            {/* Mobile Search Bar - Expandable */}
-            {isMobile && mobileSearchOpen && (
-              <Box
-                sx={{
-                  width: "100%",
-                  py: 1,
-                  display: "flex",
-                  alignItems: "center",
-                }}
-              >
-                <TextField
-                  fullWidth
-                  size="small"
-                  placeholder="Search products..."
-                  variant="outlined"
-                  autoFocus
-                  InputProps={{
-                    startAdornment: (
-                      <InputAdornment position="start">
-                        <SearchIcon fontSize="small" />
-                      </InputAdornment>
-                    ),
-                    endAdornment: (
-                      <InputAdornment position="end">
-                        <IconButton size="small" onClick={toggleMobileSearch}>
-                          <CloseIcon fontSize="small" />
-                        </IconButton>
-                      </InputAdornment>
-                    ),
-                  }}
-                  sx={{
-                    "& .MuiOutlinedInput-root": {
-                      borderRadius: "4px",
-                    },
-                  }}
-                />
-              </Box>
-            )}
-
-            {/* Right Side - Desktop and Mobile */}
-            <Box
-              sx={{
-                display: "flex",
-                flexDirection: "row", // Always row for better layout
-                alignItems: "center",
-                justifyContent: "flex-end", // Align to the right
-                gap: { xs: 0.5, sm: 0.5 }, // Smaller gap on mobile
-                backgroundColor: theme.palette.primary.main,
-                color: theme.palette.primary.contrastText,
-                px: { xs: 1, sm: 1 }, // Less padding on mobile
-                py: { xs: 1, sm: 1 }, // Consistent padding
-                borderRadius: 1,
-                width: isMobile ? "100%" : "auto", // Full width on mobile
-                mt: isMobile && mobileSearchOpen ? 1 : 0, // Add margin top if search is open
-              }}
-            >
-              {/* Search bar - desktop only */}
-              {!isMobile && (
-                <Search>
-                  <SearchIconWrapper>
-                    <SearchIcon />
-                  </SearchIconWrapper>
-                  <StyledInputBase placeholder="Search..." inputProps={{ "aria-label": "search" }} />
-                </Search>
+                </Box>
               )}
 
-              {/* Mobile Search Toggle Button */}
-              {isMobile && !mobileSearchOpen && (
-                <IconButton
-                  size="small"
-                  sx={{ color: theme.palette.primary.contrastText }}
-                  onClick={toggleMobileSearch}
-                >
-                  <SearchIcon fontSize="small" />
-                </IconButton>
-              )}
-
-              {/* Action buttons row */}
+              {/* Right Side - Desktop and Mobile */}
               <Box
                 sx={{
                   display: "flex",
+                  flexDirection: "row",
                   alignItems: "center",
                   justifyContent: "flex-end",
+                  gap: { xs: 0.5, sm: 0.5 },
+                  backgroundColor: theme.palette.primary.main,
+                  color: theme.palette.primary.contrastText,
+                  px: { xs: 1, sm: 1 },
+                  py: { xs: 1, sm: 1 },
+                  borderRadius: 1,
+                  width: isMobile ? "100%" : "auto",
+                  mt: isMobile && mobileSearchOpen ? 1 : 0,
                 }}
               >
-                {/* Wishlist Icon with Tooltip */}
-                <Tooltip title="My Wishlist" arrow>
-                  <IconButton
-                    size={isMobile ? "small" : "medium"}
-                    sx={{ color: theme.palette.primary.contrastText }}
-                    onClick={() => navigate("/wishlist")}
-                    onMouseEnter={() => handleTooltipOpen("wishlist")}
-                    onMouseLeave={handleTooltipClose}
-                  >
-                    <FavoriteIcon fontSize={isMobile ? "small" : "medium"} />
-                  </IconButton>
-                </Tooltip>
+                {/* Search bar - desktop only */}
+                {!isMobile && (
+                  <Search>
+                    <SearchIconWrapper>
+                      <SearchIcon />
+                    </SearchIconWrapper>
+                    <StyledInputBase
+                      placeholder={isAdminPage ? "Search admin..." : "Search..."}
+                      inputProps={{ "aria-label": "search" }}
+                    />
+                  </Search>
+                )}
 
-                {/* Profile Icon with Tooltip */}
-                <Tooltip title={isLoggedIn ? "My Account" : "Sign In"} arrow>
+                {/* Mobile Search Toggle Button */}
+                {isMobile && !mobileSearchOpen && (
                   <IconButton
-                    size={isMobile ? "small" : "medium"}
+                    size="small"
                     sx={{ color: theme.palette.primary.contrastText }}
-                    onClick={isLoggedIn ? handleUserMenuOpen : handleOpenLogin}
-                    onMouseEnter={() => handleTooltipOpen("profile")}
-                    onMouseLeave={handleTooltipClose}
+                    onClick={toggleMobileSearch}
                   >
-                    {isLoggedIn ? (
-                      <Avatar
-                        sx={{
-                          width: isMobile ? 24 : 32,
-                          height: isMobile ? 24 : 32,
-                          bgcolor: theme.palette.secondary.main,
-                          fontSize: isMobile ? "0.75rem" : "1rem",
-                        }}
+                    <SearchIcon fontSize="small" />
+                  </IconButton>
+                )}
+
+                {/* Action buttons row */}
+                <Box
+                  sx={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "flex-end",
+                  }}
+                >
+                  {/* Wishlist Icon with Tooltip - Hide on admin page */}
+                  {!isAdminPage && (
+                    <Tooltip title="My Wishlist" arrow>
+                      <IconButton
+                        size={isMobile ? "small" : "medium"}
+                        sx={{ color: theme.palette.primary.contrastText }}
+                        onClick={() => navigate("/wishlist")}
+                        onMouseEnter={() => handleTooltipOpen("wishlist")}
+                        onMouseLeave={handleTooltipClose}
                       >
-                        {currentUser?.username?.charAt(0) || <PersonIcon fontSize={isMobile ? "small" : "medium"} />}
-                      </Avatar>
-                    ) : (
-                      <PersonIcon fontSize={isMobile ? "small" : "medium"} />
-                    )}
-                  </IconButton>
-                </Tooltip>
+                        <FavoriteIcon fontSize={isMobile ? "small" : "medium"} />
+                      </IconButton>
+                    </Tooltip>
+                  )}
 
-                {/* Cart Icon with Tooltip */}
-                <Tooltip title="My Cart" arrow>
-                  <IconButton
-                    size={isMobile ? "small" : "medium"}
-                    sx={{ color: theme.palette.primary.contrastText }}
-                    onClick={() => navigate("/cart")}
-                    onMouseEnter={() => handleTooltipOpen("cart")}
-                    onMouseLeave={handleTooltipClose}
-                  >
-                    <Badge badgeContent={cartItemsCount} color="error">
-                      <ShoppingCartIcon fontSize={isMobile ? "small" : "medium"} />
-                    </Badge>
-                  </IconButton>
-                </Tooltip>
-
-                {/* E-Wallet Button - Desktop only */}
-                {!isTablet && !isMobile && (
-                  <WalletButton startIcon={<WalletIcon />} onClick={() => navigate("/wallet")}>
-                    E-Wallet
-                  </WalletButton>
-                )}
-
-                {/* Register/Login Button - Desktop only */}
-                {!isMobile && !isLoggedIn && <RegisterButton onClick={handleOpenRegistration}>Register</RegisterButton>}
-
-                {/* User greeting - Desktop only */}
-                {!isMobile && isLoggedIn && (
-                  <Typography variant="body2" sx={{ ml: 1, fontWeight: "medium" }}>
-                    Hello, {currentUser?.username || "User"}
-                  </Typography>
-                )}
-              </Box>
-            </Box>
-          </Toolbar>
-        </Container>
-
-        {/* Bottom Toolbar - Desktop only */}
-        {!isMobile && (
-          <Box
-            sx={{
-              bgcolor: theme.palette.primary.main,
-              width: "100%",
-              color: theme.palette.primary.contrastText,
-              overflowX: "auto", // Allow horizontal scrolling only in the menu bar
-              "&::-webkit-scrollbar": { height: "4px" },
-              "&::-webkit-scrollbar-thumb": { backgroundColor: "rgba(255,255,255,0.2)", borderRadius: "4px" },
-              position: "relative", // Important for proper stacking context
-              zIndex: 1, // Lower than dropdown z-index
-            }}
-          >
-            <Container maxWidth="xl">
-              <Toolbar
-                disableGutters
-                sx={{
-                  minHeight: "40px",
-                  overflowX: "auto",
-                  display: "flex",
-                  flexWrap: "nowrap", // Prevent wrapping
-                }}
-              >
-                {/* Home Button in the navigation bar */}
-                <NavButton startIcon={<HomeIcon fontSize="small" />} onClick={() => navigate("/")}>
-                  Home
-                </NavButton>
-
-                <NavButton>Special Offer</NavButton>
-
-                {/* Menu items with hover effect */}
-                {Object.keys(menus).map((menuName) => (
-                  <Box
-                    key={menuName}
-                    ref={(el) => setMenuRef(menuName, el)}
-                    sx={{ position: "relative" }}
-                    onMouseEnter={() => handleDropdownOpen(menuName)}
-                    onMouseLeave={handleDropdownClose}
-                  >
-                    <NavButton endIcon={<ChevronDownIcon fontSize="small" />}>{menuName}</NavButton>
-
-                    {/* Dropdown content */}
-                    <Popper
-                      open={activeDropdown === menuName}
-                      anchorEl={menuRefs.current[menuName]}
-                      placement="bottom-start"
-                      transition
-                      disablePortal={false}
-                      style={{ zIndex: 1400 }}
-                      modifiers={[
-                        {
-                          name: "offset",
-                          options: {
-                            offset: [0, 8],
-                          },
-                        },
-                      ]}
+                  {/* Profile Icon with Tooltip */}
+                  <Tooltip title={isLoggedIn ? "My Account" : "Sign In"} arrow>
+                    <IconButton
+                      size={isMobile ? "small" : "medium"}
+                      sx={{ color: theme.palette.primary.contrastText }}
+                      onClick={isLoggedIn ? handleUserMenuOpen : handleOpenLogin}
+                      onMouseEnter={() => handleTooltipOpen("profile")}
+                      onMouseLeave={handleTooltipClose}
                     >
-                      {({ TransitionProps }) => (
-                        <Fade {...TransitionProps} timeout={200}>
-                          <DropdownContent
-                            onMouseEnter={() => handleDropdownOpen(menuName)}
-                            onMouseLeave={handleDropdownClose}
-                          >
-                            {menus[menuName].map((item, index) => (
-                              <DropdownItem key={index} onClick={() => handleDropdownItemClick(item)}>
-                                {item}
-                              </DropdownItem>
-                            ))}
-                          </DropdownContent>
-                        </Fade>
+                      {isLoggedIn ? (
+                        <Avatar
+                          sx={{
+                            width: isMobile ? 24 : 32,
+                            height: isMobile ? 24 : 32,
+                            bgcolor: theme.palette.secondary.main,
+                            fontSize: isMobile ? "0.75rem" : "1rem",
+                          }}
+                        >
+                          {currentUser?.username?.charAt(0) || <PersonIcon fontSize={isMobile ? "small" : "medium"} />}
+                        </Avatar>
+                      ) : (
+                        <PersonIcon fontSize={isMobile ? "small" : "medium"} />
                       )}
-                    </Popper>
-                  </Box>
-                ))}
+                    </IconButton>
+                  </Tooltip>
 
-                <NavButton>School Supplies</NavButton>
-                <NavButton>Stapling & Punching</NavButton>
-                <NavButton>IT Accessories</NavButton>
-                <NavButton>Office Furniture</NavButton>
-                <NavButton>More</NavButton>
-                <NavButton>ALL Brands</NavButton>
-                <NavButton>Contact Us</NavButton>
+                  {/* Cart Icon with Tooltip - Hide on admin page */}
+                  {!isAdminPage && (
+                    <Tooltip title="My Cart" arrow>
+                      <IconButton
+                        size={isMobile ? "small" : "medium"}
+                        sx={{ color: theme.palette.primary.contrastText }}
+                        onClick={() => navigate("/cart")}
+                        onMouseEnter={() => handleTooltipOpen("cart")}
+                        onMouseLeave={handleTooltipClose}
+                      >
+                        <Badge badgeContent={cartItemsCount} color="error">
+                          <ShoppingCartIcon fontSize={isMobile ? "small" : "medium"} />
+                        </Badge>
+                      </IconButton>
+                    </Tooltip>
+                  )}
 
-                {/* E-Wallet Button for tablet view */}
-                {isTablet && !isMobile && (
-                  <WalletButton startIcon={<WalletIcon />} onClick={() => navigate("/wallet")}>
-                    E-Wallet
-                  </WalletButton>
-                )}
-              </Toolbar>
-            </Container>
-          </Box>
-        )}
-      </AppBar>
+                  {/* E-Wallet Button - Desktop only, hide on admin page */}
+                  {!isTablet && !isMobile && !isAdminPage && (
+                    <WalletButton startIcon={<WalletIcon />} onClick={() => navigate("/wallet")}>
+                      E-Wallet
+                    </WalletButton>
+                  )}
 
-      {/* Mobile Drawer - Enhanced for better mobile experience */}
+                  {/* Register/Login Button - Desktop only, hide on admin page */}
+                  {!isMobile && !isLoggedIn && !isAdminPage && (
+                    <RegisterButton onClick={handleOpenRegistration}>Register</RegisterButton>
+                  )}
+
+                  {/* User greeting - Desktop only */}
+                  {!isMobile && isLoggedIn && (
+                    <Typography variant="body2" sx={{ ml: 1, fontWeight: "medium" }}>
+                      Hello, {currentUser?.username || "User"}
+                    </Typography>
+                  )}
+                </Box>
+              </Box>
+            </Toolbar>
+          </Container>
+
+          {/* Bottom Toolbar - ONLY show on customer pages, COMPLETELY HIDDEN on admin pages */}
+          {!isMobile && !isAdminPage && (
+            <Box
+              sx={{
+                bgcolor: theme.palette.primary.main,
+                width: "100%",
+                color: theme.palette.primary.contrastText,
+                overflowX: "auto",
+                "&::-webkit-scrollbar": { height: "4px" },
+                "&::-webkit-scrollbar-thumb": { backgroundColor: "rgba(255,255,255,0.2)", borderRadius: "4px" },
+                position: "relative",
+                zIndex: 1,
+              }}
+            >
+              <Container maxWidth="xl">
+                <Toolbar
+                  disableGutters
+                  sx={{
+                    minHeight: "40px",
+                    overflowX: "auto",
+                    display: "flex",
+                    flexWrap: "nowrap",
+                  }}
+                >
+                  {/* Regular Customer Navigation Links ONLY */}
+                  <NavButton startIcon={<HomeIcon fontSize="small" />} onClick={() => navigate("/")}>
+                    Home
+                  </NavButton>
+
+                  <NavButton>Special Offer</NavButton>
+
+                  {/* Menu items with hover effect */}
+                  {Object.keys(menus).map((menuName) => (
+                    <Box
+                      key={menuName}
+                      ref={(el) => setMenuRef(menuName, el)}
+                      sx={{ position: "relative" }}
+                      onMouseEnter={() => handleDropdownOpen(menuName)}
+                      onMouseLeave={handleDropdownClose}
+                    >
+                      <NavButton endIcon={<ChevronDownIcon fontSize="small" />}>{menuName}</NavButton>
+
+                      {/* Dropdown content */}
+                      <Popper
+                        open={activeDropdown === menuName}
+                        anchorEl={menuRefs.current[menuName]}
+                        placement="bottom-start"
+                        transition
+                        disablePortal={false}
+                        style={{ zIndex: 1400 }}
+                        modifiers={[
+                          {
+                            name: "offset",
+                            options: {
+                              offset: [0, 8],
+                            },
+                          },
+                        ]}
+                      >
+                        {({ TransitionProps }) => (
+                          <Fade {...TransitionProps} timeout={200}>
+                            <DropdownContent
+                              onMouseEnter={() => handleDropdownOpen(menuName)}
+                              onMouseLeave={handleDropdownClose}
+                            >
+                              {menus[menuName].map((item, index) => (
+                                <DropdownItem key={index} onClick={() => handleDropdownItemClick(item)}>
+                                  {item}
+                                </DropdownItem>
+                              ))}
+                            </DropdownContent>
+                          </Fade>
+                        )}
+                      </Popper>
+                    </Box>
+                  ))}
+
+                  <NavButton>School Supplies</NavButton>
+                  <NavButton>Stapling & Punching</NavButton>
+                  <NavButton>IT Accessories</NavButton>
+                  <NavButton>Office Furniture</NavButton>
+                  <NavButton>More</NavButton>
+                  <NavButton>ALL Brands</NavButton>
+                  <NavButton>Contact Us</NavButton>
+
+                  {/* E-Wallet Button for tablet view */}
+                  {isTablet && !isMobile && (
+                    <WalletButton startIcon={<WalletIcon />} onClick={() => navigate("/wallet")}>
+                      E-Wallet
+                    </WalletButton>
+                  )}
+                </Toolbar>
+              </Container>
+            </Box>
+          )}
+        </AppBar>
+      )}
+
+      {/* Mobile Drawer */}
       <Drawer
         anchor="left"
         open={drawerOpen}
@@ -676,6 +649,11 @@ const NavigationBar = ({ isLoggedIn, currentUser, onLogout }) => {
                 <Typography variant="subtitle1" fontWeight="bold">
                   Hello, {currentUser?.username || "User"}
                 </Typography>
+                {isAdmin && (
+                  <Typography variant="caption" sx={{ color: "yellow", fontWeight: "bold" }}>
+                    Administrator
+                  </Typography>
+                )}
                 <Box sx={{ display: "flex", gap: 1, mt: 1 }}>
                   <Button
                     variant="outlined"
@@ -687,10 +665,10 @@ const NavigationBar = ({ isLoggedIn, currentUser, onLogout }) => {
                     }}
                     onClick={() => {
                       toggleDrawer()
-                      navigate("/account")
+                      navigate(isAdmin ? "/admin" : "/account")
                     }}
                   >
-                    My Account
+                    {isAdmin ? "Admin Panel" : "My Account"}
                   </Button>
                   <Button
                     variant="contained"
@@ -765,7 +743,7 @@ const NavigationBar = ({ isLoggedIn, currentUser, onLogout }) => {
             <TextField
               fullWidth
               size="small"
-              placeholder="Search..."
+              placeholder={isAdminPage ? "Search admin..." : "Search..."}
               InputProps={{
                 startAdornment: (
                   <InputAdornment position="start">
@@ -786,26 +764,30 @@ const NavigationBar = ({ isLoggedIn, currentUser, onLogout }) => {
               borderTop: "1px solid #e0e0e0",
             }}
           >
-            <IconButton
-              color="primary"
-              onClick={() => {
-                toggleDrawer()
-                navigate("/cart")
-              }}
-            >
-              <Badge badgeContent={cartItemsCount} color="error">
-                <ShoppingCartIcon />
-              </Badge>
-            </IconButton>
-            <IconButton
-              color="primary"
-              onClick={() => {
-                toggleDrawer()
-                navigate("/wishlist")
-              }}
-            >
-              <FavoriteIcon />
-            </IconButton>
+            {!isAdminPage && (
+              <>
+                <IconButton
+                  color="primary"
+                  onClick={() => {
+                    toggleDrawer()
+                    navigate("/cart")
+                  }}
+                >
+                  <Badge badgeContent={cartItemsCount} color="error">
+                    <ShoppingCartIcon />
+                  </Badge>
+                </IconButton>
+                <IconButton
+                  color="primary"
+                  onClick={() => {
+                    toggleDrawer()
+                    navigate("/wishlist")
+                  }}
+                >
+                  <FavoriteIcon />
+                </IconButton>
+              </>
+            )}
             <IconButton
               color="primary"
               onClick={() => {
@@ -818,7 +800,7 @@ const NavigationBar = ({ isLoggedIn, currentUser, onLogout }) => {
           </Box>
 
           <List>
-            {/* Home option in mobile drawer */}
+            {/* Home option */}
             <ListItem disablePadding>
               <ListItemButton
                 onClick={() => {
@@ -842,14 +824,18 @@ const NavigationBar = ({ isLoggedIn, currentUser, onLogout }) => {
                 <ListItemButton
                   onClick={() => {
                     toggleDrawer()
-                    navigate("/account")
+                    navigate(isAdmin ? "/admin" : "/account")
                   }}
                 >
                   <ListItemText
                     primary={
                       <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                        <AccountCircle fontSize="small" color="primary" />
-                        <span>My Account</span>
+                        {isAdmin ? (
+                          <AdminPanelSettings fontSize="small" color="primary" />
+                        ) : (
+                          <AccountCircle fontSize="small" color="primary" />
+                        )}
+                        <span>{isAdmin ? "Admin Panel" : "My Account"}</span>
                       </Box>
                     }
                   />
@@ -857,47 +843,52 @@ const NavigationBar = ({ isLoggedIn, currentUser, onLogout }) => {
               </ListItem>
             )}
 
-            <ListItem disablePadding>
-              <ListItemButton>
-                <ListItemText primary="Special Offer" />
-              </ListItemButton>
-            </ListItem>
-
-            {Object.keys(menus).map((menuName) => (
-              <React.Fragment key={menuName}>
+            {/* Show only customer menu items on non-admin pages */}
+            {!isAdminPage && (
+              <>
                 <ListItem disablePadding>
-                  <ListItemButton onClick={() => toggleSubmenu(menuName)}>
-                    <ListItemText primary={menuName} />
-                    {drawerSubmenus[menuName] ? <ExpandLess /> : <ChevronRightIcon />}
+                  <ListItemButton>
+                    <ListItemText primary="Special Offer" />
                   </ListItemButton>
                 </ListItem>
-                <Collapse in={drawerSubmenus[menuName]} timeout="auto" unmountOnExit>
-                  <List component="div" disablePadding>
-                    {menus[menuName].map((subItem, index) => (
-                      <ListItemButton key={index} sx={{ pl: 4 }}>
-                        <ListItemText primary={subItem} />
-                      </ListItemButton>
-                    ))}
-                  </List>
-                </Collapse>
-              </React.Fragment>
-            ))}
 
-            {[
-              "School Supplies",
-              "Stapling & Punching",
-              "IT Accessories",
-              "Office Furniture",
-              "More",
-              "ALL Brands",
-              "Contact Us",
-            ].map((item, index) => (
-              <ListItem disablePadding key={index}>
-                <ListItemButton>
-                  <ListItemText primary={item} />
-                </ListItemButton>
-              </ListItem>
-            ))}
+                {Object.keys(menus).map((menuName) => (
+                  <React.Fragment key={menuName}>
+                    <ListItem disablePadding>
+                      <ListItemButton onClick={() => toggleSubmenu(menuName)}>
+                        <ListItemText primary={menuName} />
+                        {drawerSubmenus[menuName] ? <ExpandLess /> : <ChevronRightIcon />}
+                      </ListItemButton>
+                    </ListItem>
+                    <Collapse in={drawerSubmenus[menuName]} timeout="auto" unmountOnExit>
+                      <List component="div" disablePadding>
+                        {menus[menuName].map((subItem, index) => (
+                          <ListItemButton key={index} sx={{ pl: 4 }}>
+                            <ListItemText primary={subItem} />
+                          </ListItemButton>
+                        ))}
+                      </List>
+                    </Collapse>
+                  </React.Fragment>
+                ))}
+
+                {[
+                  "School Supplies",
+                  "Stapling & Punching",
+                  "IT Accessories",
+                  "Office Furniture",
+                  "More",
+                  "ALL Brands",
+                  "Contact Us",
+                ].map((item, index) => (
+                  <ListItem disablePadding key={index}>
+                    <ListItemButton>
+                      <ListItemText primary={item} />
+                    </ListItemButton>
+                  </ListItem>
+                ))}
+              </>
+            )}
           </List>
 
           <Divider />
@@ -934,13 +925,13 @@ const NavigationBar = ({ isLoggedIn, currentUser, onLogout }) => {
         <MenuItem
           onClick={() => {
             handleUserMenuClose()
-            navigate("/account")
+            navigate(isAdmin ? "/admin" : "/account")
           }}
         >
           <ListItemIcon>
-            <AccountCircle fontSize="small" />
+            {isAdmin ? <AdminPanelSettings fontSize="small" /> : <AccountCircle fontSize="small" />}
           </ListItemIcon>
-          My Account
+          {isAdmin ? "Admin Panel" : "My Account"}
         </MenuItem>
         <MenuItem
           onClick={() => {
@@ -1005,8 +996,8 @@ const NavigationBar = ({ isLoggedIn, currentUser, onLogout }) => {
           sx: {
             borderRadius: "8px",
             maxHeight: "90vh",
-            width: { xs: "95%", sm: "90%", md: "80%" }, // Responsive width
-            margin: { xs: "10px", sm: "auto" }, // Proper margins on mobile
+            width: { xs: "95%", sm: "90%", md: "80%" },
+            margin: { xs: "10px", sm: "auto" },
           },
         }}
       >
@@ -1040,8 +1031,8 @@ const NavigationBar = ({ isLoggedIn, currentUser, onLogout }) => {
           sx: {
             borderRadius: "8px",
             maxHeight: "90vh",
-            width: { xs: "95%", sm: "90%", md: "500px" }, // Responsive width
-            margin: { xs: "10px", sm: "auto" }, // Proper margins on mobile
+            width: { xs: "95%", sm: "90%", md: "500px" },
+            margin: { xs: "10px", sm: "auto" },
           },
         }}
       >
