@@ -61,7 +61,7 @@ import FirstCraftLogo from "../assets/images/FirstCraft-logo.png"
 import RegistrationForm from "../pages/Registration/View/Index"
 import LoginPage from "../pages/Login/View/Index"
 
-// Styled Components (keeping existing styles)
+// Styled Components
 const Search = styled("div")(({ theme }) => ({
   position: "relative",
   borderRadius: theme.shape.borderRadius,
@@ -185,6 +185,10 @@ const NavigationBar = ({ isLoggedIn, currentUser, onLogout, isAdminPage }) => {
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"))
   const isTablet = useMediaQuery(theme.breakpoints.down("md"))
 
+  // State for categories
+  const [categories, setCategories] = useState([])
+  const [error, setError] = useState(null)
+
   // Refs for menu buttons
   const menuRefs = useRef({})
 
@@ -201,21 +205,44 @@ const NavigationBar = ({ isLoggedIn, currentUser, onLogout, isAdminPage }) => {
   // State for cart items count
   const [cartItemsCount, setCartItemsCount] = useState(0)
 
+  // State for tooltips and dropdowns
+  const [activeTooltip, setActiveTooltip] = useState("")
+  const [activeDropdown, setActiveDropdown] = useState("")
+
+  // Base API URL from .env
+  const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api'
+
+  // Fetch categories from backend
+  useEffect(() => {
+    const fetchCategories = async () => {
+      try {
+        console.log('Fetching categories from:', `${API_URL}/categories`)
+        const response = await fetch(`${API_URL}/categories`, {
+          headers: {
+            'Content-Type': 'application/json',
+            // Add Authorization header if required: 'Authorization': `Bearer ${localStorage.getItem('token')}`
+          },
+        })
+        if (!response.ok) {
+          const errorData = await response.json()
+          throw new Error(errorData.message || 'Failed to fetch categories')
+        }
+        const data = await response.json()
+        console.log('Fetched categories:', data)
+        setCategories(data || [])
+      } catch (error) {
+        console.error('Fetch categories error:', error)
+        setError(`Error: ${error.message}`)
+      }
+    }
+    fetchCategories()
+  }, [API_URL])
+
   // Get cart items count from localStorage
   useEffect(() => {
     const storedCartItems = JSON.parse(localStorage.getItem("cartItems")) || []
     setCartItemsCount(storedCartItems.length)
   }, [])
-
-  // State for tooltips and dropdowns
-  const [activeTooltip, setActiveTooltip] = useState("")
-  const [activeDropdown, setActiveDropdown] = useState("")
-
-  const menus = {
-    "Office Essentials": ["Paper Products", "Writing Instruments", "Binders & Filing"],
-    "Toners & Inks": ["HP Toners", "Canon Inks", "Brother Cartridges"],
-    "Office Machines": ["Printers", "Shredders", "Laminators"],
-  }
 
   // Check if user is admin
   const isAdmin = currentUser?.isAdmin || currentUser?.email?.toLowerCase().includes("admin")
@@ -247,9 +274,10 @@ const NavigationBar = ({ isLoggedIn, currentUser, onLogout, isAdminPage }) => {
 
   const toggleMobileSearch = () => setMobileSearchOpen((prev) => !prev)
 
-  const handleDropdownItemClick = (item) => {
-    console.log(`Clicked on ${item}`)
+  const handleDropdownItemClick = (categoryId, subcategoryId) => {
+    navigate(`/products/${categoryId}/${subcategoryId}`)
     handleDropdownClose()
+    if (drawerOpen) toggleDrawer()
   }
 
   const setMenuRef = (menuName, element) => {
@@ -268,6 +296,21 @@ const NavigationBar = ({ isLoggedIn, currentUser, onLogout, isAdminPage }) => {
   const handleLoginSuccess = (userData) => {
     handleCloseLogin()
     // The login component will handle navigation
+  }
+
+  // Fallback UI for API error
+  if (error && !categories.length) {
+    return (
+      <AppBar position="static" sx={{ bgcolor: theme.palette.error.main, color: 'white' }}>
+        <Container maxWidth="xl">
+          <Toolbar>
+            <Typography variant="body1">
+              Failed to load navigation. Please try again later.
+            </Typography>
+          </Toolbar>
+        </Container>
+      </AppBar>
+    )
   }
 
   return (
@@ -534,75 +577,80 @@ const NavigationBar = ({ isLoggedIn, currentUser, onLogout, isAdminPage }) => {
                     overflowX: "auto",
                     display: "flex",
                     flexWrap: "nowrap",
+                    justifyContent: "space-between",
+                    alignItems: "center",
                   }}
                 >
-                  {/* Regular Customer Navigation Links ONLY */}
+                  {/* Home Button - Far Left */}
                   <NavButton startIcon={<HomeIcon fontSize="small" />} onClick={() => navigate("/")}>
                     Home
                   </NavButton>
 
-                  <NavButton>Special Offer</NavButton>
-
-                  {/* Menu items with hover effect */}
-                  {Object.keys(menus).map((menuName) => (
-                    <Box
-                      key={menuName}
-                      ref={(el) => setMenuRef(menuName, el)}
-                      sx={{ position: "relative" }}
-                      onMouseEnter={() => handleDropdownOpen(menuName)}
-                      onMouseLeave={handleDropdownClose}
-                    >
-                      <NavButton endIcon={<ChevronDownIcon fontSize="small" />}>{menuName}</NavButton>
-
-                      {/* Dropdown content */}
-                      <Popper
-                        open={activeDropdown === menuName}
-                        anchorEl={menuRefs.current[menuName]}
-                        placement="bottom-start"
-                        transition
-                        disablePortal={false}
-                        style={{ zIndex: 1400 }}
-                        modifiers={[
-                          {
-                            name: "offset",
-                            options: {
-                              offset: [0, 8],
-                            },
-                          },
-                        ]}
+                  {/* Category Dropdowns - Center */}
+                  <Box sx={{ display: 'flex', flexWrap: 'nowrap', mx: 2 }}>
+                    {categories.map((category) => (
+                      <Box
+                        key={category.id}
+                        ref={(el) => setMenuRef(category.name, el)}
+                        sx={{ position: "relative" }}
+                        onMouseEnter={() => handleDropdownOpen(category.name)}
+                        onMouseLeave={handleDropdownClose}
                       >
-                        {({ TransitionProps }) => (
-                          <Fade {...TransitionProps} timeout={200}>
-                            <DropdownContent
-                              onMouseEnter={() => handleDropdownOpen(menuName)}
-                              onMouseLeave={handleDropdownClose}
-                            >
-                              {menus[menuName].map((item, index) => (
-                                <DropdownItem key={index} onClick={() => handleDropdownItemClick(item)}>
-                                  {item}
-                                </DropdownItem>
-                              ))}
-                            </DropdownContent>
-                          </Fade>
+                        <NavButton
+                          endIcon={
+                            (category.subcategories || []).length > 0 ? <ChevronDownIcon fontSize="small" /> : null
+                          }
+                          aria-haspopup="true"
+                          aria-expanded={activeDropdown === category.name ? "true" : "false"}
+                        >
+                          {category.name || 'N/A'}
+                        </NavButton>
+
+                        {/* Dropdown content */}
+                        {(category.subcategories || []).length > 0 && (
+                          <Popper
+                            open={activeDropdown === category.name}
+                            anchorEl={menuRefs.current[category.name]}
+                            placement="bottom-start"
+                            transition
+                            disablePortal={false}
+                            style={{ zIndex: 1400 }}
+                            modifiers={[
+                              {
+                                name: "offset",
+                                options: {
+                                  offset: [0, 8],
+                                },
+                              },
+                            ]}
+                          >
+                            {({ TransitionProps }) => (
+                              <Fade {...TransitionProps} timeout={200}>
+                                <DropdownContent
+                                  onMouseEnter={() => handleDropdownOpen(category.name)}
+                                  onMouseLeave={handleDropdownClose}
+                                >
+                                  {(category.subcategories || []).map((subcategory) => (
+                                    <DropdownItem
+                                      key={subcategory.id}
+                                      onClick={() => handleDropdownItemClick(category.id, subcategory.id)}
+                                    >
+                                      {subcategory.name || 'N/A'}
+                                    </DropdownItem>
+                                  ))}
+                                </DropdownContent>
+                              </Fade>
+                            )}
+                          </Popper>
                         )}
-                      </Popper>
-                    </Box>
-                  ))}
+                      </Box>
+                    ))}
+                  </Box>
 
-                  <NavButton>School Supplies</NavButton>
-                  <NavButton>Stapling & Punching</NavButton>
-                  <NavButton>IT Accessories</NavButton>
-                  <NavButton>Office Furniture</NavButton>
-                  <NavButton>More</NavButton>
-                  <NavButton>ALL Brands</NavButton>
-                  <NavButton>Contact Us</NavButton>
-
-                  {/* E-Wallet Button for tablet view */}
-                  {isTablet && !isMobile && (
-                    <WalletButton startIcon={<WalletIcon />} onClick={() => navigate("/wallet")}>
-                      E-Wallet
-                    </WalletButton>
-                  )}
+                  {/* Contact Us Button - Far Right */}
+                  <NavButton onClick={() => navigate("/contact")}>
+                    Contact Us
+                  </NavButton>
                 </Toolbar>
               </Container>
             </Box>
@@ -843,51 +891,47 @@ const NavigationBar = ({ isLoggedIn, currentUser, onLogout, isAdminPage }) => {
               </ListItem>
             )}
 
-            {/* Show only customer menu items on non-admin pages */}
-            {!isAdminPage && (
-              <>
+            {/* Dynamic Categories - Only on non-admin pages */}
+            {!isAdminPage && categories.map((category) => (
+              <React.Fragment key={category.id}>
                 <ListItem disablePadding>
-                  <ListItemButton>
-                    <ListItemText primary="Special Offer" />
+                  <ListItemButton onClick={() => toggleSubmenu(category.name)}>
+                    <ListItemText primary={category.name || 'N/A'} />
+                    {(category.subcategories || []).length > 0 ? (
+                      drawerSubmenus[category.name] ? <ExpandLess /> : <ChevronRightIcon />
+                    ) : null}
                   </ListItemButton>
                 </ListItem>
+                {(category.subcategories || []).length > 0 && (
+                  <Collapse in={drawerSubmenus[category.name]} timeout="auto" unmountOnExit>
+                    <List component="div" disablePadding>
+                      {(category.subcategories || []).map((subcategory) => (
+                        <ListItemButton
+                          key={subcategory.id}
+                          sx={{ pl: 4 }}
+                          onClick={() => handleDropdownItemClick(category.id, subcategory.id)}
+                        >
+                          <ListItemText primary={subcategory.name || 'N/A'} />
+                        </ListItemButton>
+                      ))}
+                    </List>
+                  </Collapse>
+                )}
+              </React.Fragment>
+            ))}
 
-                {Object.keys(menus).map((menuName) => (
-                  <React.Fragment key={menuName}>
-                    <ListItem disablePadding>
-                      <ListItemButton onClick={() => toggleSubmenu(menuName)}>
-                        <ListItemText primary={menuName} />
-                        {drawerSubmenus[menuName] ? <ExpandLess /> : <ChevronRightIcon />}
-                      </ListItemButton>
-                    </ListItem>
-                    <Collapse in={drawerSubmenus[menuName]} timeout="auto" unmountOnExit>
-                      <List component="div" disablePadding>
-                        {menus[menuName].map((subItem, index) => (
-                          <ListItemButton key={index} sx={{ pl: 4 }}>
-                            <ListItemText primary={subItem} />
-                          </ListItemButton>
-                        ))}
-                      </List>
-                    </Collapse>
-                  </React.Fragment>
-                ))}
-
-                {[
-                  "School Supplies",
-                  "Stapling & Punching",
-                  "IT Accessories",
-                  "Office Furniture",
-                  "More",
-                  "ALL Brands",
-                  "Contact Us",
-                ].map((item, index) => (
-                  <ListItem disablePadding key={index}>
-                    <ListItemButton>
-                      <ListItemText primary={item} />
-                    </ListItemButton>
-                  </ListItem>
-                ))}
-              </>
+            {/* Contact Us - Only on non-admin pages */}
+            {!isAdminPage && (
+              <ListItem disablePadding>
+                <ListItemButton
+                  onClick={() => {
+                    toggleDrawer()
+                    navigate("/contact")
+                  }}
+                >
+                  <ListItemText primary="Contact Us" />
+                </ListItemButton>
+              </ListItem>
             )}
           </List>
 

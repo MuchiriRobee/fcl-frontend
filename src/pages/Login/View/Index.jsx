@@ -108,7 +108,7 @@ function LoginPage({ onLogin }) {
           }
 
           setTimeout(() => {
-            navigate("/admin-dashboard")
+            navigate("/admin")
           }, 1500)
         } else {
           throw new Error("Invalid response from server")

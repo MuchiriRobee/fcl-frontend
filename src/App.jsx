@@ -19,6 +19,26 @@ import WalletPage from "./pages/Wallet/View/Index"
 import SalesAgentPage from "./pages/SalesAgent/View/Index"
 import ForgotPasswordPage from "./components/ForgotPassword"
 import ResetPasswordPage from "./components/ResetPassword"
+import AdminPage from "./pages/Admin/View/Index" 
+import { Typography, Box } from "@mui/material"
+
+// Placeholder ProductsPage component
+function ProductsPage() {
+  const { categoryId, subcategoryId } = useParams()
+  return (
+    <Box sx={{ p: 4, textAlign: "center" }}>
+      <Typography variant="h4" gutterBottom>
+        Products
+      </Typography>
+      <Typography variant="body1">
+        Displaying products for Category ID: {categoryId}, Subcategory ID: {subcategoryId}
+      </Typography>
+      <Typography variant="caption" color="text.secondary">
+        (This is a placeholder page. Product implementation is pending.)
+      </Typography>
+    </Box>
+  )
+}
 
 function App() {
   // State for user authentication
@@ -193,9 +213,11 @@ function App() {
               <Route path="/set-password" element={<SetPassword />} />
               <Route path="/forgot-password" element={<ForgotPasswordPage />} />
               <Route path="/reset-password" element={<ResetPasswordPage />} />
+              <Route path="/admin/*" element={<AdminPage />} />
+              <Route path="/products/:categoryId/:subcategoryId" element={<ProductsPage />} />
             </Routes>
           </main>
-          <Footer />
+          <Footer />          
         </div>
       </BrowserRouter>
     </ThemeProvider>
