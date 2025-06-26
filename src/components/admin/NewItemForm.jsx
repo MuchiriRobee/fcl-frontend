@@ -1,44 +1,27 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useContext } from "react"
 import {
-  Box,
-  Typography,
-  Grid,
-  TextField,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
-  Button,
-  Paper,
-  InputAdornment,
-  FormHelperText,
-  Card,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  Accordion,
-  AccordionSummary,
-  AccordionDetails,
-  Switch,
-  FormControlLabel,
-  Chip,
+  Box, Typography, Grid, TextField, FormControl, InputLabel, Select, MenuItem,
+  Button, Paper, InputAdornment, FormHelperText, Card, Table, TableBody,
+  TableCell, TableContainer, TableHead, TableRow, Accordion, AccordionSummary,
+  AccordionDetails, Switch, FormControlLabel, Chip, CircularProgress
 } from "@mui/material"
 import { Upload, Image as ImageIcon, ExpandMore, QrCode } from "@mui/icons-material"
+import JsBarcode from "jsbarcode"
+import { CategoriesContext } from "./CategoriesContext"
 
-// Initial form state with all required fields
+// Static vendor list (temporary, as vendor integration is deferred)
+const vendorOptions = ["Vendor A", "Vendor B", "Vendor C"]
+
+// Initial form state
 const initialFormState = {
-  // Basic Information
   productName: "",
-  productCode: "", // Alphanumeric format A0101001
-  uom: "PC", // Unit of Measure
+  productCode: "",
+  uom: "PC",
   packSize: "",
-  category: "",
-  subCategory: "",
+  categoryId: "",
+  subcategoryId: "",
   description: "",
   longerDescription: "",
   productBarcode: "",
@@ -46,97 +29,93 @@ const initialFormState = {
   expiryDate: "",
   image: null,
   imagePreview: null,
-
-  // Pricing Information
-  costPrice: "", // Excluding VAT
-  sellingPrice1: "", // Including VAT
-  sellingPrice2: "", // Including VAT
-  sellingPrice3: "", // Including VAT
-  qty1: "",
-  qty2: "",
-  qty3: "",
-  vat: "16", // Default VAT rate
-
-  // Vendor Information
-  preferredVendor1: "",
-  preferredVendor2: "",
-  vendorItemCode: "",
-
-  // Customer Incentives
-  cashbackRate: "0", // Cashback % to client
-
-  // Sales Agent Incentives
-  saCashback1stPurchase: "6", // 6% on 1st purchase
-  saCashback2ndPurchase: "4", // 4% on 2nd purchase
-  saCashback3rdPurchase: "3", // 3% on 3rd purchase
-  saCashback4thPurchase: "2", // 2% on 4th purchase
-
-  // Inventory Management
-  stockUnits: "",
-  reorderLevel: "",
-  orderLevel: "",
-  reorderActive: true,
-  alertQuantity: "",
-
-  // Quantity ranges
+  costPrice: "",
+  sellingPrice1: "",
+  sellingPrice2: "",
+  sellingPrice3: "",
   qty1Min: "1",
   qty1Max: "3",
   qty2Min: "4",
   qty2Max: "11",
   qty3Min: "12",
+  vat: "16",
+  cashbackRate: "0",
+  preferredVendor1: "",
+  preferredVendor2: "",
+  vendorItemCode: "",
+  saCashback1stPurchase: "6",
+  saCashback2ndPurchase: "4",
+  saCashback3rdPurchase: "3",
+  saCashback4thPurchase: "2",
+  stockUnits: "",
+  reorderLevel: "",
+  orderLevel: "",
+  reorderActive: true,
+  alertQuantity: "",
 }
 
 const uomOptions = ["PC", "PKT", "BOX", "SET", "KG", "LITERS", "METERS", "REAMS", "PACKS"]
-const vatRates = ["0", "8", "16"] // Common VAT rates
+const vatRates = ["0", "8", "16"]
 
-export default function NewItemForm({ categories = [], vendors = [], onSubmit, editItem = null }) {
+export default function NewItemForm({ onSubmit, editItem = null }) {
+  const categories = useContext(CategoriesContext)
   const [formData, setFormData] = useState(initialFormState)
   const [errors, setErrors] = useState({})
   const [subCategories, setSubCategories] = useState([])
+  const [subCategoriesLoading, setSubCategoriesLoading] = useState(false)
+  const [subCategoriesError, setSubCategoriesError] = useState(null)
   const [isEditMode, setIsEditMode] = useState(false)
+  const [loading, setLoading] = useState(false)
   const [calculatedProfits, setCalculatedProfits] = useState({
-    gp1: 0,
-    np1: 0,
-    gp2: 0,
-    np2: 0,
-    gp3: 0,
-    np3: 0,
+    gp1: 0, np1: 0, gp2: 0, np2: 0, gp3: 0, np3: 0,
   })
   const [calculatedCashback, setCalculatedCashback] = useState({
-    cashback1: 0,
-    cashback2: 0,
-    cashback3: 0,
+    cashback1: 0, cashback2: 0, cashback3: 0,
   })
 
-  // Initialize form with edit data if provided
+  // Initialize form for edit mode
   useEffect(() => {
     if (editItem) {
       setIsEditMode(true)
       setFormData({
         ...editItem,
-        imagePreview: editItem.image || null,
+        categoryId: editItem.category_id || "",
+        subcategoryId: editItem.subcategory_id || "",
+        imagePreview: editItem.image_url || null,
+        image: null,
       })
     }
   }, [editItem])
 
-  // Update subcategories when category changes
+  // Fetch subcategories when categoryId changes
   useEffect(() => {
-    if (formData.category && categories.length > 0) {
-      const selectedCategory = categories.find((cat) => cat.name === formData.category)
-      if (selectedCategory && selectedCategory.subCategories) {
-        setSubCategories(selectedCategory.subCategories)
-        if (!selectedCategory.subCategories.some((sub) => sub.name === formData.subCategory)) {
-          setFormData((prev) => ({ ...prev, subCategory: "" }))
-        }
-      } else {
-        setSubCategories([])
-      }
+    if (formData.categoryId) {
+      setSubCategoriesLoading(true)
+      setSubCategoriesError(null)
+      fetch(`${import.meta.env.VITE_API_URL}/categories/${formData.categoryId}/subcategories`)
+        .then(res => {
+          if (!res.ok) throw new Error("Failed to fetch subcategories")
+          return res.json()
+        })
+        .then(data => {
+          setSubCategories(data)
+          // Reset subcategoryId if not in the new list
+          if (!data.some(sub => sub.id === parseInt(formData.subcategoryId))) {
+            setFormData(prev => ({ ...prev, subcategoryId: "" }))
+          }
+        })
+        .catch(err => {
+          setSubCategoriesError(err.message)
+          setSubCategories([])
+        })
+        .finally(() => setSubCategoriesLoading(false))
     } else {
       setSubCategories([])
+      setFormData(prev => ({ ...prev, subcategoryId: "" }))
     }
-  }, [formData.category, categories])
+  }, [formData.categoryId])
 
-  // Calculate GP, NP, and Cashback when prices change
+  // Calculate profits and cashback
   useEffect(() => {
     const costPriceExclVat = Number.parseFloat(formData.costPrice) || 0
     const vatRate = Number.parseFloat(formData.vat) / 100
@@ -148,21 +127,17 @@ export default function NewItemForm({ categories = [], vendors = [], onSubmit, e
       const gp = sellingPriceExclVat - costPriceExclVat
       const gpPercentage = costPriceExclVat > 0 ? (gp / costPriceExclVat) * 100 : 0
       const npPercentage = sellingPrice > 0 ? (gp / sellingPrice) * 100 : 0
-
-      return {
-        gp: gpPercentage.toFixed(2),
-        np: npPercentage.toFixed(2),
-      }
+      return { gp: gpPercentage.toFixed(2), np: npPercentage.toFixed(2) }
     }
 
     const calculateCashback = (sellingPriceInclVat) => {
       const sellingPrice = Number.parseFloat(sellingPriceInclVat) || 0
-      const cashbackAmount = sellingPrice * cashbackRate
-      return cashbackAmount.toFixed(2)
+      return (sellingPrice * cashbackRate).toFixed(2)
     }
 
     setCalculatedProfits({
-      ...calculateProfit(formData.sellingPrice1),
+      gp1: calculateProfit(formData.sellingPrice1).gp,
+      np1: calculateProfit(formData.sellingPrice1).np,
       gp2: calculateProfit(formData.sellingPrice2).gp,
       np2: calculateProfit(formData.sellingPrice2).np,
       gp3: calculateProfit(formData.sellingPrice3).gp,
@@ -174,14 +149,7 @@ export default function NewItemForm({ categories = [], vendors = [], onSubmit, e
       cashback2: calculateCashback(formData.sellingPrice2),
       cashback3: calculateCashback(formData.sellingPrice3),
     })
-  }, [
-    formData.costPrice,
-    formData.sellingPrice1,
-    formData.sellingPrice2,
-    formData.sellingPrice3,
-    formData.vat,
-    formData.cashbackRate,
-  ])
+  }, [formData.costPrice, formData.sellingPrice1, formData.sellingPrice2, formData.sellingPrice3, formData.vat, formData.cashbackRate])
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target
@@ -189,107 +157,101 @@ export default function NewItemForm({ categories = [], vendors = [], onSubmit, e
       ...formData,
       [name]: type === "checkbox" ? checked : value,
     })
-
     if (errors[name]) {
-      setErrors({
-        ...errors,
-        [name]: null,
-      })
+      setErrors({ ...errors, [name]: null })
     }
   }
 
   const handleImageChange = (e) => {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0]
+      if (file.size > 5 * 1024 * 1024) {
+        setErrors({ ...errors, image: "Image size exceeds 5MB" })
+        return
+      }
       const reader = new FileReader()
-
       reader.onload = (event) => {
         setFormData({
           ...formData,
           image: file,
           imagePreview: event.target.result,
         })
+        setErrors({ ...errors, image: null })
       }
-
       reader.readAsDataURL(file)
     }
   }
 
   const generateProductCode = () => {
-    // Generate alphanumeric code like A0101001
     const letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
     const randomLetter = letters[Math.floor(Math.random() * letters.length)]
-    const randomNumbers = Math.floor(Math.random() * 1000000)
-      .toString()
-      .padStart(6, "0")
+    const randomNumbers = Math.floor(Math.random() * 1000000).toString().padStart(6, "0")
     const productCode = `${randomLetter}01${randomNumbers.slice(0, 2)}${randomNumbers.slice(2)}`
-
-    setFormData({
-      ...formData,
-      productCode: productCode,
-    })
+    setFormData({ ...formData, productCode })
   }
 
   const generateBarcode = () => {
-    const timestamp = Date.now().toString().slice(-6)
-    const barcode = `${formData.productCode || "ITM"}${timestamp}`
-    setFormData({
-      ...formData,
-      productBarcode: barcode,
-    })
+    const code = Math.floor(100000000000 + Math.random() * 900000000000).toString() // EAN-13
+    setFormData({ ...formData, productBarcode: code })
   }
 
   const validateForm = () => {
     const newErrors = {}
-
-    // Required fields validation
     if (!formData.productName) newErrors.productName = "Product name is required"
-    if (!formData.productCode) newErrors.productCode = "Product code is required"
-    if (!formData.category) newErrors.category = "Category is required"
-    if (!formData.costPrice) newErrors.costPrice = "Cost price is required"
-    if (!formData.sellingPrice1) newErrors.sellingPrice1 = "At least one selling price is required"
-    if (!formData.stockUnits) newErrors.stockUnits = "Stock units is required"
-
+    if (!formData.productCode || !/^[A-Z]\d{8}$/.test(formData.productCode)) {
+      newErrors.productCode = "Product code must be like A01010101"
+    }
+    if (!formData.categoryId) newErrors.categoryId = "Category is required"
+    if (!formData.subcategoryId) newErrors.subcategoryId = "Subcategory is required"
+    if (!formData.costPrice || formData.costPrice <= 0) newErrors.costPrice = "Valid cost price is required"
+    if (!formData.sellingPrice1 || formData.sellingPrice1 <= 0) newErrors.sellingPrice1 = "Valid selling price is required"
+    if (!formData.stockUnits || formData.stockUnits < 0) newErrors.stockUnits = "Valid stock quantity is required"
+    if (formData.sellingPrice2 && formData.sellingPrice2 <= 0) newErrors.sellingPrice2 = "Valid selling price is required"
+    if (formData.sellingPrice3 && formData.sellingPrice3 <= 0) newErrors.sellingPrice3 = "Valid selling price is required"
+    if (parseInt(formData.qty1Max) < parseInt(formData.qty1Min)) newErrors.qty1Max = "Max must be greater than min"
+    if (formData.qty2Min && parseInt(formData.qty2Min) <= parseInt(formData.qty1Max)) {
+      newErrors.qty2Min = "Tier 2 min must be greater than Tier 1 max"
+    }
+    if (formData.qty2Max && parseInt(formData.qty2Max) < parseInt(formData.qty2Min)) {
+      newErrors.qty2Max = "Max must be greater than min"
+    }
+    if (formData.qty3Min && parseInt(formData.qty3Min) <= parseInt(formData.qty2Max || 0)) {
+      newErrors.qty3Min = "Tier 3 min must be greater than Tier 2 max"
+    }
+    if (formData.image && formData.image.size > 5 * 1024 * 1024) newErrors.image = "Image size exceeds 5MB"
     setErrors(newErrors)
     return Object.keys(newErrors).length === 0
   }
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault()
+    if (!validateForm()) return
+    setLoading(true)
 
-    if (validateForm()) {
-      const formattedData = {
-        id: isEditMode ? editItem.id : Date.now(),
-        ...formData,
-        // Convert string numbers to actual numbers
-        costPrice: Number.parseFloat(formData.costPrice) || 0,
-        sellingPrice1: Number.parseFloat(formData.sellingPrice1) || 0,
-        sellingPrice2: Number.parseFloat(formData.sellingPrice2) || 0,
-        sellingPrice3: Number.parseFloat(formData.sellingPrice3) || 0,
-        qty1: Number.parseInt(formData.qty1) || 0,
-        qty2: Number.parseInt(formData.qty2) || 0,
-        qty3: Number.parseInt(formData.qty3) || 0,
-        vat: Number.parseFloat(formData.vat) || 0,
-        cashbackRate: Number.parseFloat(formData.cashbackRate) || 0,
-        saCashback1stPurchase: Number.parseFloat(formData.saCashback1stPurchase) || 0,
-        saCashback2ndPurchase: Number.parseFloat(formData.saCashback2ndPurchase) || 0,
-        saCashback3rdPurchase: Number.parseFloat(formData.saCashback3rdPurchase) || 0,
-        saCashback4thPurchase: Number.parseFloat(formData.saCashback4thPurchase) || 0,
-        stockUnits: Number.parseInt(formData.stockUnits) || 0,
-        reorderLevel: Number.parseInt(formData.reorderLevel) || 0,
-        orderLevel: Number.parseInt(formData.orderLevel) || 0,
-        alertQuantity: Number.parseInt(formData.alertQuantity) || 0,
-        calculatedProfits,
-        calculatedCashback,
-        createdAt: isEditMode ? editItem.createdAt : new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
+    const formDataToSend = new FormData()
+    Object.entries(formData).forEach(([key, value]) => {
+      if (key !== 'imagePreview') {
+        formDataToSend.append(key, value)
       }
+    })
 
-      if (onSubmit) {
-        onSubmit(formattedData)
-      } else {
-        console.log("Form submitted:", formattedData)
-      }
+    try {
+      const url = isEditMode ? `${import.meta.env.VITE_API_URL}/products/${editItem.id}` : `${import.meta.env.VITE_API_URL}/products`
+      const method = isEditMode ? 'PUT' : 'POST'
+      const response = await fetch(url, {
+        method,
+        body: formDataToSend,
+      })
+      if (!response.ok) throw new Error('Failed to save product')
+      const result = await response.json()
+      if (onSubmit) onSubmit({ ...formData, id: result.id })
+      setFormData(initialFormState)
+      setErrors({})
+      setIsEditMode(false)
+    } catch (error) {
+      setErrors({ form: 'Failed to save product. Please try again.' })
+    } finally {
+      setLoading(false)
     }
   }
 
@@ -300,7 +262,7 @@ export default function NewItemForm({ categories = [], vendors = [], onSubmit, e
   }
 
   return (
-    <Box sx={{ maxWidth: 1200, mx: "auto" }}>
+    <Box sx={{ maxWidth: 1200, mx: "auto", p: { xs: 2, md: 4 } }}>
       <Paper sx={{ p: 4, mb: 4, borderRadius: 3, boxShadow: "0 8px 32px rgba(0, 0, 0, 0.1)" }}>
         <Box sx={{ mb: 4, textAlign: "center" }}>
           <Typography variant="h4" fontWeight="bold" color="#1976d2" gutterBottom>
@@ -309,19 +271,22 @@ export default function NewItemForm({ categories = [], vendors = [], onSubmit, e
           <Typography variant="body1" color="text.secondary">
             {isEditMode ? "Update product information" : "Complete product information for inventory management"}
           </Typography>
+          {errors.form && (
+            <Typography color="error" variant="body2" sx={{ mt: 2 }}>
+              {errors.form}
+            </Typography>
+          )}
         </Box>
 
-        <form onSubmit={handleSubmit}>
-          {/* SECTION 1: BASIC INFORMATION */}
+        <form onSubmit={handleSubmit} aria-label={isEditMode ? "Edit product form" : "Add product form"}>
+          {/* Basic Information */}
           <Accordion defaultExpanded sx={{ mb: 3, borderRadius: 2, boxShadow: "0 2px 8px rgba(0,0,0,0.1)" }}>
-            <AccordionSummary expandIcon={<ExpandMore />} sx={{ bgcolor: "#f8f9fa", borderRadius: "8px 8px 0 0" }}>
-              <Typography variant="h6" fontWeight="600" color="#1976d2">
-                📋 Basic Information
-              </Typography>
+            <AccordionSummary expandIcon={<ExpandMore />} sx={{ bgcolor: "#f8f9fa" }}>
+              <Typography variant="h6" fontWeight="600" color="#1976d2">📋 Basic Information</Typography>
             </AccordionSummary>
             <AccordionDetails sx={{ p: 3 }}>
               <Grid container spacing={3}>
-                <Grid item xs={12} md={6}>
+                <Grid item xs={12} sm={6}>
                   <TextField
                     fullWidth
                     required
@@ -329,13 +294,13 @@ export default function NewItemForm({ categories = [], vendors = [], onSubmit, e
                     name="productName"
                     value={formData.productName}
                     onChange={handleChange}
-                    placeholder="Enter product name"
-                    variant="outlined"
                     error={!!errors.productName}
                     helperText={errors.productName}
+                    inputProps={{ "aria-required": true }}
+                    sx={{ '& .MuiInputBase-root': { height: 56 } }}
                   />
                 </Grid>
-                <Grid item xs={12} md={6}>
+                <Grid item xs={12} sm={6}>
                   <TextField
                     fullWidth
                     required
@@ -343,210 +308,128 @@ export default function NewItemForm({ categories = [], vendors = [], onSubmit, e
                     name="productCode"
                     value={formData.productCode}
                     onChange={handleChange}
-                    placeholder="e.g., A0101001"
-                    variant="outlined"
                     error={!!errors.productCode}
                     helperText={errors.productCode}
                     InputProps={{
                       endAdornment: (
                         <InputAdornment position="end">
-                          <Button size="small" onClick={generateProductCode} sx={{ textTransform: "none" }}>
-                            Generate
-                          </Button>
+                          <Button size="small" onClick={generateProductCode}>Generate</Button>
                         </InputAdornment>
                       ),
                     }}
+                    inputProps={{ "aria-required": true }}
+                    sx={{ '& .MuiInputBase-root': { height: 56 } }}
                   />
                 </Grid>
-
-                <Grid item xs={12} md={4}>
+                <Grid item xs={12} sm={6}>
                   <FormControl fullWidth required>
-                    <InputLabel>UOM</InputLabel>
-                    <Select name="uom" value={formData.uom} onChange={handleChange} label="UOM">
-                      {uomOptions.map((unit) => (
-                        <MenuItem key={unit} value={unit}>
-                          {unit}
-                        </MenuItem>
+                    <InputLabel id="category-label">Category</InputLabel>
+                    <Select
+                      labelId="category-label"
+                      name="categoryId"
+                      value={formData.categoryId}
+                      onChange={handleChange}
+                      label="Category"
+                      renderValue={(selected) => {
+                        const category = categories.find(cat => cat.id === parseInt(selected))
+                        return category ? category.name : "Select Category"
+                      }}
+                      aria-required="true"
+                      sx={{ height: 56 }}
+                    >
+                      <MenuItem value="" disabled>Select Category</MenuItem>
+                      {categories.map(category => (
+                        <MenuItem key={category.id} value={category.id}>{category.name}</MenuItem>
                       ))}
                     </Select>
+                    {errors.categoryId && <FormHelperText error>{errors.categoryId}</FormHelperText>}
                   </FormControl>
                 </Grid>
-                <Grid item xs={12} md={4}>
+                <Grid item xs={12} sm={6}>
+                  <FormControl fullWidth required error={!!errors.subcategoryId || !!subCategoriesError}>
+                    <InputLabel id="subcategory-label">Subcategory</InputLabel>
+                    <Select
+                      labelId="subcategory-label"
+                      name="subcategoryId"
+                      value={formData.subcategoryId}
+                      onChange={handleChange}
+                      label="Subcategory"
+                      disabled={!formData.categoryId || subCategoriesLoading || subCategoriesError}
+                      renderValue={(selected) => {
+                        const subCat = subCategories.find(sub => sub.id === parseInt(selected))
+                        return subCat ? subCat.name : (formData.categoryId ? "Select Subcategory" : "Select Category First")
+                      }}
+                      aria-required="true"
+                      sx={{ height: 56 }}
+                    >
+                      <MenuItem value="" disabled>Select Subcategory</MenuItem>
+                      {subCategoriesLoading && <MenuItem disabled>Loading...</MenuItem>}
+                      {subCategoriesError && <MenuItem disabled>Error: {subCategoriesError}</MenuItem>}
+                      {subCategories.map(subCat => (
+                        <MenuItem key={subCat.id} value={subCat.id}>{subCat.name}</MenuItem>
+                      ))}
+                    </Select>
+                    {(errors.subcategoryId || subCategoriesError) && (
+                      <FormHelperText error>{errors.subcategoryId || subCategoriesError}</FormHelperText>
+                    )}
+                  </FormControl>
+                </Grid>
+                <Grid item xs={12} sm={6}>
                   <TextField
                     fullWidth
                     label="Pack Size"
                     name="packSize"
                     value={formData.packSize}
                     onChange={handleChange}
-                    placeholder="e.g., 12pc"
-                    variant="outlined"
+                    sx={{ '& .MuiInputBase-root': { height: 56 } }}
                   />
                 </Grid>
-                <Grid item xs={12} md={4}>
+                <Grid item xs={12} sm={6}>
                   <FormControl fullWidth>
-                    <InputLabel>VAT Rate</InputLabel>
-                    <Select name="vat" value={formData.vat} onChange={handleChange} label="VAT Rate">
-                      {vatRates.map((rate) => (
-                        <MenuItem key={rate} value={rate}>
-                          {rate}%
-                        </MenuItem>
-                      ))}
-                    </Select>
-                  </FormControl>
-                </Grid>
-
-                <Grid item xs={12} md={6}>
-                  <FormControl fullWidth required error={!!errors.category}>
-                    <InputLabel id="category-label">Category</InputLabel>
+                    <InputLabel id="uom-label">UOM</InputLabel>
                     <Select
-                      labelId="category-label"
-                      name="category"
-                      value={formData.category}
+                      labelId="uom-label"
+                      name="uom"
+                      value={formData.uom}
                       onChange={handleChange}
-                      label="Category"
-                      displayEmpty
-                      renderValue={(selected) => {
-                        if (!selected) {
-                          return <em style={{ color: "#9e9e9e", fontStyle: "normal" }}>Select Category</em>
-                        }
-                        return selected
-                      }}
-                      MenuProps={{
-                        PaperProps: {
-                          style: {
-                            maxHeight: 300,
-                            width: "auto",
-                            minWidth: 200,
-                          },
-                        },
-                      }}
-                      sx={{
-                        "& .MuiSelect-select": {
-                          minHeight: "1.4375em",
-                          display: "flex",
-                          alignItems: "center",
-                        },
-                        "& .MuiInputLabel-root": {
-                          transform: "translate(14px, 16px) scale(1)",
-                        },
-                        "& .MuiInputLabel-shrink": {
-                          transform: "translate(14px, -9px) scale(0.75)",
-                        },
-                      }}
+                      label="UOM"
+                      aria-required="true"
+                      sx={{ height: 56 }}
                     >
-                      <MenuItem value="">
-                        <em>Select Category</em>
-                      </MenuItem>
-                      {categories.map((category) => (
-                        <MenuItem key={category.id} value={category.name}>
-                          {category.name}
-                        </MenuItem>
-                      ))}
-                    </Select>
-                    {errors.category && <FormHelperText>{errors.category}</FormHelperText>}
-                  </FormControl>
-                </Grid>
-                <Grid item xs={12} md={6}>
-                  <FormControl fullWidth>
-                    <InputLabel id="subcategory-label">SubCategory</InputLabel>
-                    <Select
-                      labelId="subcategory-label"
-                      name="subCategory"
-                      value={formData.subCategory}
-                      onChange={handleChange}
-                      label="SubCategory"
-                      displayEmpty
-                      disabled={!formData.category || subCategories.length === 0}
-                      renderValue={(selected) => {
-                        if (!selected) {
-                          return (
-                            <em
-                              style={{
-                                color: !formData.category || subCategories.length === 0 ? "#c0c0c0" : "#9e9e9e",
-                                fontStyle: "normal",
-                              }}
-                            >
-                              {!formData.category || subCategories.length === 0
-                                ? "Select Category First"
-                                : "Select SubCategory"}
-                            </em>
-                          )
-                        }
-                        return selected
-                      }}
-                      MenuProps={{
-                        PaperProps: {
-                          style: {
-                            maxHeight: 300,
-                            width: "auto",
-                            minWidth: 200,
-                          },
-                        },
-                      }}
-                      sx={{
-                        "& .MuiSelect-select": {
-                          minHeight: "1.4375em",
-                          display: "flex",
-                          alignItems: "center",
-                        },
-                        "& .MuiInputLabel-root": {
-                          transform: "translate(14px, 16px) scale(1)",
-                        },
-                        "& .MuiInputLabel-shrink": {
-                          transform: "translate(14px, -9px) scale(0.75)",
-                        },
-                      }}
-                    >
-                      <MenuItem value="">
-                        <em>Select SubCategory</em>
-                      </MenuItem>
-                      {subCategories.map((subCat) => (
-                        <MenuItem key={subCat.id} value={subCat.name}>
-                          {subCat.name}
-                        </MenuItem>
+                      {uomOptions.map(unit => (
+                        <MenuItem key={unit} value={unit}>{unit}</MenuItem>
                       ))}
                     </Select>
                   </FormControl>
                 </Grid>
-
-                <Grid item xs={12} md={6}>
+                <Grid item xs={12} sm={6}>
                   <TextField
                     fullWidth
                     label="Product Barcode"
                     name="productBarcode"
                     value={formData.productBarcode}
                     onChange={handleChange}
-                    placeholder="Enter or generate barcode"
-                    variant="outlined"
                     InputProps={{
                       endAdornment: (
                         <InputAdornment position="end">
-                          <Button
-                            size="small"
-                            onClick={generateBarcode}
-                            startIcon={<QrCode />}
-                            sx={{ textTransform: "none" }}
-                          >
-                            Generate
-                          </Button>
+                          <Button size="small" onClick={generateBarcode} startIcon={<QrCode />}>Generate</Button>
                         </InputAdornment>
                       ),
                     }}
+                    sx={{ '& .MuiInputBase-root': { height: 56 } }}
                   />
                 </Grid>
-                <Grid item xs={12} md={6}>
+                <Grid item xs={12} sm={6}>
                   <TextField
                     fullWidth
-                    label="eTIMS Ref Code/Number"
+                    label="eTIMS Ref Code"
                     name="etimsRefCode"
                     value={formData.etimsRefCode}
                     onChange={handleChange}
-                    placeholder="Enter eTIMS reference"
-                    variant="outlined"
+                    sx={{ '& .MuiInputBase-root': { height: 56 } }}
                   />
                 </Grid>
-
-                <Grid item xs={12} md={6}>
+                <Grid item xs={12}>
                   <TextField
                     fullWidth
                     label="Short Description"
@@ -554,12 +437,11 @@ export default function NewItemForm({ categories = [], vendors = [], onSubmit, e
                     value={formData.description}
                     onChange={handleChange}
                     multiline
-                    rows={2}
-                    variant="outlined"
-                    placeholder="Brief product description for listings"
+                    rows={3}
+                    sx={{ '& .MuiInputBase-root': { minHeight: 100 } }}
                   />
                 </Grid>
-                <Grid item xs={12} md={6}>
+                <Grid item xs={12}>
                   <TextField
                     fullWidth
                     label="Detailed Description"
@@ -567,25 +449,22 @@ export default function NewItemForm({ categories = [], vendors = [], onSubmit, e
                     value={formData.longerDescription}
                     onChange={handleChange}
                     multiline
-                    rows={2}
-                    variant="outlined"
-                    placeholder="Detailed product description"
+                    rows={4}
+                    sx={{ '& .MuiInputBase-root': { minHeight: 120 } }}
                   />
                 </Grid>
               </Grid>
             </AccordionDetails>
           </Accordion>
 
-          {/* SECTION 2: PRICING INFORMATION */}
+          {/* Pricing Information */}
           <Accordion defaultExpanded sx={{ mb: 3, borderRadius: 2, boxShadow: "0 2px 8px rgba(0,0,0,0.1)" }}>
-            <AccordionSummary expandIcon={<ExpandMore />} sx={{ bgcolor: "#f8f9fa", borderRadius: "8px 8px 0 0" }}>
-              <Typography variant="h6" fontWeight="600" color="#1976d2">
-                💰 Pricing Information
-              </Typography>
+            <AccordionSummary expandIcon={<ExpandMore />} sx={{ bgcolor: "#f8f9fa" }}>
+              <Typography variant="h6" fontWeight="600" color="#1976d2">💰 Pricing Information</Typography>
             </AccordionSummary>
             <AccordionDetails sx={{ p: 3 }}>
               <Grid container spacing={3}>
-                <Grid item xs={12} md={6}>
+                <Grid item xs={12} sm={6}>
                   <TextField
                     fullWidth
                     required
@@ -594,15 +473,31 @@ export default function NewItemForm({ categories = [], vendors = [], onSubmit, e
                     type="number"
                     value={formData.costPrice}
                     onChange={handleChange}
-                    InputProps={{
-                      startAdornment: <InputAdornment position="start">KSh</InputAdornment>,
-                    }}
-                    variant="outlined"
+                    InputProps={{ startAdornment: <InputAdornment position="start">KSh</InputAdornment> }}
                     error={!!errors.costPrice}
-                    helperText={errors.costPrice || "Purchase price excluding VAT"}
+                    helperText={errors.costPrice}
+                    inputProps={{ min: 0, "aria-required": true }}
+                    sx={{ '& .MuiInputBase-root': { height: 56 } }}
                   />
                 </Grid>
-                <Grid item xs={12} md={6}>
+                <Grid item xs={12} sm={6}>
+                  <FormControl fullWidth>
+                    <InputLabel id="vat-label">VAT Rate</InputLabel>
+                    <Select
+                      labelId="vat-label"
+                      name="vat"
+                      value={formData.vat}
+                      onChange={handleChange}
+                      label="VAT Rate"
+                      sx={{ height: 56 }}
+                    >
+                      {vatRates.map(rate => (
+                        <MenuItem key={rate} value={rate}>{rate}%</MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+                </Grid>
+                <Grid item xs={12} sm={6}>
                   <TextField
                     fullWidth
                     label="Customer Cashback Rate"
@@ -610,58 +505,51 @@ export default function NewItemForm({ categories = [], vendors = [], onSubmit, e
                     type="number"
                     value={formData.cashbackRate}
                     onChange={handleChange}
-                    InputProps={{
-                      endAdornment: <InputAdornment position="end">%</InputAdornment>,
-                    }}
-                    variant="outlined"
-                    helperText="Fixed cashback percentage (e.g., 3%) - applies to all quantities"
+                    InputProps={{ endAdornment: <InputAdornment position="end">%</InputAdornment> }}
+                    inputProps={{ min: 0, max: 100 }}
+                    sx={{ '& .MuiInputBase-root': { height: 56 } }}
                   />
                 </Grid>
-
-                {/* Selling Prices and Quantities */}
                 <Grid item xs={12}>
                   <TableContainer component={Paper} variant="outlined">
-                    <Table size="small">
+                    <Table size="small" aria-label="Pricing tiers table">
                       <TableHead>
                         <TableRow sx={{ bgcolor: "#f8f9fa" }}>
-                          <TableCell sx={{ fontWeight: 600, minWidth: 80 }}>Tier</TableCell>
-                          <TableCell sx={{ fontWeight: 600, minWidth: 200 }}>Quantity Range</TableCell>
-                          <TableCell sx={{ fontWeight: 600, minWidth: 160 }}>Selling Price (KSh)</TableCell>
-                          <TableCell sx={{ fontWeight: 600, minWidth: 80 }}>GP %</TableCell>
-                          <TableCell sx={{ fontWeight: 600, minWidth: 80 }}>NP %</TableCell>
-                          <TableCell sx={{ fontWeight: 600, minWidth: 120 }}>Cashback Earned</TableCell>
+                          <TableCell>Tier</TableCell>
+                          <TableCell>Quantity Range</TableCell>
+                          <TableCell>Selling Price (KSh)</TableCell>
+                          <TableCell>GP %</TableCell>
+                          <TableCell>NP %</TableCell>
+                          <TableCell>Cashback Earned</TableCell>
                         </TableRow>
                       </TableHead>
                       <TableBody>
-                        {/* Tier 1 */}
                         <TableRow>
+                          <TableCell><Chip label="Tier 1" color="primary" size="small" /></TableCell>
                           <TableCell>
-                            <Chip label="Tier 1" color="primary" size="small" />
-                          </TableCell>
-                          <TableCell>
-                            <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                            <Box sx={{ display: "flex", flexDirection: { xs: "column", sm: "row" }, gap: 1, alignItems: "center" }}>
                               <TextField
                                 type="number"
-                                value={formData.qty1Min || "1"}
+                                value={formData.qty1Min}
                                 onChange={(e) => setFormData({ ...formData, qty1Min: e.target.value })}
                                 size="small"
-                                placeholder="Min"
-                                sx={{ width: 70 }}
                                 inputProps={{ min: 1 }}
+                                error={!!errors.qty1Min}
+                                helperText={errors.qty1Min}
+                                sx={{ width: { xs: "100%", sm: 100 } }}
                               />
                               <Typography variant="body2">to</Typography>
                               <TextField
                                 type="number"
-                                value={formData.qty1Max || "3"}
+                                value={formData.qty1Max}
                                 onChange={(e) => setFormData({ ...formData, qty1Max: e.target.value })}
                                 size="small"
-                                placeholder="Max"
-                                sx={{ width: 70 }}
                                 inputProps={{ min: 1 }}
+                                error={!!errors.qty1Max}
+                                helperText={errors.qty1Max}
+                                sx={{ width: { xs: "100%", sm: 100 } }}
                               />
-                              <Typography variant="caption" color="text.secondary">
-                                pieces
-                              </Typography>
+                              <Typography variant="caption" color="text.secondary">pieces</Typography>
                             </Box>
                           </TableCell>
                           <TableCell>
@@ -671,56 +559,45 @@ export default function NewItemForm({ categories = [], vendors = [], onSubmit, e
                               onChange={handleChange}
                               name="sellingPrice1"
                               size="small"
-                              InputProps={{
-                                startAdornment: <InputAdornment position="start">KSh</InputAdornment>,
-                              }}
+                              InputProps={{ startAdornment: <InputAdornment position="start">KSh</InputAdornment> }}
                               error={!!errors.sellingPrice1}
-                              sx={{ width: 140 }}
-                              placeholder="e.g., 100"
+                              helperText={errors.sellingPrice1}
+                              inputProps={{ "aria-required": true }}
+                              sx={{ width: "100%" }}
                             />
                           </TableCell>
+                          <TableCell><Chip label={`${calculatedProfits.gp1}%`} color="success" size="small" /></TableCell>
+                          <TableCell><Chip label={`${calculatedProfits.np1}%`} color="info" size="small" /></TableCell>
                           <TableCell>
-                            <Chip label={`${calculatedProfits.gp || 0}%`} color="success" size="small" />
-                          </TableCell>
-                          <TableCell>
-                            <Chip label={`${calculatedProfits.np || 0}%`} color="info" size="small" />
-                          </TableCell>
-                          <TableCell>
-                            <Typography variant="body2" color="primary" fontWeight="600">
-                              KSh {calculatedCashback.cashback1 || 0}
-                            </Typography>
+                            <Typography variant="body2" color="primary">KSh {calculatedCashback.cashback1}</Typography>
                           </TableCell>
                         </TableRow>
-
-                        {/* Tier 2 */}
                         <TableRow>
+                          <TableCell><Chip label="Tier 2" color="secondary" size="small" /></TableCell>
                           <TableCell>
-                            <Chip label="Tier 2" color="secondary" size="small" />
-                          </TableCell>
-                          <TableCell>
-                            <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                            <Box sx={{ display: "flex", flexDirection: { xs: "column", sm: "row" }, gap: 1, alignItems: "center" }}>
                               <TextField
                                 type="number"
-                                value={formData.qty2Min || "4"}
+                                value={formData.qty2Min}
                                 onChange={(e) => setFormData({ ...formData, qty2Min: e.target.value })}
                                 size="small"
-                                placeholder="Min"
-                                sx={{ width: 70 }}
                                 inputProps={{ min: 1 }}
+                                error={!!errors.qty2Min}
+                                helperText={errors.qty2Min}
+                                sx={{ width: { xs: "100%", sm: 100 } }}
                               />
                               <Typography variant="body2">to</Typography>
                               <TextField
                                 type="number"
-                                value={formData.qty2Max || "11"}
+                                value={formData.qty2Max}
                                 onChange={(e) => setFormData({ ...formData, qty2Max: e.target.value })}
                                 size="small"
-                                placeholder="Max"
-                                sx={{ width: 70 }}
                                 inputProps={{ min: 1 }}
+                                error={!!errors.qty2Max}
+                                helperText={errors.qty2Max}
+                                sx={{ width: { xs: "100%", sm: 100 } }}
                               />
-                              <Typography variant="caption" color="text.secondary">
-                                pieces
-                              </Typography>
+                              <Typography variant="caption" color="text.secondary">pieces</Typography>
                             </Box>
                           </TableCell>
                           <TableCell>
@@ -730,46 +607,33 @@ export default function NewItemForm({ categories = [], vendors = [], onSubmit, e
                               onChange={handleChange}
                               name="sellingPrice2"
                               size="small"
-                              InputProps={{
-                                startAdornment: <InputAdornment position="start">KSh</InputAdornment>,
-                              }}
-                              sx={{ width: 140 }}
-                              placeholder="e.g., 90"
+                              InputProps={{ startAdornment: <InputAdornment position="start">KSh</InputAdornment> }}
+                              error={!!errors.sellingPrice2}
+                              helperText={errors.sellingPrice2}
+                              sx={{ width: "100%" }}
                             />
                           </TableCell>
+                          <TableCell><Chip label={`${calculatedProfits.gp2}%`} color="success" size="small" /></TableCell>
+                          <TableCell><Chip label={`${calculatedProfits.np2}%`} color="info" size="small" /></TableCell>
                           <TableCell>
-                            <Chip label={`${calculatedProfits.gp2 || 0}%`} color="success" size="small" />
-                          </TableCell>
-                          <TableCell>
-                            <Chip label={`${calculatedProfits.np2 || 0}%`} color="info" size="small" />
-                          </TableCell>
-                          <TableCell>
-                            <Typography variant="body2" color="primary" fontWeight="600">
-                              KSh {calculatedCashback.cashback2 || 0}
-                            </Typography>
+                            <Typography variant="body2" color="primary">KSh {calculatedCashback.cashback2}</Typography>
                           </TableCell>
                         </TableRow>
-
-                        {/* Tier 3 */}
                         <TableRow>
+                          <TableCell><Chip label="Tier 3" color="warning" size="small" /></TableCell>
                           <TableCell>
-                            <Chip label="Tier 3" color="warning" size="small" />
-                          </TableCell>
-                          <TableCell>
-                            <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                            <Box sx={{ display: "flex", flexDirection: { xs: "column", sm: "row" }, gap: 1, alignItems: "center" }}>
                               <TextField
                                 type="number"
-                                value={formData.qty3Min || "12"}
+                                value={formData.qty3Min}
                                 onChange={(e) => setFormData({ ...formData, qty3Min: e.target.value })}
                                 size="small"
-                                placeholder="Min"
-                                sx={{ width: 70 }}
                                 inputProps={{ min: 1 }}
+                                error={!!errors.qty3Min}
+                                helperText={errors.qty3Min}
+                                sx={{ width: { xs: "100%", sm: 100 } }}
                               />
-                              <Typography variant="body2">and above</Typography>
-                              <Typography variant="caption" color="text.secondary">
-                                pieces
-                              </Typography>
+                              <Typography variant="caption" color="text.secondary">and above</Typography>
                             </Box>
                           </TableCell>
                           <TableCell>
@@ -779,96 +643,83 @@ export default function NewItemForm({ categories = [], vendors = [], onSubmit, e
                               onChange={handleChange}
                               name="sellingPrice3"
                               size="small"
-                              InputProps={{
-                                startAdornment: <InputAdornment position="start">KSh</InputAdornment>,
-                              }}
-                              sx={{ width: 140 }}
-                              placeholder="e.g., 80"
+                              InputProps={{ startAdornment: <InputAdornment position="start">KSh</InputAdornment> }}
+                              error={!!errors.sellingPrice3}
+                              helperText={errors.sellingPrice3}
+                              sx={{ width: "100%" }}
                             />
                           </TableCell>
+                          <TableCell><Chip label={`${calculatedProfits.gp3}%`} color="success" size="small" /></TableCell>
+                          <TableCell><Chip label={`${calculatedProfits.np3}%`} color="info" size="small" /></TableCell>
                           <TableCell>
-                            <Chip label={`${calculatedProfits.gp3 || 0}%`} color="success" size="small" />
-                          </TableCell>
-                          <TableCell>
-                            <Chip label={`${calculatedProfits.np3 || 0}%`} color="info" size="small" />
-                          </TableCell>
-                          <TableCell>
-                            <Typography variant="body2" color="primary" fontWeight="600">
-                              KSh {calculatedCashback.cashback3 || 0}
-                            </Typography>
+                            <Typography variant="body2" color="primary">KSh {calculatedCashback.cashback3}</Typography>
                           </TableCell>
                         </TableRow>
                       </TableBody>
                     </Table>
                   </TableContainer>
-
-                  <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: "block" }}>
-                    Cashback rate applies to all purchases regardless of quantity
-                  </Typography>
                 </Grid>
               </Grid>
             </AccordionDetails>
           </Accordion>
 
-          {/* SECTION 3: VENDOR INFORMATION */}
+          {/* Vendor Information */}
           <Accordion defaultExpanded sx={{ mb: 3, borderRadius: 2, boxShadow: "0 2px 8px rgba(0,0,0,0.1)" }}>
-            <AccordionSummary expandIcon={<ExpandMore />} sx={{ bgcolor: "#f8f9fa", borderRadius: "8px 8px 0 0" }}>
-              <Typography variant="h6" fontWeight="600" color="#1976d2">
-                🏢 Vendor Information
-              </Typography>
+            <AccordionSummary expandIcon={<ExpandMore />} sx={{ bgcolor: "#f8f9fa" }}>
+              <Typography variant="h6" fontWeight="600" color="#1976d2">🏢 Vendor Information</Typography>
             </AccordionSummary>
             <AccordionDetails sx={{ p: 3 }}>
               <Grid container spacing={3}>
-                <Grid item xs={12} md={4}>
-                  <TextField
-                    fullWidth
-                    label="Preferred Vendor 1"
-                    name="preferredVendor1"
-                    value={formData.preferredVendor1}
-                    onChange={handleChange}
-                    placeholder="Primary vendor name"
-                    variant="outlined"
-                  />
+                <Grid item xs={12} sm={4}>
+                  <FormControl fullWidth>
+                    <InputLabel id="vendor-label">Preferred Vendor</InputLabel>
+                    <Select
+                      labelId="vendor-label"
+                      name="preferredVendor1"
+                      value={formData.preferredVendor1}
+                      onChange={handleChange}
+                      label="Preferred Vendor"
+                      sx={{ height: 56 }}
+                    >
+                      <MenuItem value="" disabled>Select Vendor</MenuItem>
+                      {vendorOptions.map(vendor => (
+                        <MenuItem key={vendor} value={vendor}>{vendor}</MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
                 </Grid>
-                <Grid item xs={12} md={4}>
+                <Grid item xs={12} sm={4}>
                   <TextField
                     fullWidth
-                    label="Preferred Vendor 2"
+                    label="Secondary Vendor"
                     name="preferredVendor2"
                     value={formData.preferredVendor2}
                     onChange={handleChange}
-                    placeholder="Secondary vendor name"
-                    variant="outlined"
+                    sx={{ '& .MuiInputBase-root': { height: 56 } }}
                   />
                 </Grid>
-                <Grid item xs={12} md={4}>
+                <Grid item xs={12} sm={4}>
                   <TextField
                     fullWidth
                     label="Vendor Item Code"
                     name="vendorItemCode"
                     value={formData.vendorItemCode}
                     onChange={handleChange}
-                    placeholder="Vendor's product code"
-                    variant="outlined"
+                    sx={{ '& .MuiInputBase-root': { height: 56 } }}
                   />
                 </Grid>
               </Grid>
             </AccordionDetails>
           </Accordion>
 
-          {/* SECTION 4: SALES AGENT INCENTIVES */}
+          {/* Sales Agent Incentives */}
           <Accordion defaultExpanded sx={{ mb: 3, borderRadius: 2, boxShadow: "0 2px 8px rgba(0,0,0,0.1)" }}>
-            <AccordionSummary expandIcon={<ExpandMore />} sx={{ bgcolor: "#f8f9fa", borderRadius: "8px 8px 0 0" }}>
-              <Typography variant="h6" fontWeight="600" color="#1976d2">
-                🎯 Sales Agent Incentives
-              </Typography>
+            <AccordionSummary expandIcon={<ExpandMore />} sx={{ bgcolor: "#f8f9fa" }}>
+              <Typography variant="h6" fontWeight="600" color="#1976d2">🎯 Sales Agent Incentives</Typography>
             </AccordionSummary>
             <AccordionDetails sx={{ p: 3 }}>
-              <Typography variant="body2" color="text.secondary" gutterBottom sx={{ mb: 2 }}>
-                Configure cashback percentages for sales agents based on customer purchase sequence
-              </Typography>
               <Grid container spacing={3}>
-                <Grid item xs={12} md={3}>
+                <Grid item xs={12} sm={3}>
                   <TextField
                     fullWidth
                     label="1st Purchase Cashback"
@@ -876,14 +727,12 @@ export default function NewItemForm({ categories = [], vendors = [], onSubmit, e
                     type="number"
                     value={formData.saCashback1stPurchase}
                     onChange={handleChange}
-                    InputProps={{
-                      endAdornment: <InputAdornment position="end">%</InputAdornment>,
-                    }}
-                    variant="outlined"
-                    helperText="Default: 6%"
+                    InputProps={{ endAdornment: <InputAdornment position="end">%</InputAdornment> }}
+                    inputProps={{ min: 0, max: 100 }}
+                    sx={{ '& .MuiInputBase-root': { height: 56 } }}
                   />
                 </Grid>
-                <Grid item xs={12} md={3}>
+                <Grid item xs={12} sm={3}>
                   <TextField
                     fullWidth
                     label="2nd Purchase Cashback"
@@ -891,14 +740,12 @@ export default function NewItemForm({ categories = [], vendors = [], onSubmit, e
                     type="number"
                     value={formData.saCashback2ndPurchase}
                     onChange={handleChange}
-                    InputProps={{
-                      endAdornment: <InputAdornment position="end">%</InputAdornment>,
-                    }}
-                    variant="outlined"
-                    helperText="Default: 4%"
+                    InputProps={{ endAdornment: <InputAdornment position="end">%</InputAdornment> }}
+                    inputProps={{ min: 0, max: 100 }}
+                    sx={{ '& .MuiInputBase-root': { height: 56 } }}
                   />
                 </Grid>
-                <Grid item xs={12} md={3}>
+                <Grid item xs={12} sm={3}>
                   <TextField
                     fullWidth
                     label="3rd Purchase Cashback"
@@ -906,14 +753,12 @@ export default function NewItemForm({ categories = [], vendors = [], onSubmit, e
                     type="number"
                     value={formData.saCashback3rdPurchase}
                     onChange={handleChange}
-                    InputProps={{
-                      endAdornment: <InputAdornment position="end">%</InputAdornment>,
-                    }}
-                    variant="outlined"
-                    helperText="Default: 3%"
+                    InputProps={{ endAdornment: <InputAdornment position="end">%</InputAdornment> }}
+                    inputProps={{ min: 0, max: 100 }}
+                    sx={{ '& .MuiInputBase-root': { height: 56 } }}
                   />
                 </Grid>
-                <Grid item xs={12} md={3}>
+                <Grid item xs={12} sm={3}>
                   <TextField
                     fullWidth
                     label="4th+ Purchase Cashback"
@@ -921,29 +766,25 @@ export default function NewItemForm({ categories = [], vendors = [], onSubmit, e
                     type="number"
                     value={formData.saCashback4thPurchase}
                     onChange={handleChange}
-                    InputProps={{
-                      endAdornment: <InputAdornment position="end">%</InputAdornment>,
-                    }}
-                    variant="outlined"
-                    helperText="Default: 2%"
+                    InputProps={{ endAdornment: <InputAdornment position="end">%</InputAdornment> }}
+                    inputProps={{ min: 0, max: 100 }}
+                    sx={{ '& .MuiInputBase-root': { height: 56 } }}
                   />
                 </Grid>
               </Grid>
             </AccordionDetails>
           </Accordion>
 
-          {/* SECTION 5: INVENTORY & ADDITIONAL INFO */}
+          {/* Inventory & Additional Information */}
           <Accordion defaultExpanded sx={{ mb: 3, borderRadius: 2, boxShadow: "0 2px 8px rgba(0,0,0,0.1)" }}>
-            <AccordionSummary expandIcon={<ExpandMore />} sx={{ bgcolor: "#f8f9fa", borderRadius: "8px 8px 0 0" }}>
-              <Typography variant="h6" fontWeight="600" color="#1976d2">
-                📦 Inventory & Additional Information
-              </Typography>
+            <AccordionSummary expandIcon={<ExpandMore />} sx={{ bgcolor: "#f8f9fa" }}>
+              <Typography variant="h6" fontWeight="600" color="#1976d2">📦 Inventory & Additional Information</Typography>
             </AccordionSummary>
             <AccordionDetails sx={{ p: 3 }}>
               <Grid container spacing={3}>
-                <Grid item xs={12} md={8}>
+                <Grid item xs={12} sm={8}>
                   <Grid container spacing={3}>
-                    <Grid item xs={12} md={6}>
+                    <Grid item xs={12} sm={6}>
                       <TextField
                         fullWidth
                         required
@@ -952,12 +793,13 @@ export default function NewItemForm({ categories = [], vendors = [], onSubmit, e
                         type="number"
                         value={formData.stockUnits}
                         onChange={handleChange}
-                        variant="outlined"
                         error={!!errors.stockUnits}
                         helperText={errors.stockUnits}
+                        inputProps={{ min: 0, "aria-required": true }}
+                        sx={{ '& .MuiInputBase-root': { height: 56 } }}
                       />
                     </Grid>
-                    <Grid item xs={12} md={6}>
+                    <Grid item xs={12} sm={6}>
                       <TextField
                         fullWidth
                         label="Alert Quantity"
@@ -965,11 +807,11 @@ export default function NewItemForm({ categories = [], vendors = [], onSubmit, e
                         type="number"
                         value={formData.alertQuantity}
                         onChange={handleChange}
-                        variant="outlined"
-                        helperText="Low stock alert threshold"
+                        inputProps={{ min: 0 }}
+                        sx={{ '& .MuiInputBase-root': { height: 56 } }}
                       />
                     </Grid>
-                    <Grid item xs={12} md={6}>
+                    <Grid item xs={12} sm={6}>
                       <TextField
                         fullWidth
                         label="Reorder Level"
@@ -977,11 +819,11 @@ export default function NewItemForm({ categories = [], vendors = [], onSubmit, e
                         type="number"
                         value={formData.reorderLevel}
                         onChange={handleChange}
-                        variant="outlined"
-                        helperText="Automatic reorder trigger point"
+                        inputProps={{ min: 0 }}
+                        sx={{ '& .MuiInputBase-root': { height: 56 } }}
                       />
                     </Grid>
-                    <Grid item xs={12} md={6}>
+                    <Grid item xs={12} sm={6}>
                       <TextField
                         fullWidth
                         label="Order Level"
@@ -989,24 +831,18 @@ export default function NewItemForm({ categories = [], vendors = [], onSubmit, e
                         type="number"
                         value={formData.orderLevel}
                         onChange={handleChange}
-                        variant="outlined"
-                        helperText="Standard order quantity"
+                        inputProps={{ min: 0 }}
+                        sx={{ '& .MuiInputBase-root': { height: 56 } }}
                       />
                     </Grid>
-                    <Grid item xs={12} md={6}>
+                    <Grid item xs={12} sm={6}>
                       <FormControlLabel
-                        control={
-                          <Switch
-                            checked={formData.reorderActive}
-                            onChange={handleChange}
-                            name="reorderActive"
-                            color="primary"
-                          />
-                        }
+                        control={<Switch checked={formData.reorderActive} onChange={handleChange} name="reorderActive" />}
                         label="Auto Reorder Active"
+                        sx={{ mt: 1 }}
                       />
                     </Grid>
-                    <Grid item xs={12} md={6}>
+                    <Grid item xs={12} sm={6}>
                       <TextField
                         fullWidth
                         label="Expiry Date"
@@ -1015,66 +851,35 @@ export default function NewItemForm({ categories = [], vendors = [], onSubmit, e
                         value={formData.expiryDate}
                         onChange={handleChange}
                         InputLabelProps={{ shrink: true }}
-                        variant="outlined"
-                        helperText="Leave empty if not applicable"
+                        sx={{ '& .MuiInputBase-root': { height: 56 } }}
                       />
                     </Grid>
                   </Grid>
                 </Grid>
-                <Grid item xs={12} md={4}>
-                  <Typography variant="subtitle1" fontWeight="600" gutterBottom>
-                    Product Photo
-                  </Typography>
-                  <Card
-                    sx={{
-                      border: "2px dashed #e0e0e0",
-                      textAlign: "center",
-                      p: 3,
-                      borderRadius: 2,
-                      bgcolor: "#fafafa",
-                      height: 200,
-                      display: "flex",
-                      flexDirection: "column",
-                      justifyContent: "center",
-                      alignItems: "center",
-                    }}
-                  >
+                <Grid item xs={12} sm={4}>
+                  <Typography variant="subtitle1" fontWeight="600" gutterBottom>Product Photo</Typography>
+                  <Card sx={{ border: "2px dashed #e0e0e0", p: 3, textAlign: "center", minHeight: 200 }}>
                     {formData.imagePreview ? (
-                      <Box sx={{ width: "100%", height: "100%" }}>
+                      <Box>
                         <img
-                          src={formData.imagePreview || "/placeholder.svg"}
+                          src={formData.imagePreview}
                           alt="Product preview"
-                          style={{
-                            width: "100%",
-                            height: "120px",
-                            objectFit: "cover",
-                            borderRadius: "8px",
-                            marginBottom: "8px",
-                          }}
+                          style={{ width: "100%", maxHeight: 120, objectFit: "cover", borderRadius: 8 }}
                         />
-                        <Button variant="outlined" component="label" size="small" sx={{ textTransform: "none" }}>
+                        <Button variant="outlined" component="label" size="small" sx={{ mt: 2 }}>
                           Change Photo
                           <input type="file" hidden onChange={handleImageChange} accept="image/*" />
                         </Button>
+                        {errors.image && <FormHelperText error>{errors.image}</FormHelperText>}
                       </Box>
                     ) : (
                       <Box>
-                        <ImageIcon sx={{ fontSize: 48, color: "#bdbdbd", mb: 1 }} />
-                        <Button
-                          variant="contained"
-                          component="label"
-                          startIcon={<Upload />}
-                          sx={{
-                            bgcolor: "#1976d2",
-                            "&:hover": { bgcolor: "#1565c0" },
-                            textTransform: "none",
-                            mb: 1,
-                          }}
-                        >
+                        <ImageIcon sx={{ fontSize: 48, color: "#bdbdbd" }} />
+                        <Button variant="contained" component="label" startIcon={<Upload />} sx={{ mt: 2 }}>
                           Upload Photo
                           <input type="file" hidden onChange={handleImageChange} accept="image/*" />
                         </Button>
-                        <Typography variant="caption" display="block" sx={{ color: "text.secondary" }}>
+                        <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 1 }}>
                           Max 5MB, JPG/PNG
                         </Typography>
                       </Box>
@@ -1091,20 +896,11 @@ export default function NewItemForm({ categories = [], vendors = [], onSubmit, e
               type="submit"
               variant="contained"
               size="large"
-              sx={{
-                bgcolor: "#1976d2",
-                "&:hover": { bgcolor: "#1565c0" },
-                px: 6,
-                py: 1.5,
-                fontSize: "1.1rem",
-                fontWeight: 600,
-                textTransform: "none",
-                borderRadius: 3,
-                boxShadow: "0 4px 12px rgba(25, 118, 210, 0.3)",
-                mr: 2,
-              }}
+              disabled={loading || subCategoriesLoading}
+              sx={{ px: 6, py: 1.5, fontSize: "1.1rem", mr: 2 }}
+              startIcon={loading && <CircularProgress size={20} />}
             >
-              {isEditMode ? "Update Product" : "Add Product"}
+              {loading ? "Saving..." : (isEditMode ? "Update Product" : "Add Product")}
             </Button>
             {isEditMode && (
               <Button
@@ -1112,14 +908,7 @@ export default function NewItemForm({ categories = [], vendors = [], onSubmit, e
                 variant="outlined"
                 size="large"
                 onClick={resetForm}
-                sx={{
-                  px: 6,
-                  py: 1.5,
-                  fontSize: "1.1rem",
-                  fontWeight: 500,
-                  textTransform: "none",
-                  borderRadius: 3,
-                }}
+                sx={{ px: 6, py: 1.5, fontSize: "1.1rem" }}
               >
                 Cancel Edit
               </Button>
