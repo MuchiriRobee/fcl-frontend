@@ -27,7 +27,7 @@ export default function ProductsPage() {
   const [snackbarOpen, setSnackbarOpen] = useState(false)
   const [snackbarMessage, setSnackbarMessage] = useState("")
   // Use VITE_BASE_URL for static assets, VITE_API_URL for API calls
-  const baseUrl = import.meta.env.VITE_BASE_URL || 'http://localhost:5000' || 'https://fcl-back.onrender.com'
+  const baseUrl = import.meta.env.VITE_BASE_URL || 'https://fcl-back.onrender.com'
 
   useEffect(() => {
     const fetchProducts = async () => {
