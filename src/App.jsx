@@ -22,15 +22,14 @@ import ForgotPasswordPage from "./components/ForgotPassword"
 import ResetPasswordPage from "./components/ResetPassword"
 import ProductsPage from "./components/admin/ProductsPage"
 import AdminPage from "./pages/Admin/View/Index" 
+import CheckoutPage from "./pages/Checkout/View/Index"
 import { Typography, Box } from "@mui/material"
-
+import ErrorBoundary from "./components/admin/ErrorBoundary"
 
 function App() {
-  // State for user authentication
   const [isLoggedIn, setIsLoggedIn] = useState(false)
   const [currentUser, setCurrentUser] = useState(null)
 
-  // Check if user is logged in from localStorage on component mount
   useEffect(() => {
     const storedUser = localStorage.getItem("currentUser")
     if (storedUser) {
@@ -39,26 +38,23 @@ function App() {
     }
   }, [])
 
-  // Login function
   const handleLogin = (userData) => {
     setCurrentUser(userData)
     setIsLoggedIn(true)
     localStorage.setItem("currentUser", JSON.stringify(userData))
   }
 
-  // Logout function
   const handleLogout = () => {
     setCurrentUser(null)
     setIsLoggedIn(false)
     localStorage.removeItem("currentUser")
   }
 
-  // Create a theme with light mode always enabled, regardless of device preference
   const theme = React.useMemo(
     () =>
       createTheme({
         palette: {
-          mode: "light", // Always use light mode
+          mode: "light",
           primary: {
             main: "#0056B3",
           },
@@ -78,15 +74,14 @@ function App() {
             main: "#2196F3",
           },
           background: {
-            default: "#ffffff", // Ensure white background
-            paper: "#ffffff", // Ensure white paper background
+            default: "#ffffff",
+            paper: "#ffffff",
           },
           text: {
-            primary: "#333333", // Dark text for better readability
+            primary: "#333333",
             secondary: "#666666",
           },
         },
-        // Add responsive breakpoints configuration
         breakpoints: {
           values: {
             xs: 0,
@@ -96,12 +91,10 @@ function App() {
             xl: 1536,
           },
         },
-        // Add responsive spacing
         spacing: (factor) => `${0.25 * factor}rem`,
-        // Increase typography sizes for better readability
         typography: {
           fontFamily: '"Roboto", "Helvetica", "Arial", sans-serif',
-          fontSize: 14, // Base font size increased
+          fontSize: 14,
           h1: {
             fontSize: "2.7rem",
             fontWeight: 600,
@@ -127,21 +120,20 @@ function App() {
             fontWeight: 600,
           },
           body1: {
-            fontSize: "1rem", // Increased from default
+            fontSize: "1rem",
           },
           body2: {
-            fontSize: "0.9rem", // Increased from default
+            fontSize: "0.9rem",
           },
           button: {
-            fontSize: "0.95rem", // Increased button text
-            textTransform: "none", // No uppercase transformation
+            fontSize: "0.95rem",
+            textTransform: "none",
           },
           caption: {
-            fontSize: "0.85rem", // Increased caption size
+            fontSize: "0.85rem",
           },
         },
         components: {
-          // Global component overrides for better readability
           MuiContainer: {
             styleOverrides: {
               root: {
@@ -154,19 +146,17 @@ function App() {
               },
             },
           },
-          // Ensure Chip text is readable
           MuiChip: {
             styleOverrides: {
               label: {
-                fontSize: "0.85rem", // Increased from default
+                fontSize: "0.85rem",
               },
             },
           },
-          // Ensure table text is readable
           MuiTableCell: {
             styleOverrides: {
               root: {
-                fontSize: "0.95rem", // Increased from default
+                fontSize: "0.95rem",
               },
             },
           },
@@ -177,36 +167,38 @@ function App() {
 
   return (
     <ThemeProvider theme={theme}>
-      {/* CssBaseline provides consistent baseline styles */}
       <CssBaseline />
-      <CategoriesProvider>
-      <BrowserRouter>
-        <div style={{ display: "flex", flexDirection: "column", minHeight: "100vh" }}>
-          <NavigationBar isLoggedIn={isLoggedIn} currentUser={currentUser} onLogout={handleLogout} />
-          <main style={{ flexGrow: 1 }}>
-            <Routes>
-              <Route path="/" element={<HomePage />} />
-              <Route path="/product-details" element={<ProductDetails />} />
-              <Route path="/product-details/:id" element={<ProductDetails />} />
-              <Route path="/register" element={<RegisterPage />} />
-              <Route path="/login" element={<LoginPage onLogin={handleLogin} />} />
-              <Route path="/cart" element={<Cart />} />
-              <Route path="/RegistrationForm" element={<RegistrationForm />} />
-              <Route path="/account" element={<AccountPage />} />
-              <Route path="/wallet" element={<WalletPage />} />
-              <Route path="/sales-agent" element={<SalesAgentPage />} />
-              <Route path="/confirm" element={<Confirm />} />
-              <Route path="/set-password" element={<SetPassword />} />
-              <Route path="/forgot-password" element={<ForgotPasswordPage />} />
-              <Route path="/reset-password" element={<ResetPasswordPage />} />
-              <Route path="/admin/*" element={<AdminPage />} />
-              <Route path="/products/:categoryId/:subcategoryId" element={<ProductsPage />} />
-            </Routes>
-          </main>
-          <Footer />          
-        </div>
-      </BrowserRouter>
-      </CategoriesProvider>
+      <ErrorBoundary>
+        <CategoriesProvider>
+          <BrowserRouter>
+            <div style={{ display: "flex", flexDirection: "column", minHeight: "100vh" }}>
+              <NavigationBar isLoggedIn={isLoggedIn} currentUser={currentUser} onLogout={handleLogout} />
+              <main style={{ flexGrow: 1 }}>
+                <Routes>
+                  <Route path="/" element={<HomePage />} />
+                  <Route path="/product-details" element={<ProductDetails />} />
+                  <Route path="/product-details/:id" element={<ProductDetails />} />
+                  <Route path="/register" element={<RegisterPage />} />
+                  <Route path="/login" element={<LoginPage onLogin={handleLogin} />} />
+                  <Route path="/cart" element={<Cart />} />
+                  <Route path="/RegistrationForm" element={<RegistrationForm />} />
+                  <Route path="/account" element={<AccountPage />} />
+                  <Route path="/wallet" element={<WalletPage />} />
+                  <Route path="/sales-agent" element={<SalesAgentPage />} />
+                  <Route path="/confirm" element={<Confirm />} />
+                  <Route path="/set-password" element={<SetPassword />} />
+                  <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+                  <Route path="/reset-password" element={<ResetPasswordPage />} />
+                  <Route path="/checkout" element={<CheckoutPage />} />
+                  <Route path="/admin/*" element={<AdminPage />} />
+                  <Route path="/products/:parentCatId/:categoryId/:subcategoryId" element={<ProductsPage />} />
+                </Routes>
+              </main>
+              <Footer />          
+            </div>
+          </BrowserRouter>
+        </CategoriesProvider>
+      </ErrorBoundary>
     </ThemeProvider>
   )
 }

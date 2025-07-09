@@ -31,7 +31,7 @@ import {
 import { Search, Edit, Delete, Visibility, Add } from "@mui/icons-material"
 import { CategoriesContext } from "./CategoriesContext"
 
-export default function ManageItems({ onEditItem, onAddNewItem }) {
+export default function ManageItems({ onEditItem, onAddNewItem, refreshItems, onItemsRefreshed }) {
   const [items, setItems] = useState([])
   const [searchTerm, setSearchTerm] = useState("")
   const [deleteDialog, setDeleteDialog] = useState(false)
@@ -40,81 +40,87 @@ export default function ManageItems({ onEditItem, onAddNewItem }) {
   const [successMessage, setSuccessMessage] = useState("")
   const [errorMessage, setErrorMessage] = useState("")
   const [loading, setLoading] = useState(true)
-  const categories = useContext(CategoriesContext)
+  const { categories, loading: categoriesLoading, error: categoriesError } = useContext(CategoriesContext)
 
-  // Fetch products on mount
-  useEffect(() => {
-    const fetchProducts = async () => {
-      setLoading(true)
-      setErrorMessage("")
-      try {
-        const response = await fetch(`${import.meta.env.VITE_API_URL}/products`)
-        if (!response.ok) throw new Error("Failed to fetch products")
-        const data = await response.json()
-        // Map API data to UI structure
-        const mappedItems = data.map(item => ({
-          id: item.id,
-          productName: item.product_name,
-          itemCode: item.product_code,
-          description: item.description || "",
-          category: item.category?.name || "Unknown",
-          subCategory: item.subcategory?.name || "",
-          cashbackRate: item.cashback_rate || 0,
-          stockUnits: item.stock_units,
-          alertQuantity: item.alert_quantity || 0,
-          measurementUnit: item.uom,
-          image: item.image_url || "/placeholder.svg?height=200&width=200",
-          tierPricing: item.tier_pricing || [
-            { minQuantity: item.qty1_min || 1, maxQuantity: item.qty1_max || 999, price: item.selling_price1 || 0 }
-          ],
-          createdAt: item.created_at,
-          updatedAt: item.updated_at,
-        }))
-        setItems(mappedItems)
-      } catch (error) {
-        setErrorMessage(error.message || "Failed to load products")
-      } finally {
-        setLoading(false)
-      }
+  // Fetch products
+  const fetchProducts = async () => {
+    setLoading(true)
+    setErrorMessage("")
+    try {
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/products`)
+      if (!response.ok) throw new Error("Failed to fetch products")
+      const data = await response.json()
+      // Map API data to UI structure
+      const mappedItems = data.map(item => ({
+        id: item.id,
+        productName: item.product_name,
+        itemCode: item.product_code,
+        description: item.description || "",
+        category: item.category?.name || "Unknown",
+        category_id: item.category_id,
+        subCategory: item.subcategory?.name || "",
+        subCategory_id: item.subcategory_id || "",
+        cashbackRate: item.cashback_rate || 0,
+        stockUnits: item.stock_units,
+        alertQuantity: item.alert_quantity || 0,
+        measurementUnit: item.uom,
+        image: item.image_url || "/placeholder.svg?height=200&width=200",
+        tierPricing: [
+          { minQuantity: item.qty1_min || 1, maxQuantity: item.qty1_max || 999, price: item.selling_price1 || 0 },
+          item.selling_price2 && item.qty2_min ? { minQuantity: item.qty2_min, maxQuantity: item.qty2_max || null, price: item.selling_price2 } : null,
+          item.selling_price3 && item.qty3_min ? { minQuantity: item.qty3_min, maxQuantity: null, price: item.selling_price3 } : null,
+        ].filter(tier => tier !== null && tier.price > 0),
+        createdAt: item.created_at,
+        updatedAt: item.updated_at,
+      }))
+      setItems(mappedItems)
+    } catch (error) {
+      setErrorMessage(error.message || "Failed to load products")
+    } finally {
+      setLoading(false)
     }
+  }
+
+  // Fetch products on mount and when refreshItems changes
+  useEffect(() => {
     fetchProducts()
-  }, [])
+    if (refreshItems && onItemsRefreshed) {
+      onItemsRefreshed()
+    }
+  }, [refreshItems])
 
   // Filter items based on search
   const filteredItems = items.filter(
     (item) =>
       item.productName.toLowerCase().includes(searchTerm.toLowerCase()) ||
       item.itemCode.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      item.category.toLowerCase().includes(searchTerm.toLowerCase())
+      item.category.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      item.subCategory.toLowerCase().includes(searchTerm.toLowerCase())
   )
 
   const handleEditItem = (item) => {
     if (onEditItem) {
       // Map back to API structure for NewItemForm.jsx
       const editItem = {
-        ...item,
-        product_code: item.itemCode,
+        id: item.id,
         product_name: item.productName,
+        product_code: item.itemCode,
+        description: item.description,
+        category_id: item.category_id,
+        subcategory_id: item.subCategory_id,
         uom: item.measurementUnit,
         image_url: item.image,
-        category_id: categories.find(cat => cat.name === item.category)?.id || "",
-        subcategory_id: item.subCategory
-          ? categories
-              .flatMap(cat => cat.subcategories || [])
-              .find(sub => sub.name === item.subCategory)?.id || ""
-          : "",
         cashback_rate: item.cashbackRate,
         stock_units: item.stockUnits,
         alert_quantity: item.alertQuantity,
-        tier_pricing: item.tierPricing,
-        selling_price_1: item.tierPricing[0]?.price || "",
-        selling_price_2: item.tierPricing[1]?.price || "",
-        selling_price_3: item.tierPricing[2]?.price || "",
-        qty_1_min: item.tierPricing[0]?.minQuantity || "",
-        qty_1_max: item.tierPricing[0]?.maxQuantity || "",
-        qty_2_min: item.tierPricing[1]?.minQuantity || "",
-        qty_2_max: item.tierPricing[1]?.maxQuantity || "",
-        qty_3_min: item.tierPricing[2]?.minQuantity || "",
+        qty1_min: item.tierPricing[0]?.minQuantity || "",
+        qty1_max: item.tierPricing[0]?.maxQuantity || "",
+        selling_price1: item.tierPricing[0]?.price || "",
+        qty2_min: item.tierPricing[1]?.minQuantity || "",
+        qty2_max: item.tierPricing[1]?.maxQuantity || "",
+        selling_price2: item.tierPricing[1]?.price || "",
+        qty3_min: item.tierPricing[2]?.minQuantity || "",
+        selling_price3: item.tierPricing[2]?.price || "",
       }
       onEditItem(editItem)
     }
@@ -162,8 +168,8 @@ export default function ManageItems({ onEditItem, onAddNewItem }) {
       <Box key={index} sx={{ mb: 1 }}>
         <Typography variant="body2">
           {index === 2
-            ? `${tier.min_quantity} and above PC: ${formatCurrency(tier.price)}`
-            : `${tier.min_quantity}-${tier.max_quantity || '∞'} PC: ${formatCurrency(tier.price)}`}
+            ? `${tier.minQuantity} and above PC: ${formatCurrency(tier.price)}`
+            : `${tier.minQuantity}-${tier.maxQuantity || '∞'} PC: ${formatCurrency(tier.price)}`}
         </Typography>
       </Box>
     ))
@@ -179,8 +185,43 @@ export default function ManageItems({ onEditItem, onAddNewItem }) {
     }
   }
 
+  // Get parent category name
+  const getParentCategory = (categoryId) => {
+    if (!Array.isArray(categories) || categories.length === 0) return "Unknown"
+    const category = categories.find(cat => cat.id === categoryId)
+    if (!category) {
+      const parent = categories.find(parent =>
+        parent.categories?.some(cat => cat.id === categoryId)
+      )
+      return parent ? parent.name : "Unknown"
+    }
+    return category.name
+  }
+
+  // Handle loading and error states
+  if (categoriesLoading || loading) {
+    return (
+      <Box sx={{ textAlign: "center", py: 4 }}>
+        <CircularProgress />
+        <Typography variant="body1" color="text.secondary" sx={{ mt: 2 }}>
+          Loading products and categories...
+        </Typography>
+      </Box>
+    )
+  }
+
+  if (categoriesError || errorMessage) {
+    return (
+      <Box sx={{ textAlign: "center", py: 4 }}>
+        <Typography variant="body1" color="error">
+          {categoriesError || errorMessage}
+        </Typography>
+      </Box>
+    )
+  }
+
   return (
-    <Box sx={{ maxWidth: "100%", mx: "auto" }}>
+    <Box sx={{ maxWidth: "100%", mx: "auto", p: 2 }}>
       {/* Header */}
       <Box
         sx={{
@@ -233,7 +274,7 @@ export default function ManageItems({ onEditItem, onAddNewItem }) {
       {/* Search Bar */}
       <Box sx={{ mb: 4 }}>
         <TextField
-          placeholder="Search items by name, code, or category..."
+          placeholder="Search items by name, code, category, or subcategory..."
           variant="outlined"
           size="medium"
           value={searchTerm}
@@ -257,106 +298,95 @@ export default function ManageItems({ onEditItem, onAddNewItem }) {
       </Box>
 
       {/* Items Table */}
-      {loading ? (
-        <Box sx={{ textAlign: "center", py: 4 }}>
-          <CircularProgress />
-          <Typography variant="body1" color="text.secondary" sx={{ mt: 2 }}>
-            Loading products...
-          </Typography>
-        </Box>
-      ) : errorMessage ? (
-        <Typography variant="body1" color="error" sx={{ textAlign: "center", py: 4 }}>
-          {errorMessage}
-        </Typography>
-      ) : (
-        <Paper sx={{ overflow: "hidden", borderRadius: 2, boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)" }}>
-          <TableContainer sx={{ width: "100%" }}>
-            <Table stickyHeader aria-label="Products table">
-              <TableHead>
-                <TableRow sx={{ bgcolor: "#f8f9fa" }}>
-                  <TableCell scope="col" sx={{ fontWeight: 700, color: "#333", fontSize: "0.85rem", minWidth: 200 }}>
-                    Product
-                  </TableCell>
-                  <TableCell scope="col" sx={{ fontWeight: 700, color: "#333", fontSize: "0.85rem", minWidth: 80 }}>
-                    Code
-                  </TableCell>
-                  <TableCell scope="col" sx={{ fontWeight: 700, color: "#333", fontSize: "0.85rem", minWidth: 120 }}>
-                    Category
-                  </TableCell>
-                  <TableCell scope="col" sx={{ fontWeight: 700, color: "#333", fontSize: "0.85rem", minWidth: 140 }}>
-                    Price Range
-                  </TableCell>
-                  <TableCell scope="col" sx={{ fontWeight: 700, color: "#333", fontSize: "0.85rem", minWidth: 80 }}>
-                    Cashback
-                  </TableCell>
-                  <TableCell scope="col" sx={{ fontWeight: 700, color: "#333", fontSize: "0.85rem", minWidth: 100 }}>
-                    Stock
-                  </TableCell>
-                  <TableCell
-                    scope="col"
-                    sx={{ fontWeight: 700, color: "#333", fontSize: "0.85rem", minWidth: 120 }}
-                    align="center"
-                  >
-                    Actions
+      <Paper sx={{ overflow: "hidden", borderRadius: 2, boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)" }}>
+        <TableContainer sx={{ width: "100%" }}>
+          <Table stickyHeader aria-label="Products table">
+            <TableHead>
+              <TableRow sx={{ bgcolor: "#f8f9fa" }}>
+                <TableCell scope="col" sx={{ fontWeight: 700, color: "#333", fontSize: "0.95rem", minWidth: 200 }}>
+                  Product
+                </TableCell>
+                <TableCell scope="col" sx={{ fontWeight: 700, color: "#333", fontSize: "0.95rem", minWidth: 80 }}>
+                  Code
+                </TableCell>
+                <TableCell scope="col" sx={{ fontWeight: 700, color: "#333", fontSize: "0.95rem", minWidth: 120 }}>
+                  Parent Category
+                </TableCell>
+                <TableCell scope="col" sx={{ fontWeight: 700, color: "#333", fontSize: "0.95rem", minWidth: 140 }}>
+                  Price Range
+                </TableCell>
+                <TableCell scope="col" sx={{ fontWeight: 700, color: "#333", fontSize: "0.95rem", minWidth: 80 }}>
+                  Cashback
+                </TableCell>
+                <TableCell scope="col" sx={{ fontWeight: 700, color: "#333", fontSize: "0.95rem", minWidth: 100 }}>
+                  Stock
+                </TableCell>
+                <TableCell
+                  scope="col"
+                  sx={{ fontWeight: 700, color: "#333", fontSize: "0.95rem", minWidth: 120 }}
+                  align="center"
+                >
+                  Actions
+                </TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {filteredItems.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={7} sx={{ textAlign: "center", py: 4 }}>
+                    <Typography variant="body1" color="text.secondary">
+                      No products found
+                    </Typography>
                   </TableCell>
                 </TableRow>
-              </TableHead>
-              <TableBody>
-                {filteredItems.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={7} sx={{ textAlign: "center", py: 4 }}>
-                      <Typography variant="body1" color="text.secondary">
-                        No products found
-                      </Typography>
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  filteredItems.map((item) => {
-                    const stockStatus = getStockStatus(item.stockUnits, item.alertQuantity)
-                    const validTiers = item.tierPricing.filter(tier => tier.price !== null)
-                    const lowestPrice = validTiers.length > 0 ? Math.min(...validTiers.map(tier => tier.price)) : 0
-                    const highestPrice = validTiers.length > 0 ? Math.max(...validTiers.map(tier => tier.price)) : 0
+              ) : (
+                filteredItems.map((item) => {
+                  const stockStatus = getStockStatus(item.stockUnits, item.alertQuantity)
+                  const validTiers = item.tierPricing.filter(tier => tier.price > 0)
+                  const lowestPrice = validTiers.length > 0 ? Math.min(...validTiers.map(tier => tier.price)) : 0
+                  const highestPrice = validTiers.length > 0 ? Math.max(...validTiers.map(tier => tier.price)) : 0
+                  const parentCategory = getParentCategory(item.category_id)
 
-                    return (
-                      <TableRow
-                        key={item.id}
-                        hover
-                        sx={{
-                          "&:hover": { bgcolor: "#f8f9fa" },
-                          borderBottom: "1px solid #e9ecef",
-                        }}
-                      >
-                        <TableCell>
-                          <Box sx={{ display: "flex", alignItems: "center" }}>
-                            <Avatar
-                              src={item.image}
-                              alt={item.productName}
-                              sx={{
-                                mr: 1.5,
-                                width: 40,
-                                height: 40,
-                                bgcolor: "#f5f5f5",
-                                borderRadius: 1,
-                              }}
-                            />
-                            <Box>
-                              <Typography variant="body2" sx={{ fontWeight: 600, color: "#333", fontSize: "0.85rem" }}>
-                                {item.productName}
-                              </Typography>
-                              <Typography
-                                variant="caption"
-                                color="text.secondary"
-                                sx={{ fontSize: "0.75rem" }}
-                              >
-                                {item.description.substring(0, 30)}...
-                              </Typography>
-                            </Box>
+                  return (
+                    <TableRow
+                      key={item.id}
+                      hover
+                      sx={{
+                        "&:hover": { bgcolor: "#f8f9fa" },
+                        borderBottom: "1px solid #e9ecef",
+                      }}
+                    >
+                      <TableCell>
+                        <Box sx={{ display: "flex", alignItems: "center" }}>
+                          <Avatar
+                            src={item.image}
+                            alt={item.productName}
+                            sx={{
+                              mr: 1.5,
+                              width: 40,
+                              height: 40,
+                              bgcolor: "#f5f5f5",
+                              borderRadius: 1,
+                            }}
+                          />
+                          <Box>
+                            <Typography variant="body2" sx={{ fontWeight: 600, color: "#333", fontSize: "0.95rem" }}>
+                              {item.productName}
+                            </Typography>
+                            <Typography
+                              variant="caption"
+                              color="text.secondary"
+                              sx={{ fontSize: "0.85rem" }}
+                            >
+                              {item.description ? item.description.substring(0, 30) + "..." : "No description"}
+                            </Typography>
+                          </Box>
                           </Box>
                         </TableCell>
                         <TableCell>
                           <Typography
                             variant="body2"
-                            sx={{ fontWeight: 600, color: "#1976d2", fontSize: "0.8rem" }}
+                            sx={{ fontWeight: 600, color: "#1976d2", fontSize: "0.95rem" }}
                           >
                             {item.itemCode}
                           </Typography>
@@ -364,31 +394,30 @@ export default function ManageItems({ onEditItem, onAddNewItem }) {
                         <TableCell>
                           <Stack spacing={0.5}>
                             <Chip
-                              label={item.category}
+                              label={parentCategory}
                               size="small"
                               sx={{
                                 bgcolor: "#e3f2fd",
                                 color: "#1976d2",
                                 fontWeight: 600,
-                                fontSize: "0.7rem",
+                                fontSize: "0.85rem",
                                 height: 20,
                               }}
                             />
-                            {item.subCategory && (
-                              <Typography variant="caption" color="text.secondary" sx={{ fontSize: "0.7rem" }}>
-                                {item.subCategory}
-                              </Typography>
-                            )}
+                            <Typography variant="caption" color="text.secondary" sx={{ fontSize: "0.85rem" }}>
+                              {item.category}
+                              {item.subCategory && ` > ${item.subCategory}`}
+                            </Typography>
                           </Stack>
                         </TableCell>
                         <TableCell>
                           <Box>
-                            <Typography variant="body2" sx={{ fontWeight: 600, fontSize: "0.8rem" }}>
+                            <Typography variant="body2" sx={{ fontWeight: 600, fontSize: "0.95rem" }}>
                               {validTiers.length > 0
                                 ? `${formatCurrency(lowestPrice)} - ${formatCurrency(highestPrice)}`
                                 : formatCurrency(0)}
                             </Typography>
-                            <Typography variant="caption" color="text.secondary" sx={{ fontSize: "0.7rem" }}>
+                            <Typography variant="caption" color="text.secondary" sx={{ fontSize: "0.85rem" }}>
                               {validTiers.length} tier{validTiers.length !== 1 ? "s" : ""}
                             </Typography>
                           </Box>
@@ -401,7 +430,7 @@ export default function ManageItems({ onEditItem, onAddNewItem }) {
                               bgcolor: "#fff3e0",
                               color: "#f57c00",
                               fontWeight: 600,
-                              fontSize: "0.7rem",
+                              fontSize: "0.85rem",
                               height: 20,
                             }}
                           />
@@ -415,11 +444,11 @@ export default function ManageItems({ onEditItem, onAddNewItem }) {
                                 bgcolor: stockStatus.bgcolor,
                                 color: stockStatus.color,
                                 fontWeight: 600,
-                                fontSize: "0.7rem",
+                                fontSize: "0.85rem",
                                 height: 20,
                               }}
                             />
-                            <Typography variant="caption" color="text.secondary" sx={{ fontSize: "0.7rem" }}>
+                            <Typography variant="caption" color="text.secondary" sx={{ fontSize: "0.85rem" }}>
                               {item.stockUnits} {item.measurementUnit}
                             </Typography>
                           </Stack>
@@ -474,11 +503,10 @@ export default function ManageItems({ onEditItem, onAddNewItem }) {
                     )
                   })
                 )}
-              </TableBody>
-            </Table>
-          </TableContainer>
-        </Paper>
-      )}
+            </TableBody>
+          </Table>
+        </TableContainer>
+      </Paper>
 
       {/* Delete Confirmation Dialog */}
       <Dialog open={deleteDialog} onClose={() => setDeleteDialog(false)} maxWidth="sm" fullWidth>
@@ -546,7 +574,7 @@ export default function ManageItems({ onEditItem, onAddNewItem }) {
                     Item Code: <strong>{selectedItem.itemCode}</strong>
                   </Typography>
                   <Typography variant="body1" gutterBottom sx={{ mb: 3 }}>
-                    {selectedItem.description}
+                    {selectedItem.description || "No description"}
                   </Typography>
 
                   <Box sx={{ mb: 3 }}>
@@ -560,6 +588,9 @@ export default function ManageItems({ onEditItem, onAddNewItem }) {
 
                   <Grid container spacing={2}>
                     <Grid item xs={6}>
+                      <Typography variant="body2" sx={{ mb: 1 }}>
+                        <strong>Parent Category:</strong> {getParentCategory(selectedItem.category_id)}
+                      </Typography>
                       <Typography variant="body2" sx={{ mb: 1 }}>
                         <strong>Category:</strong> {selectedItem.category}
                         {selectedItem.subCategory && ` > ${selectedItem.subCategory}`}

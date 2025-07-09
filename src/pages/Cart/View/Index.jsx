@@ -35,54 +35,7 @@ const formatNumberWithCommas = (number) => {
   return number.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",")
 }
 
-// Define pricing tiers
-const PRICING_TIERS = {
-  TIER1: { min: 1, max: 3, adjustment: 1 }, // 1-3 pieces: base price
-  TIER2: { min: 4, max: 11, adjustment: 0.95 }, // 4-11 pieces: 5% lower
-  TIER3: { min: 12, max: Number.POSITIVE_INFINITY, adjustment: 0.9 }, // 12+ pieces: 10% lower
-}
-
 export default function Cart() {
-  // Initial cart items data with cashback added
-  const initialCartItems = [
-    {
-      id: "item1",
-      name: "Chair..................................",
-      size: "medium",
-      color: "blue",
-      material: "Plastic",
-      seller: "Artist Market",
-      price: 79000, // Base price
-      cashbackPercent: 5, // 5% cashback
-      image: softChairsImage,
-      itemCode: "SC001",
-    },
-    {
-      id: "item2",
-      name: "T-shirts with multiple colors, for men and lady",
-      size: "medium",
-      color: "blue",
-      material: "Plastic",
-      seller: "Best factory LLC",
-      price: 39000, // Base price
-      cashbackPercent: 5, // 5% cashback
-      image: sofaChairImage,
-      itemCode: "TS001",
-    },
-    {
-      id: "item3",
-      name: "T-shirts with multiple colors, for men and lady",
-      size: "medium",
-      color: "blue",
-      material: "Plastic",
-      seller: "Artist Market",
-      price: 171000, // Base price
-      cashbackPercent: 5, // 5% cashback
-      image: kitchenDishesImage,
-      itemCode: "TS002",
-    },
-  ]
-
   // State for cart items
   const [cartItems, setCartItems] = useState([])
 
@@ -90,20 +43,14 @@ export default function Cart() {
   useEffect(() => {
     const storedCartItems = JSON.parse(localStorage.getItem("cartItems")) || []
     if (storedCartItems.length > 0) {
-      // Ensure all items have cashbackPercent property
+      // Ensure all items have cashbackPercent and tier_pricing properties
       const updatedItems = storedCartItems.map((item) => ({
         ...item,
         cashbackPercent: item.cashbackPercent || (item.cashback ? Math.round((item.cashback / item.price) * 100) : 5),
-        basePrice: item.basePrice || item.price, // Store the base price for tier calculations
+        tier_pricing: item.tier_pricing || [], // Ensure tier_pricing is present
+        quantity: item.quantity || 1, // Ensure quantity is set
       }))
       setCartItems(updatedItems)
-    } else {
-      // If no items in localStorage, use the initial items with basePrice added
-      const itemsWithBasePrice = initialCartItems.map((item) => ({
-        ...item,
-        basePrice: item.price, // Store the base price for tier calculations
-      }))
-      setCartItems(itemsWithBasePrice)
     }
   }, [])
 
@@ -114,10 +61,22 @@ export default function Cart() {
   useEffect(() => {
     const initialQuantities = {}
     cartItems.forEach((item) => {
-      initialQuantities[item.id] = 1
+      initialQuantities[item.id] = item.quantity || 1
     })
     setQuantities(initialQuantities)
   }, [cartItems])
+
+  // Update localStorage when quantities change
+  useEffect(() => {
+    if (cartItems.length > 0) {
+      const updatedCartItems = cartItems.map((item) => ({
+        ...item,
+        quantity: quantities[item.id] || 1,
+        price: getAdjustedPrice(item, quantities[item.id] || 1), // Store adjusted price
+      }))
+      localStorage.setItem("cartItems", JSON.stringify(updatedCartItems))
+    }
+  }, [quantities, cartItems])
 
   // Add theme and isMobile detection
   const theme = useTheme()
@@ -125,39 +84,40 @@ export default function Cart() {
   const isTablet = useMediaQuery(theme.breakpoints.between("sm", "lg"))
 
   // Function to get the price tier based on quantity
-  const getPriceTier = (quantity) => {
-    if (quantity >= PRICING_TIERS.TIER3.min) return PRICING_TIERS.TIER3
-    if (quantity >= PRICING_TIERS.TIER2.min) return PRICING_TIERS.TIER2
-    return PRICING_TIERS.TIER1
+  const getPriceTier = (item, quantity) => {
+    return item.tier_pricing.find(tier => 
+      quantity >= tier.min_quantity && (!tier.max_quantity || quantity <= tier.max_quantity)
+    ) || item.tier_pricing[0] || { price: item.price } // Fallback to first tier or item.price
   }
 
   // Function to get the adjusted price based on quantity
   const getAdjustedPrice = (item, quantity) => {
-    const tier = getPriceTier(quantity)
-    const basePrice = item.basePrice || item.price
-    return Math.round(basePrice * tier.adjustment)
+    const tier = getPriceTier(item, quantity)
+    return Math.round(parseFloat(tier.price) || item.price)
   }
 
   // Function to get the tier label
-  const getTierLabel = (quantity) => {
-    if (quantity >= PRICING_TIERS.TIER3.min) return "12+ PC"
-    if (quantity >= PRICING_TIERS.TIER2.min) return "4-11 PC"
-    return "1-3 PC"
+  const getTierLabel = (item, quantity) => {
+    const tier = getPriceTier(item, quantity)
+    if (!tier) return "N/A"
+    return tier.max_quantity 
+      ? `${tier.min_quantity}-${tier.max_quantity} PC` 
+      : `${tier.min_quantity}+ PC`
   }
 
-  // New handlers for increasing and decreasing quantity
-  const increaseQuantity = (item) => {
+  // Handlers for increasing and decreasing quantity
+  const increaseQuantity = (itemId) => {
     setQuantities({
       ...quantities,
-      [item]: quantities[item] + 1,
+      [itemId]: (quantities[itemId] || 1) + 1,
     })
   }
 
-  const decreaseQuantity = (item) => {
-    if (quantities[item] > 1) {
+  const decreaseQuantity = (itemId) => {
+    if (quantities[itemId] > 1) {
       setQuantities({
         ...quantities,
-        [item]: quantities[item] - 1,
+        [itemId]: quantities[itemId] - 1,
       })
     }
   }
@@ -166,8 +126,6 @@ export default function Cart() {
   const removeItem = (itemId) => {
     const updatedCartItems = cartItems.filter((item) => item.id !== itemId)
     setCartItems(updatedCartItems)
-
-    // Update localStorage
     localStorage.setItem("cartItems", JSON.stringify(updatedCartItems))
   }
 
@@ -178,7 +136,6 @@ export default function Cart() {
   const subtotalExclVAT = cartItems.reduce((sum, item) => {
     const quantity = quantities[item.id] || 1
     const adjustedPrice = getAdjustedPrice(item, quantity)
-    // Calculate price excluding VAT: adjustedPrice / (1 + VAT_RATE)
     const priceExclVAT = Math.round(adjustedPrice / (1 + VAT_RATE))
     return sum + priceExclVAT * quantity
   }, 0)
@@ -191,8 +148,7 @@ export default function Cart() {
 
   // Calculate cashback based on percentage (excluding VAT)
   const calculateCashback = (item, quantity) => {
-    const cashbackPercent = item.cashbackPercent || 0
-    // Calculate price excluding VAT but use the adjusted price for the actual price
+    const cashbackPercent = parseFloat(item.cashbackPercent) || 0
     const adjustedPrice = getAdjustedPrice(item, quantity)
     const priceExclVAT = Math.round(adjustedPrice / (1 + VAT_RATE))
     return Math.round((priceExclVAT * quantity * cashbackPercent) / 100)
@@ -257,7 +213,7 @@ export default function Cart() {
                 {cartItems.map((item) => {
                   const quantity = quantities[item.id] || 1
                   const adjustedPrice = getAdjustedPrice(item, quantity)
-                  const tierLabel = getTierLabel(quantity)
+                  const tierLabel = getTierLabel(item, quantity)
 
                   return (
                     <Paper key={item.id} sx={{ mb: 2, p: 2 }}>
@@ -278,7 +234,6 @@ export default function Cart() {
                           <Typography variant="body1" fontWeight="medium" gutterBottom>
                             {item.name}
                           </Typography>
-                          {/* Item Code Chip */}
                           <Chip
                             label={`Item Code: ${item.itemCode || "N/A"}`}
                             size="small"
@@ -291,10 +246,10 @@ export default function Cart() {
                             }}
                           />
                           <Typography variant="body2" color="text.secondary">
-                            Size: {item.size}, Color: {item.color}
+                            Tier: {tierLabel}
                           </Typography>
-                          <Typography variant="body2" color="text.secondary" gutterBottom>
-                            Seller: {item.seller}
+                          <Typography variant="body1" fontWeight="medium" gutterBottom sx={{ fontSize: "1rem" }}>
+                            {item.description}
                           </Typography>
                         </Grid>
 
@@ -412,6 +367,7 @@ export default function Cart() {
                     {cartItems.map((item) => {
                       const quantity = quantities[item.id] || 1
                       const adjustedPrice = getAdjustedPrice(item, quantity)
+                      const tierLabel = getTierLabel(item, quantity)
 
                       return (
                         <TableRow key={item.id}>
@@ -432,7 +388,6 @@ export default function Cart() {
                             <Typography variant="body1" fontWeight="medium" gutterBottom sx={{ fontSize: "1rem" }}>
                               {item.name}
                             </Typography>
-                            {/* Item Code */}
                             <Chip
                               label={`Item Code: ${item.itemCode || "N/A"}`}
                               size="small"
@@ -444,11 +399,11 @@ export default function Cart() {
                                 color: theme.palette.primary.main,
                               }}
                             />
-                            <Typography variant="body2" color="text.secondary" sx={{ fontSize: "0.95rem" }}>
-                              Size: {item.size}, Color: {item.color}, Material: {item.material || "N/A"}
+                            <Typography variant="body2" color="text.secondary">
+                              Tier: {tierLabel}
                             </Typography>
-                            <Typography variant="body2" color="text.secondary" sx={{ fontSize: "0.95rem" }}>
-                              Seller: {item.seller}
+                            <Typography variant="body1" fontWeight="medium" gutterBottom sx={{ fontSize: "1rem" }}>
+                              {item.description}
                             </Typography>
                           </TableCell>
                           <TableCell align="center">
@@ -487,7 +442,6 @@ export default function Cart() {
                               </IconButton>
                             </Box>
                           </TableCell>
-                          {/* Price with /= and commas */}
                           <TableCell align="right" sx={{ fontSize: "1rem" }}>
                             {formatNumberWithCommas(adjustedPrice)}/=
                           </TableCell>
@@ -652,25 +606,10 @@ export default function Cart() {
                 "&:hover": { bgcolor: "#00873e" },
                 mt: 3,
               }}
+              onClick={() => (window.location.href = "/checkout")}
             >
               Checkout
             </Button>
-
-            {/* Payment icons */}
-            <Box
-              sx={{
-                display: "flex",
-                justifyContent: "center",
-                flexWrap: "wrap",
-                mt: 2,
-              }}
-            >
-              <Box component="img" src={homeApplianceImage} alt="visa" sx={{ height: 24, mx: 0.5, my: 0.5 }} />
-              <Box component="img" src={coffeeMakerImage} alt="mastercard" sx={{ height: 24, mx: 0.5, my: 0.5 }} />
-              <Box component="img" src={kitchenMixerImage} alt="paypal" sx={{ height: 24, mx: 0.5, my: 0.5 }} />
-              <Box component="img" src={smartWatchesImage} alt="visa" sx={{ height: 24, mx: 0.5, my: 0.5 }} />
-              <Box component="img" src={kitchenDishesImage} alt="apple pay" sx={{ height: 24, mx: 0.5, my: 0.5 }} />
-            </Box>
           </Paper>
         </Grid>
       </Grid>

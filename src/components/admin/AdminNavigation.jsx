@@ -33,7 +33,6 @@ import {
   AccountCircle,
   Settings,
   ExitToApp,
-  Add as AddIcon,
   List as ListIcon,
   KeyboardArrowDown,
   Visibility as ViewIcon,
@@ -124,21 +123,15 @@ const AdminNavigation = ({
   // State management for dropdowns and menus
   const [anchorEl, setAnchorEl] = useState(null)
   const [dropdownStates, setDropdownStates] = useState({
-    itemMaster: false,
-    categories: false,
     sales: false,
     grn: false,
-    suppliers: false,
     agents: false,
   })
 
   // Refs for dropdown positioning
   const dropdownRefs = {
-    itemMaster: useRef(null),
-    categories: useRef(null),
     sales: useRef(null),
     grn: useRef(null),
-    suppliers: useRef(null),
     agents: useRef(null),
   }
 
@@ -162,11 +155,8 @@ const AdminNavigation = ({
 
   const handleAllDropdownsClose = useCallback(() => {
     setDropdownStates({
-      itemMaster: false,
-      categories: false,
       sales: false,
       grn: false,
-      suppliers: false,
       agents: false,
     })
   }, [])
@@ -352,67 +342,23 @@ const AdminNavigation = ({
             Dashboard
           </AdminNavButton>
 
-          {/* Item Master Dropdown */}
-          <Box
-            ref={dropdownRefs.itemMaster}
-            onMouseEnter={() => handleDropdownToggle("itemMaster", true)}
-            onMouseLeave={() => handleDropdownToggle("itemMaster", false)}
-            sx={{ position: "relative" }}
+          {/* Item Master - Direct to ManageItems */}
+          <AdminNavButton
+            startIcon={<ShoppingCart sx={{ fontSize: 18 }} />}
+            active={isTabActive(1) || activeComponent === "ManageItems"}
+            onClick={() => handleDirectComponentNavigation("ManageItems", 1, "itemMaster", { type: "item" })}
           >
-            <AdminNavButton
-              startIcon={<ShoppingCart sx={{ fontSize: 18 }} />}
-              endIcon={<KeyboardArrowDown sx={{ fontSize: 16 }} />}
-              active={isTabActive(1) || activeComponent === "NewItemForm" || activeComponent === "ManageItems"}
-            >
-              Item Master
-            </AdminNavButton>
+            Item Master
+          </AdminNavButton>
 
-            {renderCRUDDropdown("itemMaster", dropdownStates.itemMaster, dropdownRefs.itemMaster, [
-              {
-                label: "New Item",
-                description: "Create new product",
-                icon: <AddIcon sx={{ color: "#2196f3", fontSize: 18 }} />,
-                componentName: "NewItemForm",
-                tabIndex: 1,
-                data: { type: "item" },
-              },
-              {
-                label: "Manage Items",
-                description: "View and edit products",
-                icon: <ListIcon sx={{ color: "#4caf50", fontSize: 18 }} />,
-                componentName: "ManageItems",
-                tabIndex: 1,
-                data: { type: "item" },
-              },
-            ])}
-          </Box>
-
-          {/* Categories Dropdown */}
-          <Box
-            ref={dropdownRefs.categories}
-            onMouseEnter={() => handleDropdownToggle("categories", true)}
-            onMouseLeave={() => handleDropdownToggle("categories", false)}
-            sx={{ position: "relative" }}
+          {/* Categories - Direct to CategoryManagement */}
+          <AdminNavButton
+            startIcon={<CategoryIcon sx={{ fontSize: 18 }} />}
+            active={isTabActive(2) || activeComponent === "CategoryManagement"}
+            onClick={() => handleDirectComponentNavigation("CategoryManagement", 2, "categories", { type: "category" })}
           >
-            <AdminNavButton
-              startIcon={<CategoryIcon sx={{ fontSize: 18 }} />}
-              endIcon={<KeyboardArrowDown sx={{ fontSize: 16 }} />}
-              active={isTabActive(2) || activeComponent === "CategoryManagement"}
-            >
-              Categories
-            </AdminNavButton>
-
-            {renderCRUDDropdown("categories", dropdownStates.categories, dropdownRefs.categories, [
-              {
-                label: "Manage Categories",
-                description: "View and manage categories",
-                icon: <ViewIcon sx={{ color: "#4caf50", fontSize: 18 }} />,
-                componentName: "CategoryManagement",
-                tabIndex: 2,
-                data: { type: "category" },
-              },
-            ])}
-          </Box>
+            Categories
+          </AdminNavButton>
 
           {/* Sales Dropdown */}
           <Box
@@ -474,7 +420,7 @@ const AdminNavigation = ({
               {
                 label: "Purchase Orders",
                 description: "Manage purchase orders",
-                icon: <AddIcon sx={{ color: "#2196f3", fontSize: 18 }} />,
+                icon: <ListIcon sx={{ color: "#2196f3", fontSize: 18 }} />,
                 componentName: "PurchaseOrderManagement",
                 tabIndex: 4,
                 data: { type: "purchase-orders" },
@@ -490,32 +436,14 @@ const AdminNavigation = ({
             ])}
           </Box>
 
-          {/* Suppliers Dropdown */}
-          <Box
-            ref={dropdownRefs.suppliers}
-            onMouseEnter={() => handleDropdownToggle("suppliers", true)}
-            onMouseLeave={() => handleDropdownToggle("suppliers", false)}
-            sx={{ position: "relative" }}
+          {/* Suppliers - Direct to SupplierManagement */}
+          <AdminNavButton
+            startIcon={<SuppliersIcon sx={{ fontSize: 18 }} />}
+            active={isTabActive(5) || activeComponent === "SupplierManagement"}
+            onClick={() => handleDirectComponentNavigation("SupplierManagement", 5, "suppliers", { type: "supplier" })}
           >
-            <AdminNavButton
-              startIcon={<SuppliersIcon sx={{ fontSize: 18 }} />}
-              endIcon={<KeyboardArrowDown sx={{ fontSize: 16 }} />}
-              active={isTabActive(5) || activeComponent === "SupplierManagement"}
-            >
-              Suppliers
-            </AdminNavButton>
-
-            {renderCRUDDropdown("suppliers", dropdownStates.suppliers, dropdownRefs.suppliers, [
-              {
-                label: "Manage Suppliers",
-                description: "View and manage suppliers",
-                icon: <ViewIcon sx={{ color: "#4caf50", fontSize: 18 }} />,
-                componentName: "SupplierManagement",
-                tabIndex: 5,
-                data: { type: "supplier" },
-              },
-            ])}
-          </Box>
+            Suppliers
+          </AdminNavButton>
 
           {/* Sales Agents Dropdown */}
           <Box

@@ -35,7 +35,7 @@ function LoginPage({ onLogin }) {
   const [showPassword, setShowPassword] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
 
-  // Check URL parameters for user type
+  // Check URL parameters for user type and redirect
   useEffect(() => {
     const urlParams = new URLSearchParams(location.search)
     const typeParam = urlParams.get("type")
@@ -45,6 +45,21 @@ function LoginPage({ onLogin }) {
       setUserType("admin")
     }
   }, [location])
+
+  // Handle redirect after successful login
+  useEffect(() => {
+    const urlParams = new URLSearchParams(location.search)
+    const redirect = urlParams.get("redirect")
+    if (successMessage && redirect) {
+      setTimeout(() => navigate(redirect), 1500)
+    } else if (successMessage) {
+      setTimeout(() => {
+        if (userType === "admin") navigate("/admin")
+        else if (userType === "agent") navigate("/sales-agent")
+        else navigate("/account")
+      }, 1500)
+    }
+  }, [successMessage, userType, navigate, location])
 
   const handleTogglePasswordVisibility = () => {
     setShowPassword((prev) => !prev)
@@ -106,10 +121,6 @@ function LoginPage({ onLogin }) {
               userType: "admin",
             })
           }
-
-          setTimeout(() => {
-            navigate("/admin")
-          }, 1500)
         } else {
           throw new Error("Invalid response from server")
         }
@@ -162,10 +173,6 @@ function LoginPage({ onLogin }) {
               userType: "sales_agent",
             })
           }
-
-          setTimeout(() => {
-            navigate("/sales-agent")
-          }, 1500)
         } else {
           throw new Error("Invalid response from server")
         }
@@ -218,10 +225,6 @@ function LoginPage({ onLogin }) {
             userType: "customer",
           })
         }
-
-        setTimeout(() => {
-          navigate("/account")
-        }, 1500)
       } else {
         throw new Error("Invalid response from server")
       }

@@ -3,25 +3,21 @@
 import { useState, useEffect, useContext } from "react"
 import {
   Box, Typography, Grid, TextField, FormControl, InputLabel, Select, MenuItem,
-  Button, Paper, InputAdornment, FormHelperText, Card, Table, TableBody,
-  TableCell, TableContainer, TableHead, TableRow, Accordion, AccordionSummary,
-  AccordionDetails, Switch, FormControlLabel, Chip, CircularProgress
+  Button, Paper, InputAdornment, FormHelperText, Card, Table, TableContainer, TableHead, TableBody,
+  TableCell, TableRow, Accordion, AccordionSummary, AccordionDetails, Switch, FormControlLabel, Chip, CircularProgress
 } from "@mui/material"
 import { Upload, Image as ImageIcon, ExpandMore, QrCode } from "@mui/icons-material"
-import JsBarcode from "jsbarcode"
+import { NumericFormat } from 'react-number-format'
 import { CategoriesContext } from "./CategoriesContext"
 
-// Static vendor list (temporary, as vendor integration is deferred)
-const vendorOptions = ["Vendor A", "Vendor B", "Vendor C"]
-
-// Initial form state
 const initialFormState = {
+  parentCatId: "",
+  categoryId: "",
+  subcategoryId: "",
   productName: "",
   productCode: "",
   uom: "PC",
   packSize: "",
-  categoryId: "",
-  subcategoryId: "",
   description: "",
   longerDescription: "",
   productBarcode: "",
@@ -35,13 +31,12 @@ const initialFormState = {
   sellingPrice3: "",
   qty1Min: "1",
   qty1Max: "3",
-  qty2Min: "4",
-  qty2Max: "11",
-  qty3Min: "12",
+  qty2Min: "",
+  qty2Max: "",
+  qty3Min: "",
   vat: "16",
   cashbackRate: "0",
   preferredVendor1: "",
-  preferredVendor2: "",
   vendorItemCode: "",
   saCashback1stPurchase: "6",
   saCashback2ndPurchase: "4",
@@ -57,37 +52,150 @@ const initialFormState = {
 const uomOptions = ["PC", "PKT", "BOX", "SET", "KG", "LITERS", "METERS", "REAMS", "PACKS"]
 const vatRates = ["0", "8", "16"]
 
+// Custom NumericFormat component for price inputs
+const PriceFormat = ({ onChange, ...props }) => (
+  <NumericFormat
+    {...props}
+    thousandSeparator=","
+    decimalScale={2}
+    fixedDecimalScale
+    allowNegative={false}
+    isAllowed={(values) => {
+      const { floatValue, formattedValue } = values
+      if (floatValue === undefined) return true
+      const integers = formattedValue.split('.')[0].replace(/,/g, '').length
+      return floatValue <= 9999999999999.99 && integers <= 13
+    }}
+    onValueChange={(values) => {
+      onChange({
+        target: {
+          name: props.name,
+          value: values.value,
+        },
+      })
+    }}
+    customInput={TextField}
+  />
+)
+
+// Custom NumericFormat component for percentage inputs
+const PercentageFormat = ({ onChange, ...props }) => (
+  <NumericFormat
+    {...props}
+    thousandSeparator=","
+    decimalScale={2}
+    fixedDecimalScale
+    allowNegative={false}
+    isAllowed={(values) => {
+      const { floatValue } = values
+      return floatValue === undefined || (floatValue >= 0 && floatValue <= 100)
+    }}
+    onValueChange={(values) => {
+      onChange({
+        target: {
+          name: props.name,
+          value: values.value,
+        },
+      })
+    }}
+    customInput={TextField}
+  />
+)
+
 export default function NewItemForm({ onSubmit, editItem = null }) {
-  const categories = useContext(CategoriesContext)
+  const { categories, loading, error } = useContext(CategoriesContext)
   const [formData, setFormData] = useState(initialFormState)
   const [errors, setErrors] = useState({})
   const [subCategories, setSubCategories] = useState([])
+  const [suppliers, setSuppliers] = useState([])
   const [subCategoriesLoading, setSubCategoriesLoading] = useState(false)
   const [subCategoriesError, setSubCategoriesError] = useState(null)
+  const [suppliersLoading, setSuppliersLoading] = useState(false)
+  const [suppliersError, setSuppliersError] = useState(null)
   const [isEditMode, setIsEditMode] = useState(false)
-  const [loading, setLoading] = useState(false)
+  const [loadingSubmit, setLoadingSubmit] = useState(false)
   const [calculatedProfits, setCalculatedProfits] = useState({
     gp1: 0, np1: 0, gp2: 0, np2: 0, gp3: 0, np3: 0,
   })
-  const [calculatedCashback, setCalculatedCashback] = useState({
-    cashback1: 0, cashback2: 0, cashback3: 0,
-  })
+  const baseUrl = import.meta.env.VITE_BASE_URL || 'http://localhost:5000'
 
-  // Initialize form for edit mode
+  // Fetch suppliers
+  useEffect(() => {
+    setSuppliersLoading(true)
+    setSuppliersError(null)
+    fetch(`${import.meta.env.VITE_API_URL}/suppliers`)
+      .then(res => {
+        if (!res.ok) throw new Error("Failed to fetch suppliers")
+        return res.json()
+      })
+      .then(data => {
+        setSuppliers(data)
+      })
+      .catch(err => {
+        setSuppliersError(err.message)
+        setSuppliers([])
+      })
+      .finally(() => setSuppliersLoading(false))
+  }, [])
+
+  // Load edit item data
   useEffect(() => {
     if (editItem) {
       setIsEditMode(true)
-      setFormData({
-        ...editItem,
-        categoryId: editItem.category_id || "",
-        subcategoryId: editItem.subcategory_id || "",
-        imagePreview: editItem.image_url || null,
-        image: null,
-      })
+      setLoadingSubmit(true)
+      fetch(`${import.meta.env.VITE_API_URL}/products/${editItem.id}`)
+        .then(res => {
+          if (!res.ok) throw new Error("Failed to fetch product")
+          return res.json()
+        })
+        .then(data => {
+          setFormData({
+            parentCatId: data.parent_cat_id ? data.parent_cat_id.toString() : "",
+            categoryId: data.category_id ? data.category_id.toString() : "",
+            subcategoryId: data.subcategory_id ? data.subcategory_id.toString() : "",
+            productName: data.product_name || "",
+            productCode: data.product_code || "",
+            uom: data.uom || "PC",
+            packSize: data.pack_size || "",
+            description: data.description || "",
+            longerDescription: data.longer_description || "",
+            productBarcode: data.product_barcode || "",
+            etimsRefCode: data.etims_ref_code || "",
+            expiryDate: data.expiry_date ? data.expiry_date.split('T')[0] : "",
+            image: null,
+            imagePreview: data.image_url ? `${baseUrl}${data.image_url}` : null,
+            costPrice: data.cost_price ? parseFloat(data.cost_price).toFixed(2) : "",
+            sellingPrice1: data.selling_price1 ? parseFloat(data.selling_price1).toFixed(2) : "",
+            sellingPrice2: data.selling_price2 ? parseFloat(data.selling_price2).toFixed(2) : "",
+            sellingPrice3: data.selling_price3 ? parseFloat(data.selling_price3).toFixed(2) : "",
+            qty1Min: data.qty1_min ? data.qty1_min.toString() : "1",
+            qty1Max: data.qty1_max ? data.qty1_max.toString() : "3",
+            qty2Min: data.qty2_min ? data.qty2_min.toString() : "",
+            qty2Max: data.qty2_max ? data.qty2_max.toString() : "",
+            qty3Min: data.qty3_min ? data.qty3_min.toString() : "",
+            vat: data.vat ? parseFloat(data.vat).toFixed(2) : "16",
+            cashbackRate: data.cashback_rate ? parseFloat(data.cashback_rate).toFixed(2) : "0",
+            preferredVendor1: data.preferred_vendor1 ? data.preferred_vendor1.toString() : "",
+            vendorItemCode: data.vendor_item_code || "",
+            saCashback1stPurchase: data.sa_cashback_1st ? parseFloat(data.sa_cashback_1st).toFixed(2) : "6",
+            saCashback2ndPurchase: data.sa_cashback_2nd ? parseFloat(data.sa_cashback_2nd).toFixed(2) : "4",
+            saCashback3rdPurchase: data.sa_cashback_3rd ? parseFloat(data.sa_cashback_3rd).toFixed(2) : "3",
+            saCashback4thPurchase: data.sa_cashback_4th ? parseFloat(data.sa_cashback_4th).toFixed(2) : "2",
+            stockUnits: data.stock_units ? data.stock_units.toString() : "",
+            reorderLevel: data.reorder_level ? data.reorder_level.toString() : "",
+            orderLevel: data.order_level ? data.order_level.toString() : "",
+            reorderActive: data.reorder_active !== undefined ? data.reorder_active : true,
+            alertQuantity: data.alert_quantity ? data.alert_quantity.toString() : "",
+          })
+        })
+        .catch(err => {
+          setErrors({ form: err.message || "Failed to load product data" })
+        })
+        .finally(() => setLoadingSubmit(false))
     }
   }, [editItem])
 
-  // Fetch subcategories when categoryId changes
+  // Fetch subcategories when category changes
   useEffect(() => {
     if (formData.categoryId) {
       setSubCategoriesLoading(true)
@@ -98,8 +206,10 @@ export default function NewItemForm({ onSubmit, editItem = null }) {
           return res.json()
         })
         .then(data => {
-          setSubCategories(data)
-          // Reset subcategoryId if not in the new list
+          setSubCategories(data.map(sub => ({
+            ...sub,
+            subcategory_code: sub.subcategory_code || "01"
+          })))
           if (!data.some(sub => sub.id === parseInt(formData.subcategoryId))) {
             setFormData(prev => ({ ...prev, subcategoryId: "" }))
           }
@@ -115,24 +225,31 @@ export default function NewItemForm({ onSubmit, editItem = null }) {
     }
   }, [formData.categoryId])
 
-  // Calculate profits and cashback
+  // Auto-fill vendorItemCode when supplier is selected
+  useEffect(() => {
+    if (formData.preferredVendor1) {
+      const supplier = suppliers.find(s => s.id === parseInt(formData.preferredVendor1))
+      setFormData(prev => ({
+        ...prev,
+        vendorItemCode: supplier ? supplier.code || "" : ""
+      }))
+    } else {
+      setFormData(prev => ({ ...prev, vendorItemCode: "" }))
+    }
+  }, [formData.preferredVendor1, suppliers])
+
+  // Calculate profits
   useEffect(() => {
     const costPriceExclVat = Number.parseFloat(formData.costPrice) || 0
     const vatRate = Number.parseFloat(formData.vat) / 100
-    const cashbackRate = Number.parseFloat(formData.cashbackRate) / 100
 
     const calculateProfit = (sellingPriceInclVat) => {
       const sellingPrice = Number.parseFloat(sellingPriceInclVat) || 0
       const sellingPriceExclVat = sellingPrice / (1 + vatRate)
       const gp = sellingPriceExclVat - costPriceExclVat
       const gpPercentage = costPriceExclVat > 0 ? (gp / costPriceExclVat) * 100 : 0
-      const npPercentage = sellingPrice > 0 ? (gp / sellingPrice) * 100 : 0
+      const npPercentage = sellingPriceExclVat > 0 ? ((sellingPriceExclVat - costPriceExclVat) / sellingPriceExclVat) * 100 : 0
       return { gp: gpPercentage.toFixed(2), np: npPercentage.toFixed(2) }
-    }
-
-    const calculateCashback = (sellingPriceInclVat) => {
-      const sellingPrice = Number.parseFloat(sellingPriceInclVat) || 0
-      return (sellingPrice * cashbackRate).toFixed(2)
     }
 
     setCalculatedProfits({
@@ -143,13 +260,7 @@ export default function NewItemForm({ onSubmit, editItem = null }) {
       gp3: calculateProfit(formData.sellingPrice3).gp,
       np3: calculateProfit(formData.sellingPrice3).np,
     })
-
-    setCalculatedCashback({
-      cashback1: calculateCashback(formData.sellingPrice1),
-      cashback2: calculateCashback(formData.sellingPrice2),
-      cashback3: calculateCashback(formData.sellingPrice3),
-    })
-  }, [formData.costPrice, formData.sellingPrice1, formData.sellingPrice2, formData.sellingPrice3, formData.vat, formData.cashbackRate])
+  }, [formData.costPrice, formData.sellingPrice1, formData.sellingPrice2, formData.sellingPrice3, formData.vat])
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target
@@ -159,6 +270,11 @@ export default function NewItemForm({ onSubmit, editItem = null }) {
     })
     if (errors[name]) {
       setErrors({ ...errors, [name]: null })
+    }
+    if (name === "parentCatId") {
+      setFormData(prev => ({ ...prev, categoryId: "", subcategoryId: "", productCode: "" }))
+    } else if (name === "categoryId") {
+      setFormData(prev => ({ ...prev, subcategoryId: "", productCode: "" }))
     }
   }
 
@@ -182,42 +298,49 @@ export default function NewItemForm({ onSubmit, editItem = null }) {
     }
   }
 
-  const generateProductCode = () => {
-    const letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
-    const randomLetter = letters[Math.floor(Math.random() * letters.length)]
-    const randomNumbers = Math.floor(Math.random() * 1000000).toString().padStart(6, "0")
-    const productCode = `${randomLetter}01${randomNumbers.slice(0, 2)}${randomNumbers.slice(2)}`
-    setFormData({ ...formData, productCode })
-  }
-
   const generateBarcode = () => {
-    const code = Math.floor(100000000000 + Math.random() * 900000000000).toString() // EAN-13
+    const code = Math.floor(100000000000 + Math.random() * 900000000000).toString()
     setFormData({ ...formData, productBarcode: code })
   }
 
   const validateForm = () => {
     const newErrors = {}
-    if (!formData.productName) newErrors.productName = "Product name is required"
-    if (!formData.productCode || !/^[A-Z]\d{8}$/.test(formData.productCode)) {
-      newErrors.productCode = "Product code must be like A01010101"
+    if (!formData.productName.trim()) newErrors.productName = "Product name is required"
+    if (!formData.productCode || !/^[A-Z]\d{9}$/.test(formData.productCode)) {
+      newErrors.productCode = "Product code must be like B010101001 (1 letter, 9 digits)"
     }
-    if (!formData.categoryId) newErrors.categoryId = "Category is required"
-    if (!formData.subcategoryId) newErrors.subcategoryId = "Subcategory is required"
-    if (!formData.costPrice || formData.costPrice <= 0) newErrors.costPrice = "Valid cost price is required"
-    if (!formData.sellingPrice1 || formData.sellingPrice1 <= 0) newErrors.sellingPrice1 = "Valid selling price is required"
-    if (!formData.stockUnits || formData.stockUnits < 0) newErrors.stockUnits = "Valid stock quantity is required"
-    if (formData.sellingPrice2 && formData.sellingPrice2 <= 0) newErrors.sellingPrice2 = "Valid selling price is required"
-    if (formData.sellingPrice3 && formData.sellingPrice3 <= 0) newErrors.sellingPrice3 = "Valid selling price is required"
-    if (parseInt(formData.qty1Max) < parseInt(formData.qty1Min)) newErrors.qty1Max = "Max must be greater than min"
-    if (formData.qty2Min && parseInt(formData.qty2Min) <= parseInt(formData.qty1Max)) {
+    if (!formData.parentCatId || isNaN(parseInt(formData.parentCatId))) newErrors.parentCatId = "Parent category is required"
+    if (!formData.categoryId || isNaN(parseInt(formData.categoryId))) newErrors.categoryId = "Category is required"
+    if (!formData.subcategoryId || isNaN(parseInt(formData.subcategoryId))) newErrors.subcategoryId = "Subcategory is required"
+    if (!formData.costPrice || Number.parseFloat(formData.costPrice) <= 0 || Number.parseFloat(formData.costPrice) > 9999999999999.99) {
+      newErrors.costPrice = "Cost price must be between 0.01 and 9,999,999,999,999.99"
+    }
+    if (!formData.sellingPrice1 || Number.parseFloat(formData.sellingPrice1) <= 0 || Number.parseFloat(formData.sellingPrice1) > 9999999999999.99) {
+      newErrors.sellingPrice1 = "Selling price 1 must be between 0.01 and 9,999,999,999,999.99"
+    }
+    if (formData.sellingPrice2 && (Number.parseFloat(formData.sellingPrice2) <= 0 || Number.parseFloat(formData.sellingPrice2) > 9999999999999.99)) {
+      newErrors.sellingPrice2 = "Selling price 2 must be between 0.01 and 9,999,999,999,999.99"
+    }
+    if (formData.sellingPrice3 && (Number.parseFloat(formData.sellingPrice3) <= 0 || Number.parseFloat(formData.sellingPrice3) > 9999999999999.99)) {
+      newErrors.sellingPrice3 = "Selling price 3 must be between 0.01 and 9,999,999,999,999.99"
+    }
+    if (!formData.stockUnits || Number.parseInt(formData.stockUnits) < 0) newErrors.stockUnits = "Stock quantity must be non-negative"
+    if (Number.parseInt(formData.qty1Max) < Number.parseInt(formData.qty1Min)) newErrors.qty1Max = "Tier 1 max must be greater than min"
+    if (formData.qty2Min && Number.parseInt(formData.qty2Min) <= Number.parseInt(formData.qty1Max)) {
       newErrors.qty2Min = "Tier 2 min must be greater than Tier 1 max"
     }
-    if (formData.qty2Max && parseInt(formData.qty2Max) < parseInt(formData.qty2Min)) {
-      newErrors.qty2Max = "Max must be greater than min"
+    if (formData.qty2Max && Number.parseInt(formData.qty2Max) < Number.parseInt(formData.qty2Min)) {
+      newErrors.qty2Max = "Tier 2 max must be greater than min"
     }
-    if (formData.qty3Min && parseInt(formData.qty3Min) <= parseInt(formData.qty2Max || 0)) {
+    if (formData.qty3Min && Number.parseInt(formData.qty3Min) <= Number.parseInt(formData.qty2Max || 0)) {
       newErrors.qty3Min = "Tier 3 min must be greater than Tier 2 max"
     }
+    if (formData.description && formData.description.length > 1000) newErrors.description = "Description must be less than 1000 characters"
+    if (formData.longerDescription && formData.longerDescription.length > 2000) newErrors.longerDescription = "Longer description must be less than 2000 characters"
+    if (formData.productBarcode && formData.productBarcode.length > 50) newErrors.productBarcode = "Product barcode must be less than 50 characters"
+    if (formData.etimsRefCode && formData.etimsRefCode.length > 50) newErrors.etimsRefCode = "eTIMS ref code must be less than 50 characters"
+    if (formData.packSize && formData.packSize.length > 50) newErrors.packSize = "Pack size must be less than 50 characters"
+    if (formData.vendorItemCode && formData.vendorItemCode.length > 50) newErrors.vendorItemCode = "Vendor item code must be less than 50 characters"
     if (formData.image && formData.image.size > 5 * 1024 * 1024) newErrors.image = "Image size exceeds 5MB"
     setErrors(newErrors)
     return Object.keys(newErrors).length === 0
@@ -225,15 +348,80 @@ export default function NewItemForm({ onSubmit, editItem = null }) {
 
   const handleSubmit = async (e) => {
     e.preventDefault()
-    if (!validateForm()) return
-    setLoading(true)
+    if (!validateForm()) {
+      setLoadingSubmit(false)
+      return
+    }
+    setLoadingSubmit(true)
 
     const formDataToSend = new FormData()
-    Object.entries(formData).forEach(([key, value]) => {
-      if (key !== 'imagePreview') {
+    const appendIfValid = (key, value, isNumeric = false, isInt = false, isRequired = false) => {
+      if (isRequired && (value === "" || value === null || value === undefined || (isNumeric && isNaN(value)))) {
+        setErrors(prev => ({ ...prev, [key]: `${key} is required` }))
+        return false
+      }
+      if (value === "" || value === null || value === undefined) {
+        if (!isRequired) formDataToSend.append(key, '')
+        return true
+      }
+      if (isNumeric && !isNaN(value)) {
+        formDataToSend.append(key, parseFloat(value).toFixed(2))
+      } else if (isInt && !isNaN(value)) {
+        formDataToSend.append(key, parseInt(value))
+      } else {
         formDataToSend.append(key, value)
       }
-    })
+      return true
+    }
+
+    // Required fields
+    if (!appendIfValid('productName', formData.productName.trim(), false, false, true)) return
+    if (!appendIfValid('productCode', formData.productCode, false, false, true)) return
+    if (!appendIfValid('parentCatId', parseInt(formData.parentCatId), false, true, true)) return
+    if (!appendIfValid('categoryId', parseInt(formData.categoryId), false, true, true)) return
+    if (!appendIfValid('subcategoryId', parseInt(formData.subcategoryId), false, true, true)) return
+    if (!appendIfValid('uom', formData.uom, false, false, true)) return
+    if (!appendIfValid('costPrice', formData.costPrice, true, false, true)) return
+    if (!appendIfValid('sellingPrice1', formData.sellingPrice1, true, false, true)) return
+    if (!appendIfValid('qty1Min', parseInt(formData.qty1Min), false, true, true)) return
+    if (!appendIfValid('qty1Max', parseInt(formData.qty1Max), false, true, true)) return
+    if (!appendIfValid('vat', formData.vat, true, false, true)) return
+    if (!appendIfValid('cashbackRate', formData.cashbackRate, true, false, true)) return
+    if (!appendIfValid('saCashback1stPurchase', formData.saCashback1stPurchase, true, false, true)) return
+    if (!appendIfValid('saCashback2ndPurchase', formData.saCashback2ndPurchase, true, false, true)) return
+    if (!appendIfValid('saCashback3rdPurchase', formData.saCashback3rdPurchase, true, false, true)) return
+    if (!appendIfValid('saCashback4thPurchase', formData.saCashback4thPurchase, true, false, true)) return
+    if (!appendIfValid('stockUnits', parseInt(formData.stockUnits), false, true, true)) return
+    appendIfValid('reorderActive', formData.reorderActive, false, false, true)
+
+    // Optional fields
+    appendIfValid('packSize', formData.packSize)
+    appendIfValid('description', formData.description)
+    appendIfValid('longerDescription', formData.longerDescription)
+    appendIfValid('productBarcode', formData.productBarcode)
+    appendIfValid('etimsRefCode', formData.etimsRefCode)
+    appendIfValid('expiryDate', formData.expiryDate)
+    if (formData.image) {
+      formDataToSend.append('image', formData.image)
+    } else if (isEditMode && formData.imagePreview) {
+      formDataToSend.append('imageUrl', formData.imagePreview.replace(baseUrl, ''))
+    }
+    appendIfValid('sellingPrice2', formData.sellingPrice2, true)
+    appendIfValid('sellingPrice3', formData.sellingPrice3, true)
+    appendIfValid('qty2Min', parseInt(formData.qty2Min), false, true)
+    appendIfValid('qty2Max', parseInt(formData.qty2Max), false, true)
+    appendIfValid('qty3Min', parseInt(formData.qty3Min), false, true)
+    appendIfValid('preferredVendor1', parseInt(formData.preferredVendor1), false, true)
+    appendIfValid('vendorItemCode', formData.vendorItemCode)
+    appendIfValid('reorderLevel', parseInt(formData.reorderLevel), false, true)
+    appendIfValid('orderLevel', parseInt(formData.orderLevel), false, true)
+    appendIfValid('alertQuantity', parseInt(formData.alertQuantity), false, true)
+
+    // Log FormData for debugging
+    console.log('FormData to send:');
+    for (const [key, value] of formDataToSend.entries()) {
+      console.log(`${key}: ${value}`);
+    }
 
     try {
       const url = isEditMode ? `${import.meta.env.VITE_API_URL}/products/${editItem.id}` : `${import.meta.env.VITE_API_URL}/products`
@@ -242,16 +430,20 @@ export default function NewItemForm({ onSubmit, editItem = null }) {
         method,
         body: formDataToSend,
       })
-      if (!response.ok) throw new Error('Failed to save product')
-      const result = await response.json()
-      if (onSubmit) onSubmit({ ...formData, id: result.id })
+      const data = await response.json()
+      if (!response.ok) {
+        console.error('Server response:', data)
+        throw new Error(data.message || 'Failed to save product')
+      }
+      if (onSubmit) onSubmit({ ...formData, id: data.id })
       setFormData(initialFormState)
       setErrors({})
       setIsEditMode(false)
     } catch (error) {
-      setErrors({ form: 'Failed to save product. Please try again.' })
+      console.error('Submission error:', error)
+      setErrors({ form: error.message })
     } finally {
-      setLoading(false)
+      setLoadingSubmit(false)
     }
   }
 
@@ -260,6 +452,34 @@ export default function NewItemForm({ onSubmit, editItem = null }) {
     setErrors({})
     setIsEditMode(false)
   }
+
+  // Render loading or error state from CategoriesContext
+  if (loading) {
+    return (
+      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
+        <CircularProgress />
+        <Typography variant="h6" sx={{ ml: 2 }}>Loading categories...</Typography>
+      </Box>
+    );
+  }
+
+  if (error) {
+    return (
+      <Box sx={{ textAlign: 'center', mt: 4 }}>
+        <Typography variant="h6" color="error">
+          Failed to load categories: {error}
+        </Typography>
+        <Typography variant="body2" color="text.secondary">
+          Please try refreshing the page or contact support.
+        </Typography>
+      </Box>
+    );
+  }
+
+  const parentCategories = categories.filter(cat => cat.categories && cat.categories.length > 0);
+  const filteredCategories = formData.parentCatId
+    ? categories.find(cat => cat.id === parseInt(formData.parentCatId))?.categories || []
+    : [];
 
   return (
     <Box sx={{ maxWidth: 1200, mx: "auto", p: { xs: 2, md: 4 } }}>
@@ -279,7 +499,6 @@ export default function NewItemForm({ onSubmit, editItem = null }) {
         </Box>
 
         <form onSubmit={handleSubmit} aria-label={isEditMode ? "Edit product form" : "Add product form"}>
-          {/* Basic Information */}
           <Accordion defaultExpanded sx={{ mb: 3, borderRadius: 2, boxShadow: "0 2px 8px rgba(0,0,0,0.1)" }}>
             <AccordionSummary expandIcon={<ExpandMore />} sx={{ bgcolor: "#f8f9fa" }}>
               <Typography variant="h6" fontWeight="600" color="#1976d2">📋 Basic Information</Typography>
@@ -296,33 +515,36 @@ export default function NewItemForm({ onSubmit, editItem = null }) {
                     onChange={handleChange}
                     error={!!errors.productName}
                     helperText={errors.productName}
-                    inputProps={{ "aria-required": true }}
+                    inputProps={{ "aria-required": true, maxLength: 255 }}
                     sx={{ '& .MuiInputBase-root': { height: 56 } }}
                   />
                 </Grid>
                 <Grid item xs={12} sm={6}>
-                  <TextField
-                    fullWidth
-                    required
-                    label="Product Code"
-                    name="productCode"
-                    value={formData.productCode}
-                    onChange={handleChange}
-                    error={!!errors.productCode}
-                    helperText={errors.productCode}
-                    InputProps={{
-                      endAdornment: (
-                        <InputAdornment position="end">
-                          <Button size="small" onClick={generateProductCode}>Generate</Button>
-                        </InputAdornment>
-                      ),
-                    }}
-                    inputProps={{ "aria-required": true }}
-                    sx={{ '& .MuiInputBase-root': { height: 56 } }}
-                  />
+                  <FormControl fullWidth required error={!!errors.parentCatId}>
+                    <InputLabel id="parent-category-label">Parent Category</InputLabel>
+                    <Select
+                      labelId="parent-category-label"
+                      name="parentCatId"
+                      value={formData.parentCatId}
+                      onChange={handleChange}
+                      label="Parent Category"
+                      renderValue={(selected) => {
+                        const parent = parentCategories.find(cat => cat.id === parseInt(selected))
+                        return parent ? `${parent.name} (${parent.category_code})` : "Select Parent Category"
+                      }}
+                      aria-required="true"
+                      sx={{ height: 56 }}
+                    >
+                      <MenuItem value="" disabled>Select Parent Category</MenuItem>
+                      {parentCategories.map(parent => (
+                        <MenuItem key={parent.id} value={parent.id}>{parent.name} ({parent.category_code})</MenuItem>
+                      ))}
+                    </Select>
+                    {errors.parentCatId && <FormHelperText error>{errors.parentCatId}</FormHelperText>}
+                  </FormControl>
                 </Grid>
                 <Grid item xs={12} sm={6}>
-                  <FormControl fullWidth required>
+                  <FormControl fullWidth required error={!!errors.categoryId}>
                     <InputLabel id="category-label">Category</InputLabel>
                     <Select
                       labelId="category-label"
@@ -330,16 +552,17 @@ export default function NewItemForm({ onSubmit, editItem = null }) {
                       value={formData.categoryId}
                       onChange={handleChange}
                       label="Category"
+                      disabled={!formData.parentCatId}
                       renderValue={(selected) => {
-                        const category = categories.find(cat => cat.id === parseInt(selected))
-                        return category ? category.name : "Select Category"
+                        const category = filteredCategories.find(cat => cat.id === parseInt(selected))
+                        return category ? `${category.name} (${category.category_code})` : "Select Category"
                       }}
                       aria-required="true"
                       sx={{ height: 56 }}
                     >
                       <MenuItem value="" disabled>Select Category</MenuItem>
-                      {categories.map(category => (
-                        <MenuItem key={category.id} value={category.id}>{category.name}</MenuItem>
+                      {filteredCategories.map(category => (
+                        <MenuItem key={category.id} value={category.id}>{category.name} ({category.category_code})</MenuItem>
                       ))}
                     </Select>
                     {errors.categoryId && <FormHelperText error>{errors.categoryId}</FormHelperText>}
@@ -357,7 +580,7 @@ export default function NewItemForm({ onSubmit, editItem = null }) {
                       disabled={!formData.categoryId || subCategoriesLoading || subCategoriesError}
                       renderValue={(selected) => {
                         const subCat = subCategories.find(sub => sub.id === parseInt(selected))
-                        return subCat ? subCat.name : (formData.categoryId ? "Select Subcategory" : "Select Category First")
+                        return subCat ? `${subCat.name} (${subCat.subcategory_code})` : (formData.categoryId ? "Select Subcategory" : "Select Category First")
                       }}
                       aria-required="true"
                       sx={{ height: 56 }}
@@ -366,7 +589,7 @@ export default function NewItemForm({ onSubmit, editItem = null }) {
                       {subCategoriesLoading && <MenuItem disabled>Loading...</MenuItem>}
                       {subCategoriesError && <MenuItem disabled>Error: {subCategoriesError}</MenuItem>}
                       {subCategories.map(subCat => (
-                        <MenuItem key={subCat.id} value={subCat.id}>{subCat.name}</MenuItem>
+                        <MenuItem key={subCat.id} value={subCat.id}>{subCat.name} ({subCat.subcategory_code})</MenuItem>
                       ))}
                     </Select>
                     {(errors.subcategoryId || subCategoriesError) && (
@@ -377,10 +600,25 @@ export default function NewItemForm({ onSubmit, editItem = null }) {
                 <Grid item xs={12} sm={6}>
                   <TextField
                     fullWidth
+                    required
+                    label="Product Code"
+                    name="productCode"
+                    value={formData.productCode}
+                    onChange={handleChange}
+                    error={!!errors.productCode}
+                    helperText={errors.productCode || "Format: B010101001 (ParentCatCode + CatCode + SubCatCode + 3-digit sequence)"}
+                    inputProps={{ "aria-required": true, maxLength: 10 }}
+                    sx={{ '& .MuiInputBase-root': { height: 56 } }}
+                  />
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    fullWidth
                     label="Pack Size"
                     name="packSize"
                     value={formData.packSize}
                     onChange={handleChange}
+                    inputProps={{ maxLength: 50 }}
                     sx={{ '& .MuiInputBase-root': { height: 56 } }}
                   />
                 </Grid>
@@ -409,6 +647,7 @@ export default function NewItemForm({ onSubmit, editItem = null }) {
                     name="productBarcode"
                     value={formData.productBarcode}
                     onChange={handleChange}
+                    inputProps={{ maxLength: 50 }}
                     InputProps={{
                       endAdornment: (
                         <InputAdornment position="end">
@@ -426,6 +665,7 @@ export default function NewItemForm({ onSubmit, editItem = null }) {
                     name="etimsRefCode"
                     value={formData.etimsRefCode}
                     onChange={handleChange}
+                    inputProps={{ maxLength: 50 }}
                     sx={{ '& .MuiInputBase-root': { height: 56 } }}
                   />
                 </Grid>
@@ -438,6 +678,7 @@ export default function NewItemForm({ onSubmit, editItem = null }) {
                     onChange={handleChange}
                     multiline
                     rows={3}
+                    inputProps={{ maxLength: 1000 }}
                     sx={{ '& .MuiInputBase-root': { minHeight: 100 } }}
                   />
                 </Grid>
@@ -450,6 +691,7 @@ export default function NewItemForm({ onSubmit, editItem = null }) {
                     onChange={handleChange}
                     multiline
                     rows={4}
+                    inputProps={{ maxLength: 2000 }}
                     sx={{ '& .MuiInputBase-root': { minHeight: 120 } }}
                   />
                 </Grid>
@@ -457,7 +699,6 @@ export default function NewItemForm({ onSubmit, editItem = null }) {
             </AccordionDetails>
           </Accordion>
 
-          {/* Pricing Information */}
           <Accordion defaultExpanded sx={{ mb: 3, borderRadius: 2, boxShadow: "0 2px 8px rgba(0,0,0,0.1)" }}>
             <AccordionSummary expandIcon={<ExpandMore />} sx={{ bgcolor: "#f8f9fa" }}>
               <Typography variant="h6" fontWeight="600" color="#1976d2">💰 Pricing Information</Typography>
@@ -465,18 +706,17 @@ export default function NewItemForm({ onSubmit, editItem = null }) {
             <AccordionDetails sx={{ p: 3 }}>
               <Grid container spacing={3}>
                 <Grid item xs={12} sm={6}>
-                  <TextField
+                  <PriceFormat
                     fullWidth
                     required
                     label="Cost Price (Excl. VAT)"
                     name="costPrice"
-                    type="number"
                     value={formData.costPrice}
                     onChange={handleChange}
                     InputProps={{ startAdornment: <InputAdornment position="start">KSh</InputAdornment> }}
                     error={!!errors.costPrice}
                     helperText={errors.costPrice}
-                    inputProps={{ min: 0, "aria-required": true }}
+                    inputProps={{ "aria-required": true }}
                     sx={{ '& .MuiInputBase-root': { height: 56 } }}
                   />
                 </Grid>
@@ -498,11 +738,10 @@ export default function NewItemForm({ onSubmit, editItem = null }) {
                   </FormControl>
                 </Grid>
                 <Grid item xs={12} sm={6}>
-                  <TextField
+                  <PercentageFormat
                     fullWidth
                     label="Customer Cashback Rate"
                     name="cashbackRate"
-                    type="number"
                     value={formData.cashbackRate}
                     onChange={handleChange}
                     InputProps={{ endAdornment: <InputAdornment position="end">%</InputAdornment> }}
@@ -520,7 +759,6 @@ export default function NewItemForm({ onSubmit, editItem = null }) {
                           <TableCell>Selling Price (KSh)</TableCell>
                           <TableCell>GP %</TableCell>
                           <TableCell>NP %</TableCell>
-                          <TableCell>Cashback Earned</TableCell>
                         </TableRow>
                       </TableHead>
                       <TableBody>
@@ -553,8 +791,7 @@ export default function NewItemForm({ onSubmit, editItem = null }) {
                             </Box>
                           </TableCell>
                           <TableCell>
-                            <TextField
-                              type="number"
+                            <PriceFormat
                               value={formData.sellingPrice1}
                               onChange={handleChange}
                               name="sellingPrice1"
@@ -568,9 +805,6 @@ export default function NewItemForm({ onSubmit, editItem = null }) {
                           </TableCell>
                           <TableCell><Chip label={`${calculatedProfits.gp1}%`} color="success" size="small" /></TableCell>
                           <TableCell><Chip label={`${calculatedProfits.np1}%`} color="info" size="small" /></TableCell>
-                          <TableCell>
-                            <Typography variant="body2" color="primary">KSh {calculatedCashback.cashback1}</Typography>
-                          </TableCell>
                         </TableRow>
                         <TableRow>
                           <TableCell><Chip label="Tier 2" color="secondary" size="small" /></TableCell>
@@ -601,8 +835,7 @@ export default function NewItemForm({ onSubmit, editItem = null }) {
                             </Box>
                           </TableCell>
                           <TableCell>
-                            <TextField
-                              type="number"
+                            <PriceFormat
                               value={formData.sellingPrice2}
                               onChange={handleChange}
                               name="sellingPrice2"
@@ -615,9 +848,6 @@ export default function NewItemForm({ onSubmit, editItem = null }) {
                           </TableCell>
                           <TableCell><Chip label={`${calculatedProfits.gp2}%`} color="success" size="small" /></TableCell>
                           <TableCell><Chip label={`${calculatedProfits.np2}%`} color="info" size="small" /></TableCell>
-                          <TableCell>
-                            <Typography variant="body2" color="primary">KSh {calculatedCashback.cashback2}</Typography>
-                          </TableCell>
                         </TableRow>
                         <TableRow>
                           <TableCell><Chip label="Tier 3" color="warning" size="small" /></TableCell>
@@ -637,8 +867,7 @@ export default function NewItemForm({ onSubmit, editItem = null }) {
                             </Box>
                           </TableCell>
                           <TableCell>
-                            <TextField
-                              type="number"
+                            <PriceFormat
                               value={formData.sellingPrice3}
                               onChange={handleChange}
                               name="sellingPrice3"
@@ -651,9 +880,6 @@ export default function NewItemForm({ onSubmit, editItem = null }) {
                           </TableCell>
                           <TableCell><Chip label={`${calculatedProfits.gp3}%`} color="success" size="small" /></TableCell>
                           <TableCell><Chip label={`${calculatedProfits.np3}%`} color="info" size="small" /></TableCell>
-                          <TableCell>
-                            <Typography variant="body2" color="primary">KSh {calculatedCashback.cashback3}</Typography>
-                          </TableCell>
                         </TableRow>
                       </TableBody>
                     </Table>
@@ -663,15 +889,14 @@ export default function NewItemForm({ onSubmit, editItem = null }) {
             </AccordionDetails>
           </Accordion>
 
-          {/* Vendor Information */}
           <Accordion defaultExpanded sx={{ mb: 3, borderRadius: 2, boxShadow: "0 2px 8px rgba(0,0,0,0.1)" }}>
             <AccordionSummary expandIcon={<ExpandMore />} sx={{ bgcolor: "#f8f9fa" }}>
               <Typography variant="h6" fontWeight="600" color="#1976d2">🏢 Vendor Information</Typography>
             </AccordionSummary>
             <AccordionDetails sx={{ p: 3 }}>
               <Grid container spacing={3}>
-                <Grid item xs={12} sm={4}>
-                  <FormControl fullWidth>
+                <Grid item xs={12} sm={6}>
+                  <FormControl fullWidth error={!!suppliersError}>
                     <InputLabel id="vendor-label">Preferred Vendor</InputLabel>
                     <Select
                       labelId="vendor-label"
@@ -679,32 +904,41 @@ export default function NewItemForm({ onSubmit, editItem = null }) {
                       value={formData.preferredVendor1}
                       onChange={handleChange}
                       label="Preferred Vendor"
+                      disabled={suppliersLoading || suppliersError || suppliers.length === 0}
+                      renderValue={(selected) => {
+                        const supplier = suppliers.find(s => s.id === parseInt(selected))
+                        return supplier ? `${supplier.name} (${supplier.code || 'N/A'})` : "Select Preferred Vendor"
+                      }}
                       sx={{ height: 56 }}
                     >
-                      <MenuItem value="" disabled>Select Vendor</MenuItem>
-                      {vendorOptions.map(vendor => (
-                        <MenuItem key={vendor} value={vendor}>{vendor}</MenuItem>
+                      <MenuItem value="" disabled>Select Preferred Vendor</MenuItem>
+                      {suppliersLoading && <MenuItem disabled>Loading suppliers...</MenuItem>}
+                      {suppliersError && <MenuItem disabled>Error: {suppliersError}</MenuItem>}
+                      {suppliers.length === 0 && !suppliersLoading && !suppliersError && (
+                        <MenuItem disabled>No suppliers available</MenuItem>
+                      )}
+                      {suppliers.map(vendor => (
+                        <MenuItem key={vendor.id} value={vendor.id}>
+                          {vendor.name} ({vendor.code || 'N/A'})
+                        </MenuItem>
                       ))}
                     </Select>
+                    {suppliersError && <FormHelperText error>{suppliersError}</FormHelperText>}
+                    {!suppliersError && suppliers.length === 0 && !suppliersLoading && (
+                      <FormHelperText error>No suppliers available. Please add suppliers first.</FormHelperText>
+                    )}
                   </FormControl>
                 </Grid>
-                <Grid item xs={12} sm={4}>
-                  <TextField
-                    fullWidth
-                    label="Secondary Vendor"
-                    name="preferredVendor2"
-                    value={formData.preferredVendor2}
-                    onChange={handleChange}
-                    sx={{ '& .MuiInputBase-root': { height: 56 } }}
-                  />
-                </Grid>
-                <Grid item xs={12} sm={4}>
+                <Grid item xs={12} sm={6}>
                   <TextField
                     fullWidth
                     label="Vendor Item Code"
                     name="vendorItemCode"
                     value={formData.vendorItemCode}
                     onChange={handleChange}
+                    disabled={!!formData.preferredVendor1}
+                    helperText={formData.preferredVendor1 ? "Autofilled from selected vendor" : "Enter vendor item code"}
+                    inputProps={{ maxLength: 50 }}
                     sx={{ '& .MuiInputBase-root': { height: 56 } }}
                   />
                 </Grid>
@@ -712,7 +946,6 @@ export default function NewItemForm({ onSubmit, editItem = null }) {
             </AccordionDetails>
           </Accordion>
 
-          {/* Sales Agent Incentives */}
           <Accordion defaultExpanded sx={{ mb: 3, borderRadius: 2, boxShadow: "0 2px 8px rgba(0,0,0,0.1)" }}>
             <AccordionSummary expandIcon={<ExpandMore />} sx={{ bgcolor: "#f8f9fa" }}>
               <Typography variant="h6" fontWeight="600" color="#1976d2">🎯 Sales Agent Incentives</Typography>
@@ -720,11 +953,10 @@ export default function NewItemForm({ onSubmit, editItem = null }) {
             <AccordionDetails sx={{ p: 3 }}>
               <Grid container spacing={3}>
                 <Grid item xs={12} sm={3}>
-                  <TextField
+                  <PercentageFormat
                     fullWidth
                     label="1st Purchase Cashback"
                     name="saCashback1stPurchase"
-                    type="number"
                     value={formData.saCashback1stPurchase}
                     onChange={handleChange}
                     InputProps={{ endAdornment: <InputAdornment position="end">%</InputAdornment> }}
@@ -733,11 +965,10 @@ export default function NewItemForm({ onSubmit, editItem = null }) {
                   />
                 </Grid>
                 <Grid item xs={12} sm={3}>
-                  <TextField
+                  <PercentageFormat
                     fullWidth
                     label="2nd Purchase Cashback"
                     name="saCashback2ndPurchase"
-                    type="number"
                     value={formData.saCashback2ndPurchase}
                     onChange={handleChange}
                     InputProps={{ endAdornment: <InputAdornment position="end">%</InputAdornment> }}
@@ -746,11 +977,10 @@ export default function NewItemForm({ onSubmit, editItem = null }) {
                   />
                 </Grid>
                 <Grid item xs={12} sm={3}>
-                  <TextField
+                  <PercentageFormat
                     fullWidth
                     label="3rd Purchase Cashback"
                     name="saCashback3rdPurchase"
-                    type="number"
                     value={formData.saCashback3rdPurchase}
                     onChange={handleChange}
                     InputProps={{ endAdornment: <InputAdornment position="end">%</InputAdornment> }}
@@ -759,11 +989,10 @@ export default function NewItemForm({ onSubmit, editItem = null }) {
                   />
                 </Grid>
                 <Grid item xs={12} sm={3}>
-                  <TextField
+                  <PercentageFormat
                     fullWidth
                     label="4th+ Purchase Cashback"
                     name="saCashback4thPurchase"
-                    type="number"
                     value={formData.saCashback4thPurchase}
                     onChange={handleChange}
                     InputProps={{ endAdornment: <InputAdornment position="end">%</InputAdornment> }}
@@ -775,7 +1004,6 @@ export default function NewItemForm({ onSubmit, editItem = null }) {
             </AccordionDetails>
           </Accordion>
 
-          {/* Inventory & Additional Information */}
           <Accordion defaultExpanded sx={{ mb: 3, borderRadius: 2, boxShadow: "0 2px 8px rgba(0,0,0,0.1)" }}>
             <AccordionSummary expandIcon={<ExpandMore />} sx={{ bgcolor: "#f8f9fa" }}>
               <Typography variant="h6" fontWeight="600" color="#1976d2">📦 Inventory & Additional Information</Typography>
@@ -890,17 +1118,16 @@ export default function NewItemForm({ onSubmit, editItem = null }) {
             </AccordionDetails>
           </Accordion>
 
-          {/* Submit Buttons */}
           <Box sx={{ mt: 4, textAlign: "center" }}>
             <Button
               type="submit"
               variant="contained"
               size="large"
-              disabled={loading || subCategoriesLoading}
+              disabled={loadingSubmit || subCategoriesLoading || suppliersLoading}
               sx={{ px: 6, py: 1.5, fontSize: "1.1rem", mr: 2 }}
-              startIcon={loading && <CircularProgress size={20} />}
+              startIcon={loadingSubmit && <CircularProgress size={20} />}
             >
-              {loading ? "Saving..." : (isEditMode ? "Update Product" : "Add Product")}
+              {loadingSubmit ? "Saving..." : (isEditMode ? "Update Product" : "Add Product")}
             </Button>
             {isEditMode && (
               <Button

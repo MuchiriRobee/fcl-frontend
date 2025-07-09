@@ -17,8 +17,10 @@
     "@mui/material": "^7.1.2",
     "axios": "^1.9.0",
     "jsbarcode": "^3.12.1",
+    "jwt-decode": "^4.0.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
+    "react-number-format": "^5.4.4",
     "react-router-dom": "^7.6.2",
     "recharts": "^2.15.3",
     "swiper": "^11.2.6"

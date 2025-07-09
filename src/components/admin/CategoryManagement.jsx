@@ -1,827 +1,706 @@
 "use client"
 
-import React, { useState, useEffect, useCallback, useRef } from "react"
+import { useState, useEffect, useContext } from "react"
 import {
-  Box,
-  Typography,
-  Paper,
-  Button,
-  TextField,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  Alert,
-  Collapse,
-  FormControl,
-  Select,
-  MenuItem,
-  Grid,
-  Chip,
-  IconButton,
+  Box, Typography, Grid, TextField, Button, Paper, Table, TableContainer,
+  TableHead, TableRow, TableCell, TableBody, IconButton, Dialog, DialogTitle,
+  DialogContent, DialogActions, CircularProgress, Alert, FormControl, InputLabel,
+  Select, MenuItem, Collapse, FormHelperText
 } from "@mui/material"
-import { Edit, Delete, Visibility, Add, ExpandMore, ExpandLess } from "@mui/icons-material"
+import { Edit, Delete, Add, ExpandMore, ExpandLess } from "@mui/icons-material"
+import axios from "axios"
+import { CategoriesContext } from "./CategoriesContext"
 
-export default function CategoryManagement({ onCategoriesChange }) {
-  const [categories, setCategories] = useState([])
-  const [categoryDialog, setCategoryDialog] = useState(false)
-  const [subCategoryDialog, setSubCategoryDialog] = useState(false)
-  const [editMode, setEditMode] = useState(false)
-  const [selectedCategory, setSelectedCategory] = useState(null)
-  const [selectedSubCategory, setSelectedSubCategory] = useState(null)
-  const [formData, setFormData] = useState({ name: "", description: "", parentCategory: "" })
-  const [successMessage, setSuccessMessage] = useState("")
-  const [errorMessage, setErrorMessage] = useState("")
-  const [expandedRows, setExpandedRows] = useState({})
+export default function CategoryManagement() {
+  const { categories, setCategories } = useContext(CategoriesContext)
+  const [parentCategories, setParentCategories] = useState([])
+  const [subCategories, setSubCategories] = useState([])
   const [loading, setLoading] = useState(false)
+  const [error, setError] = useState(null)
+  const [successMessage, setSuccessMessage] = useState(null)
+  const [openParentCategoryDialog, setOpenParentCategoryDialog] = useState(false)
+  const [openCategoryDialog, setOpenCategoryDialog] = useState(false)
+  const [openSubCategoryDialog, setOpenSubCategoryDialog] = useState(false)
+  const [parentCategoryForm, setParentCategoryForm] = useState({ name: "", parent_category_code: "", id: null })
+  const [categoryForm, setCategoryForm] = useState({ name: "", parent_category_id: "", id: null })
+  const [subCategoryForm, setSubCategoryForm] = useState({ name: "", category_id: "", category_name: "", id: null })
+  const [formErrors, setFormErrors] = useState({})
+  const [searchTerm, setSearchTerm] = useState("")
+  const [expandedParent, setExpandedParent] = useState(null)
+  const [expandedCategory, setExpandedCategory] = useState(null)
 
-  // Base API URL from .env
-  const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api'
+  const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000/api"
 
-  // Ref to track previous categories to avoid redundant updates
-  const prevCategoriesRef = useRef(categories)
-
-  // Fetch categories
-  const fetchCategories = useCallback(async () => {
+  const fetchParentCategories = async () => {
     setLoading(true)
     try {
-      console.log('Fetching categories from:', `${API_URL}/categories`);
-      const response = await fetch(`${API_URL}/categories`, {
-        headers: {
-          'Content-Type': 'application/json',
-          // Add Authorization header if required: 'Authorization': `Bearer ${localStorage.getItem('token')}`
-        },
+      console.log(`[FETCH] GET ${API_URL}/categories/parent`)
+      const response = await axios.get(`${API_URL}/categories/parent`, {
+        headers: { 'Content-Type': 'application/json' }
       })
-      if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.message || 'Failed to fetch categories')
-      }
-      const data = await response.json()
-      console.log('Fetched categories:', data);
-      // Only update if data has changed
-      if (JSON.stringify(data) !== JSON.stringify(categories)) {
-        setCategories(data || [])
-      }
-    } catch (error) {
-      console.error('Fetch categories error:', error);
-      setErrorMessage(`Error: ${error.message}`)
-      setTimeout(() => setErrorMessage(""), 5000)
+      console.log('[FETCH] Parent categories response:', response.data)
+      setParentCategories(response.data)
+      setError(null)
+    } catch (err) {
+      const errorMessage = err.response
+        ? `Failed to fetch parent categories: ${err.response.status} ${err.response.data?.message || err.message}`
+        : `Failed to fetch parent categories: Network error (${err.message})`
+      console.error(errorMessage, err)
+      setError(errorMessage)
     } finally {
       setLoading(false)
     }
-  }, [API_URL])
+  }
 
-  // Fetch categories on mount
+  const fetchCategories = async () => {
+    setLoading(true)
+    try {
+      console.log(`[FETCH] GET ${API_URL}/categories`)
+      const response = await axios.get(`${API_URL}/categories`, {
+        headers: { 'Content-Type': 'application/json' }
+      })
+      console.log('[FETCH] Categories response:', response.data)
+      setCategories(response.data)
+      setError(null)
+    } catch (err) {
+      const errorMessage = err.response
+        ? `Failed to fetch categories: ${err.response.status} ${err.response.data?.message || err.message}`
+        : `Failed to fetch categories: Network error (${err.message})`
+      console.error(errorMessage, err)
+      setError(errorMessage)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const fetchSubCategories = async (categoryId) => {
+    setLoading(true)
+    try {
+      console.log(`[FETCH] GET ${API_URL}/categories/${categoryId}/subcategories`)
+      const response = await axios.get(`${API_URL}/categories/${categoryId}/subcategories`, {
+        headers: { 'Content-Type': 'application/json' }
+      })
+      console.log('[FETCH] Subcategories response:', response.data)
+      setSubCategories(response.data)
+      setError(null)
+    } catch (err) {
+      const errorMessage = err.response
+        ? `Failed to fetch subcategories: ${err.response.status} ${err.response.data?.message || err.message}`
+        : `Failed to fetch subcategories: Network error (${err.message})`
+      console.error(errorMessage, err)
+      setError(errorMessage)
+    } finally {
+      setLoading(false)
+    }
+  }
+
   useEffect(() => {
+    console.log('[INIT] Component mounted, fetching data...')
+    console.log('[INIT] Using API_URL:', API_URL)
+    fetchParentCategories()
     fetchCategories()
-  }, [fetchCategories])
+  }, [])
 
-  // Notify parent when categories change
-  useEffect(() => {
-    if (onCategoriesChange && JSON.stringify(categories) !== JSON.stringify(prevCategoriesRef.current)) {
-      console.log('Notifying parent with categories:', categories);
-      onCategoriesChange(categories)
-      prevCategoriesRef.current = categories
+  const validateParentCategoryCode = (code, currentId) => {
+    const codeRegex = /^[A-Z]\d{2}$/
+    if (!codeRegex.test(code)) {
+      return "Parent category code must be one uppercase letter followed by two digits (e.g., M01)"
     }
-  }, [categories, onCategoriesChange])
-
-  const handleOpenCategoryDialog = (category = null) => {
-    setEditMode(!!category)
-    setSelectedCategory(category)
-    setFormData({
-      name: category ? category.name || "" : "",
-      description: category ? category.description || "" : "",
-      parentCategory: "",
-    })
-    setCategoryDialog(true)
-  }
-
-  const handleOpenSubCategoryDialog = (category = null, subCategory = null) => {
-    setEditMode(!!subCategory)
-    setSelectedCategory(category)
-    setSelectedSubCategory(subCategory)
-    setFormData({
-      name: subCategory ? subCategory.name || "" : "",
-      description: subCategory ? subCategory.description || "" : "",
-      parentCategory: category ? category.id : subCategory ? subCategory.category_id : "",
-    })
-    setSubCategoryDialog(true)
-  }
-
-  const handleCloseDialog = () => {
-    setCategoryDialog(false)
-    setSubCategoryDialog(false)
-    setFormData({ name: "", description: "", parentCategory: "" })
-    setSelectedCategory(null)
-    setSelectedSubCategory(null)
-    setEditMode(false)
-  }
-
-  const handleInputChange = (e) => {
-    const { name, value } = e.target
-    setFormData((prev) => ({
-      ...prev,
-      [name]: value,
-    }))
-  }
-
-  const handleSaveCategory = async () => {
-    if (!formData.name.trim()) {
-      setErrorMessage("Category name is required")
-      setTimeout(() => setErrorMessage(""), 5000)
-      return
-    }
-    if (formData.name.length > 255) {
-      setErrorMessage("Category name must be less than 255 characters")
-      setTimeout(() => setErrorMessage(""), 5000)
-      return
-    }
-    if (formData.description && formData.description.length > 1000) {
-      setErrorMessage("Description must be less than 1000 characters")
-      setTimeout(() => setErrorMessage(""), 5000)
-      return
-    }
-
-    setLoading(true)
-    try {
-      const url = editMode
-        ? `${API_URL}/categories/${selectedCategory?.id}`
-        : `${API_URL}/categories`
-      const method = editMode ? 'PUT' : 'POST'
-      console.log('Saving category:', { url, method, data: formData });
-      const response = await fetch(url, {
-        method,
-        headers: {
-          'Content-Type': 'application/json',
-          // Add Authorization header if required
-        },
-        body: JSON.stringify({ name: formData.name.trim(), description: formData.description.trim() || null }),
-      })
-      const data = await response.json()
-      if (!response.ok) {
-        throw new Error(data.message || 'Failed to save category')
-      }
-      console.log('Saved category:', data);
-
-      if (editMode) {
-        setCategories(categories.map((cat) => (cat.id === selectedCategory?.id ? data : cat)))
-      } else {
-        setCategories([...categories, data])
-      }
-      setSuccessMessage(editMode ? "Category updated successfully" : "Category added successfully")
-      handleCloseDialog()
-      setTimeout(() => setSuccessMessage(""), 5000)
-    } catch (error) {
-      console.error('Save category error:', error);
-      setErrorMessage(`Error: ${error.message}`)
-      setTimeout(() => setErrorMessage(""), 5000)
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const handleSaveSubCategory = async () => {
-    if (!formData.name.trim()) {
-      setErrorMessage("Subcategory name is required")
-      setTimeout(() => setErrorMessage(""), 5000)
-      return
-    }
-    if (!formData.parentCategory) {
-      setErrorMessage("Parent category is required")
-      setTimeout(() => setErrorMessage(""), 5000)
-      return
-    }
-    if (formData.name.length > 255) {
-      setErrorMessage("Subcategory name must be less than 255 characters")
-      setTimeout(() => setErrorMessage(""), 5000)
-      return
-    }
-    if (formData.description && formData.description.length > 1000) {
-      setErrorMessage("Description must be less than 1000 characters")
-      setTimeout(() => setErrorMessage(""), 5000)
-      return
-    }
-
-    setLoading(true)
-    try {
-      const url = editMode
-        ? `${API_URL}/categories/subcategories/${selectedSubCategory?.id}`
-        : `${API_URL}/categories/subcategories`
-      const method = editMode ? 'PUT' : 'POST'
-      console.log('Saving subcategory:', { url, method, data: formData });
-      const response = await fetch(url, {
-        method,
-        headers: {
-          'Content-Type': 'application/json',
-          // Add Authorization header if required
-        },
-        body: JSON.stringify({
-          name: formData.name.trim(),
-          description: formData.description.trim() || null,
-          category_id: Number(formData.parentCategory),
-        }),
-      })
-      const data = await response.json()
-      if (!response.ok) {
-        throw new Error(data.message || 'Failed to save subcategory')
-      }
-      console.log('Saved subcategory:', data);
-
-      setCategories(categories.map((cat) => {
-        if (cat.id === Number(formData.parentCategory)) {
-          let updatedSubCategories
-          if (editMode && selectedSubCategory?.category_id === cat.id) {
-            updatedSubCategories = (cat.subcategories || []).map((sub) =>
-              sub.id === selectedSubCategory.id ? data : sub
-            )
-          } else {
-            updatedSubCategories = editMode
-              ? cat.subcategories || []
-              : [...(cat.subcategories || []), data]
-          }
-          return { ...cat, subcategories: updatedSubCategories }
-        }
-        if (editMode && selectedSubCategory?.category_id === cat.id) {
-          return {
-            ...cat,
-            subcategories: (cat.subcategories || []).filter((sub) => sub.id !== selectedSubCategory.id),
-          }
-        }
-        return cat
-      }))
-      setSuccessMessage(editMode ? "Subcategory updated successfully" : "Subcategory added successfully")
-      handleCloseDialog()
-      setTimeout(() => setSuccessMessage(""), 5000)
-    } catch (error) {
-      console.error('Save subcategory error:', error);
-      setErrorMessage(`Error: ${error.message}`)
-      setTimeout(() => setErrorMessage(""), 5000)
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const handleDeleteCategory = async (categoryId) => {
-    if (!window.confirm("Are you sure you want to delete this category? All subcategories will also be deleted.")) {
-      return
-    }
-    setLoading(true)
-    try {
-      console.log('Deleting category:', categoryId);
-      const response = await fetch(`${API_URL}/categories/${categoryId}`, {
-        method: 'DELETE',
-        headers: {
-          // Add Authorization header if required
-        },
-      })
-      const data = await response.json()
-      if (!response.ok) {
-        throw new Error(data.message || 'Failed to delete category')
-      }
-      console.log('Deleted category:', categoryId);
-      setCategories(categories.filter((cat) => cat.id !== categoryId))
-      setSuccessMessage("Category deleted successfully")
-      setTimeout(() => setSuccessMessage(""), 5000)
-    } catch (error) {
-      console.error('Delete category error:', error);
-      setErrorMessage(`Error: ${error.message}`)
-      setTimeout(() => setErrorMessage(""), 5000)
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const handleDeleteSubCategory = async (categoryId, subCategoryId) => {
-    if (!window.confirm("Are you sure you want to delete this subcategory?")) {
-      return
-    }
-    setLoading(true)
-    try {
-      console.log('Deleting subcategory:', subCategoryId);
-      const response = await fetch(`${API_URL}/categories/subcategories/${subCategoryId}`, {
-        method: 'DELETE',
-        headers: {
-          // Add Authorization header if required
-        },
-      })
-      const data = await response.json()
-      if (!response.ok) {
-        throw new Error(data.message || 'Failed to delete subcategory')
-      }
-      console.log('Deleted subcategory:', subCategoryId);
-      setCategories(categories.map((cat) => {
-        if (cat.id === categoryId) {
-          return {
-            ...cat,
-            subcategories: (cat.subcategories || []).filter((sub) => sub.id !== subCategoryId),
-          }
-        }
-        return cat
-      }))
-      setSuccessMessage("Subcategory deleted successfully")
-      setTimeout(() => setSuccessMessage(""), 5000)
-    } catch (error) {
-      console.error('Delete subcategory error:', error);
-      setErrorMessage(`Error: ${error.message}`)
-      setTimeout(() => setErrorMessage(""), 5000)
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const toggleRowExpansion = (categoryId) => {
-    setExpandedRows((prev) => ({
-      ...prev,
-      [categoryId]: !prev[categoryId],
-    }))
-  }
-
-  if (errorMessage && !categories.length && !loading) {
-    return (
-      <Box sx={{ p: 4, textAlign: 'center' }}>
-        <Typography variant="h6" color="error">
-          Failed to load categories
-        </Typography>
-        <Button
-          variant="contained"
-          onClick={fetchCategories}
-          sx={{ mt: 2 }}
-        >
-          Retry
-        </Button>
-      </Box>
+    const isCodeTaken = parentCategories.some(
+      (pc) => pc.parent_category_code === code && pc.id !== currentId
     )
+    if (isCodeTaken) {
+      return "Parent category code is already in use"
+    }
+    return null
   }
+
+  const handleParentCategorySubmit = async (e) => {
+    e.preventDefault()
+    const errors = {}
+    if (!parentCategoryForm.name) errors.name = "Parent category name is required"
+    if (!parentCategoryForm.parent_category_code) {
+      errors.parent_category_code = "Parent category code is required"
+    } else {
+      const codeError = validateParentCategoryCode(parentCategoryForm.parent_category_code, parentCategoryForm.id)
+      if (codeError) errors.parent_category_code = codeError
+    }
+    if (Object.keys(errors).length > 0) {
+      setFormErrors(errors)
+      return
+    }
+
+    setLoading(true)
+    try {
+      const url = parentCategoryForm.id
+        ? `${API_URL}/categories/parent/${parentCategoryForm.id}`
+        : `${API_URL}/categories/parent`
+      const method = parentCategoryForm.id ? "put" : "post"
+      console.log(`[SUBMIT] ${method.toUpperCase()} ${url}`, {
+        name: parentCategoryForm.name,
+        parent_category_code: parentCategoryForm.parent_category_code
+      })
+      const response = await axios({
+        method,
+        url,
+        data: {
+          name: parentCategoryForm.name,
+          parent_category_code: parentCategoryForm.parent_category_code
+        },
+        headers: { 'Content-Type': 'application/json' }
+      })
+      console.log('[SUBMIT] Response:', response.data)
+      await fetchParentCategories()
+      setSuccessMessage(`Parent category ${parentCategoryForm.id ? 'updated' : 'added'} successfully`)
+      setTimeout(() => setSuccessMessage(null), 3000)
+      setOpenParentCategoryDialog(false)
+      setParentCategoryForm({ name: "", parent_category_code: "", id: null })
+      setFormErrors({})
+      setError(null)
+    } catch (err) {
+      const errorMessage = err.response
+        ? `Failed to save parent category: ${err.response.status} ${err.response.data?.message || err.message}`
+        : `Failed to save parent category: Network error (${err.message})`
+      console.error(errorMessage, err)
+      setError(errorMessage)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleCategorySubmit = async (e) => {
+    e.preventDefault()
+    const errors = {}
+    if (!categoryForm.name) errors.name = "Category name is required"
+    if (!categoryForm.parent_category_id) errors.parent_category_id = "Parent category is required"
+    if (Object.keys(errors).length > 0) {
+      setFormErrors(errors)
+      return
+    }
+
+    setLoading(true)
+    try {
+      const url = categoryForm.id
+        ? `${API_URL}/categories/${categoryForm.id}`
+        : `${API_URL}/categories`
+      const method = categoryForm.id ? "put" : "post"
+      console.log(`[SUBMIT] ${method.toUpperCase()} ${url}`, {
+        name: categoryForm.name,
+        parent_category_id: categoryForm.parent_category_id
+      })
+      const response = await axios({
+        method,
+        url,
+        data: {
+          name: categoryForm.name,
+          parent_category_id: categoryForm.parent_category_id
+        },
+        headers: { 'Content-Type': 'application/json' }
+      })
+      console.log('[SUBMIT] Response:', response.data)
+      await fetchCategories()
+      setSuccessMessage(`Category ${categoryForm.id ? 'updated' : 'added'} successfully`)
+      setTimeout(() => setSuccessMessage(null), 3000)
+      setOpenCategoryDialog(false)
+      setCategoryForm({ name: "", parent_category_id: "", id: null })
+      setFormErrors({})
+      setError(null)
+    } catch (err) {
+      const errorMessage = err.response
+        ? `Failed to save category: ${err.response.status} ${err.response.data?.message || err.message}`
+        : `Failed to save category: Network error (${err.message})`
+      console.error(errorMessage, err)
+      setError(errorMessage)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleSubCategorySubmit = async (e) => {
+    e.preventDefault()
+    const errors = {}
+    if (!subCategoryForm.name) errors.name = "Subcategory name is required"
+    if (!subCategoryForm.category_id) errors.category_id = "Category is required"
+    if (Object.keys(errors).length > 0) {
+      setFormErrors(errors)
+      return
+    }
+
+    setLoading(true)
+    try {
+      const url = subCategoryForm.id
+        ? `${API_URL}/categories/subcategories/${subCategoryForm.id}`
+        : `${API_URL}/categories/subcategories`
+      const method = subCategoryForm.id ? "put" : "post"
+      console.log(`[SUBMIT] ${method.toUpperCase()} ${url}`, {
+        name: subCategoryForm.name,
+        category_id: subCategoryForm.category_id
+      })
+      const response = await axios({
+        method,
+        url,
+        data: {
+          name: subCategoryForm.name,
+          category_id: subCategoryForm.category_id
+        },
+        headers: { 'Content-Type': 'application/json' }
+      })
+      console.log('[SUBMIT] Response:', response.data)
+      await fetchSubCategories(subCategoryForm.category_id)
+      await fetchCategories() // Update global categories
+      setSuccessMessage(`Subcategory ${subCategoryForm.id ? 'updated' : 'added'} successfully`)
+      setTimeout(() => setSuccessMessage(null), 3000)
+      setOpenSubCategoryDialog(false)
+      setSubCategoryForm({ name: "", category_id: "", category_name: "", id: null })
+      setFormErrors({})
+      setError(null)
+    } catch (err) {
+      const errorMessage = err.response
+        ? `Failed to save subcategory: ${err.response.status} ${err.response.data?.message || err.message}`
+        : `Failed to save subcategory: Network error (${err.message})`
+      console.error(errorMessage, err)
+      setError(errorMessage)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleParentCategoryEdit = (parentCategory) => {
+    setParentCategoryForm({
+      name: parentCategory.name,
+      parent_category_code: parentCategory.parent_category_code,
+      id: parentCategory.id
+    })
+    setOpenParentCategoryDialog(true)
+  }
+
+  const handleCategoryEdit = (category) => {
+    setCategoryForm({
+      name: category.name,
+      parent_category_id: category.parent_category_id,
+      id: category.id
+    })
+    setOpenCategoryDialog(true)
+  }
+
+  const handleSubCategoryEdit = (subCategory, categoryId) => {
+    setSubCategoryForm({
+      name: subCategory.name,
+      category_id: categoryId,
+      category_name: subCategory.category_name || categories.find(c => c.categories.some(cat => cat.id === categoryId))?.categories.find(cat => cat.id === categoryId)?.name || '',
+      id: subCategory.id
+    })
+    setOpenSubCategoryDialog(true)
+  }
+
+  const handleParentCategoryDelete = async (id) => {
+    if (!window.confirm("Are you sure you want to delete this parent category?")) return
+    setLoading(true)
+    try {
+      console.log(`[SUBMIT] DELETE ${API_URL}/categories/parent/${id}`)
+      const response = await axios.delete(`${API_URL}/categories/parent/${id}`, {
+        headers: { 'Content-Type': 'application/json' }
+      })
+      console.log('[SUBMIT] Response:', response.data)
+      await fetchParentCategories()
+      await fetchCategories()
+      setSuccessMessage('Parent category deleted successfully')
+      setTimeout(() => setSuccessMessage(null), 3000)
+      setExpandedParent(null)
+      setError(null)
+    } catch (err) {
+      const errorMessage = err.response
+        ? `Failed to delete parent category: ${err.response.status} ${err.response.data?.message || err.message}`
+        : `Failed to delete parent category: Network error (${err.message})`
+      console.error(errorMessage, err)
+      setError(errorMessage)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleCategoryDelete = async (id) => {
+    if (!window.confirm("Are you sure you want to delete this category?")) return
+    setLoading(true)
+    try {
+      console.log(`[SUBMIT] DELETE ${API_URL}/categories/${id}`)
+      const response = await axios.delete(`${API_URL}/categories/${id}`, {
+        headers: { 'Content-Type': 'application/json' }
+      })
+      console.log('[SUBMIT] Response:', response.data)
+      await fetchCategories()
+      setSuccessMessage('Category deleted successfully')
+      setTimeout(() => setSuccessMessage(null), 3000)
+      setExpandedCategory(null)
+      setError(null)
+    } catch (err) {
+      const errorMessage = err.response
+        ? `Failed to delete category: ${err.response.status} ${err.response.data?.message || err.message}`
+        : `Failed to delete category: Network error (${err.message})`
+      console.error(errorMessage, err)
+      setError(errorMessage)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleSubCategoryDelete = async (id, categoryId) => {
+    if (!window.confirm("Are you sure you want to delete this subcategory?")) return
+    setLoading(true)
+    try {
+      console.log(`[SUBMIT] DELETE ${API_URL}/categories/subcategories/${id}`)
+      const response = await axios.delete(`${API_URL}/categories/subcategories/${id}`, {
+        headers: { 'Content-Type': 'application/json' }
+      })
+      console.log('[SUBMIT] Response:', response.data)
+      await fetchSubCategories(categoryId)
+      await fetchCategories()
+      setSuccessMessage('Subcategory deleted successfully')
+      setTimeout(() => setSuccessMessage(null), 3000)
+      setError(null)
+    } catch (err) {
+      const errorMessage = err.response
+        ? `Failed to delete subcategory: ${err.response.status} ${err.response.data?.message || err.message}`
+        : `Failed to delete subcategory: Network error (${err.message})`
+      console.error(errorMessage, err)
+      setError(errorMessage)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const filteredParentCategories = parentCategories.filter(pc =>
+    pc.name.toLowerCase().includes(searchTerm.toLowerCase())
+  )
 
   return (
-    <Box sx={{ maxWidth: 1200, mx: "auto" }}>
-      {/* Header with Action Buttons */}
-      <Box sx={{ mb: 4 }}>
-        <Typography variant="h4" fontWeight="bold" color="#1976d2" gutterBottom>
-          Product Categories
-        </Typography>
-        <Typography variant="body1" color="text.secondary" gutterBottom sx={{ mb: 3 }}>
-          Manage your product categories and subcategories for better organization
-        </Typography>
-        <Box sx={{ display: "flex", gap: 2, flexWrap: "wrap" }}>
-          <Button
-            variant="contained"
-            startIcon={<Add />}
-            onClick={() => handleOpenCategoryDialog()}
-            disabled={loading}
-            sx={{
-              bgcolor: "#1976d2",
-              "&:hover": { bgcolor: "#1565c0" },
-              textTransform: "none",
-              fontWeight: 600,
-              px: 3,
-              py: 1.5,
-              borderRadius: 2,
-            }}
-          >
-            Add New Category
-          </Button>
-          <Button
-            variant="outlined"
-            startIcon={<Add />}
-            onClick={() => handleOpenSubCategoryDialog()}
-            disabled={loading}
-            sx={{
-              borderColor: "#1976d2",
-              color: "#1976d2",
-              "&:hover": {
-                borderColor: "#1565c0",
-                bgcolor: "rgba(25, 118, 210, 0.04)",
-              },
-              textTransform: "none",
-              fontWeight: 600,
-              px: 3,
-              py: 1.5,
-              borderRadius: 2,
-            }}
-          >
-            Add New SubCategory
-          </Button>
-        </Box>
-      </Box>
-
-      {/* Success and Error Messages */}
+    <Box sx={{ maxWidth: 1200, mx: "auto", p: { xs: 2, md: 4 } }}>
+      <Typography variant="h4" fontWeight="bold" color="#1976d2" gutterBottom>
+        Category Management
+      </Typography>
       <Collapse in={!!successMessage}>
-        <Alert severity="success" sx={{ mb: 3, borderRadius: 2 }} onClose={() => setSuccessMessage("")}>
+        <Alert severity="success" sx={{ mb: 3 }} onClose={() => setSuccessMessage(null)}>
           {successMessage}
         </Alert>
       </Collapse>
-
-      <Collapse in={!!errorMessage}>
-        <Alert severity="error" sx={{ mb: 3, borderRadius: 2 }} onClose={() => setErrorMessage("")}>
-          {errorMessage}
+      <Collapse in={!!error}>
+        <Alert severity="error" sx={{ mb: 3 }} onClose={() => setError(null)}>
+          {error}. Please ensure the backend server is running at {API_URL} and the /categories/parent endpoint is accessible.
         </Alert>
       </Collapse>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 3 }}>
+        <TextField
+          label="Search Parent Categories"
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          sx={{ width: '300px' }}
+        />
+        <Button
+          variant="contained"
+          startIcon={<Add />}
+          onClick={() => setOpenParentCategoryDialog(true)}
+        >
+          Add Parent Category
+        </Button>
+      </Box>
 
-      {/* Categories Table */}
-      <Paper sx={{ overflow: "hidden", borderRadius: 2, boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)" }}>
-        <TableContainer>
-          <Table>
-            <TableHead>
-              <TableRow sx={{ bgcolor: "#f8f9fa" }}>
-                <TableCell sx={{ fontWeight: 700, fontSize: "0.95rem", color: "#333", width: "5%" }}>#</TableCell>
-                <TableCell sx={{ fontWeight: 700, fontSize: "0.95rem", color: "#333", width: "30%" }}>
-                  Category Name
-                </TableCell>
-                <TableCell sx={{ fontWeight: 700, fontSize: "0.95rem", color: "#333", width: "15%" }}>
-                  Total Products
-                </TableCell>
-                <TableCell sx={{ fontWeight: 700, fontSize: "0.95rem", color: "#333", width: "15%" }}>
-                  Stock Quantity
-                </TableCell>
-                <TableCell sx={{ fontWeight: 700, fontSize: "0.95rem", color: "#333", width: "20%" }}>
-                  Subcategories
-                </TableCell>
-                <TableCell sx={{ fontWeight: 700, fontSize: "0.95rem", color: "#333", width: "15%" }}>
-                  Actions
+      <TableContainer component={Paper}>
+        <Table>
+          <TableHead>
+            <TableRow>
+              <TableCell />
+              <TableCell>Name</TableCell>
+              <TableCell>Parent Category Code</TableCell>
+              <TableCell>Actions</TableCell>
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {loading ? (
+              <TableRow>
+                <TableCell colSpan={4} align="center">
+                  <CircularProgress />
                 </TableCell>
               </TableRow>
-            </TableHead>
-            <TableBody>
-              {loading ? (
-                <TableRow>
-                  <TableCell colSpan={6} align="center">
-                    <Typography>Loading...</Typography>
-                  </TableCell>
-                </TableRow>
-              ) : !categories.length ? (
-                <TableRow>
-                  <TableCell colSpan={6} align="center">
-                    <Typography>No categories found</Typography>
-                  </TableCell>
-                </TableRow>
-              ) : (
-                categories.map((category, index) => (
-                  <React.Fragment key={category.id}>
-                    <TableRow hover sx={{ "&:hover": { bgcolor: "#f8f9fa" } }}>
-                      <TableCell sx={{ fontWeight: 500 }}>{index + 1}</TableCell>
-                      <TableCell>
-                        <Box>
-                          <Typography variant="body1" sx={{ color: "#1976d2", fontWeight: 600, mb: 0.5 }}>
-                            {category.name || 'N/A'}
-                          </Typography>
-                          <Typography variant="caption" color="text.secondary">
-                            {category.description || 'No description'}
-                          </Typography>
-                        </Box>
-                      </TableCell>
-                      <TableCell>
-                        <Chip
-                          label={category.total_products ?? 0}
-                          size="small"
-                          sx={{
-                            bgcolor: "#e3f2fd",
-                            color: "#1976d2",
-                            fontWeight: 600,
-                          }}
-                        />
-                      </TableCell>
-                      <TableCell>
-                        <Chip
-                          label={category.stock_quantity ?? 0}
-                          size="small"
-                          sx={{
-                            bgcolor: "#e8f5e8",
-                            color: "#2e7d32",
-                            fontWeight: 600,
-                          }}
-                        />
-                      </TableCell>
-                      <TableCell>
-                        <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                          <Typography variant="body2" color="text.secondary">
-                            {(category.subcategories || []).length} subcategories
-                          </Typography>
-                          {(category.subcategories || []).length > 0 && (
-                            <IconButton
-                              size="small"
-                              onClick={() => toggleRowExpansion(category.id)}
-                              sx={{ ml: 1 }}
-                            >
-                              {expandedRows[category.id] ? <ExpandLess /> : <ExpandMore />}
-                            </IconButton>
-                          )}
-                        </Box>
-                      </TableCell>
-                      <TableCell>
-                        <Box sx={{ display: "flex", gap: 1 }}>
+            ) : filteredParentCategories.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={4} align="center">No parent categories found</TableCell>
+              </TableRow>
+            ) : (
+              filteredParentCategories.map((parentCategory) => (
+                <>
+                  <TableRow key={parentCategory.id}>
+                    <TableCell>
+                      <IconButton
+                        onClick={() => setExpandedParent(expandedParent === parentCategory.id ? null : parentCategory.id)}
+                      >
+                        {expandedParent === parentCategory.id ? <ExpandLess /> : <ExpandMore />}
+                      </IconButton>
+                    </TableCell>
+                    <TableCell>{parentCategory.name}</TableCell>
+                    <TableCell>{parentCategory.parent_category_code}</TableCell>
+                    <TableCell>
+                      <IconButton onClick={() => handleParentCategoryEdit(parentCategory)}>
+                        <Edit />
+                      </IconButton>
+                      <IconButton onClick={() => handleParentCategoryDelete(parentCategory.id)}>
+                        <Delete />
+                      </IconButton>
+                    </TableCell>
+                  </TableRow>
+                  <TableRow>
+                    <TableCell style={{ paddingBottom: 0, paddingTop: 0 }} colSpan={4}>
+                      <Collapse in={expandedParent === parentCategory.id} timeout="auto" unmountOnExit>
+                        <Box sx={{ ml: 4, mb: 2 }}>
                           <Button
-                            size="small"
                             variant="contained"
-                            onClick={() => toggleRowExpansion(category.id)}
-                            disabled={(category.subcategories || []).length === 0}
-                            sx={{
-                              bgcolor: "#4caf50",
-                              "&:hover": { bgcolor: "#45a049" },
-                              minWidth: "auto",
-                              px: 1.5,
-                              py: 0.5,
-                              fontSize: "0.75rem",
-                              textTransform: "none",
+                            startIcon={<Add />}
+                            onClick={() => {
+                              setCategoryForm({ name: "", parent_category_id: parentCategory.id, id: null })
+                              setOpenCategoryDialog(true)
                             }}
-                            startIcon={<Visibility sx={{ fontSize: "14px" }} />}
+                            sx={{ mb: 2 }}
                           >
-                            View
+                            Add Category
                           </Button>
-                          <Button
-                            size="small"
-                            variant="contained"
-                            onClick={() => handleOpenCategoryDialog(category)}
-                            sx={{
-                              bgcolor: "#ff9800",
-                              "&:hover": { bgcolor: "#f57c00" },
-                              minWidth: "auto",
-                              px: 1.5,
-                              py: 0.5,
-                              fontSize: "0.75rem",
-                              textTransform: "none",
-                            }}
-                            startIcon={<Edit sx={{ fontSize: "14px" }} />}
-                          >
-                            Edit
-                          </Button>
-                          <Button
-                            size="small"
-                            variant="contained"
-                            onClick={() => handleDeleteCategory(category.id)}
-                            sx={{
-                              bgcolor: "#f44336",
-                              "&:hover": { bgcolor: "#d32f2f" },
-                              minWidth: "auto",
-                              px: 1,
-                              py: 0.5,
-                              fontSize: "0.75rem",
-                            }}
-                          >
-                            <Delete sx={{ fontSize: "14px" }} />
-                          </Button>
-                        </Box>
-                      </TableCell>
-                    </TableRow>
-                    {expandedRows[category.id] && (
-                      <TableRow>
-                        <TableCell colSpan={6}>
-                          <Box sx={{ pl: 4, pr: 2, py: 2 }}>
-                            <Typography variant="subtitle2" sx={{ mb: 2 }}>
-                              Subcategories
-                            </Typography>
-                            <Table size="small">
+                          <TableContainer component={Paper}>
+                            <Table>
                               <TableHead>
-                                <TableRow sx={{ bgcolor: "#f1f3f5" }}>
-                                  <TableCell sx={{ fontWeight: 600 }}>#</TableCell>
-                                  <TableCell sx={{ fontWeight: 600 }}>Name</TableCell>
-                                  <TableCell sx={{ fontWeight: 600 }}>Description</TableCell>
-                                  <TableCell sx={{ fontWeight: 600 }}>Actions</TableCell>
+                                <TableRow>
+                                  <TableCell />
+                                  <TableCell>Name</TableCell>
+                                  <TableCell>Category Code</TableCell>
+                                  <TableCell>Actions</TableCell>
                                 </TableRow>
                               </TableHead>
                               <TableBody>
-                                {(category.subcategories || []).map((sub, subIndex) => (
-                                  <TableRow key={sub.id} hover>
-                                    <TableCell>{subIndex + 1}</TableCell>
-                                    <TableCell>{sub.name || 'N/A'}</TableCell>
-                                    <TableCell>{sub.description || 'No description'}</TableCell>
-                                    <TableCell>
-                                      <Button
-                                        size="small"
-                                        variant="text"
-                                        onClick={() => handleOpenSubCategoryDialog(category, sub)}
-                                        sx={{ color: "#ff9800", mr: 1 }}
-                                        startIcon={<Edit />}
-                                      >
-                                        Edit
-                                      </Button>
-                                      <Button
-                                        size="small"
-                                        variant="text"
-                                        onClick={() => handleDeleteSubCategory(category.id, sub.id)}
-                                        sx={{ color: "#f44336" }}
-                                        startIcon={<Delete />}
-                                      >
-                                        Delete
-                                      </Button>
-                                    </TableCell>
+                                {parentCategory.categories?.length === 0 ? (
+                                  <TableRow>
+                                    <TableCell colSpan={4} align="center">No categories found</TableCell>
                                   </TableRow>
-                                ))}
+                                ) : (
+                                  parentCategory.categories?.map((category) => (
+                                    <>
+                                      <TableRow key={category.id}>
+                                        <TableCell>
+                                          <IconButton
+                                            onClick={() => {
+                                              setExpandedCategory(expandedCategory === category.id ? null : category.id)
+                                              if (expandedCategory !== category.id) fetchSubCategories(category.id)
+                                            }}
+                                          >
+                                            {expandedCategory === category.id ? <ExpandLess /> : <ExpandMore />}
+                                          </IconButton>
+                                        </TableCell>
+                                        <TableCell>{category.name}</TableCell>
+                                        <TableCell>{category.category_code}</TableCell>
+                                        <TableCell>
+                                          <IconButton onClick={() => handleCategoryEdit(category)}>
+                                            <Edit />
+                                          </IconButton>
+                                          <IconButton onClick={() => handleCategoryDelete(category.id)}>
+                                            <Delete />
+                                          </IconButton>
+                                        </TableCell>
+                                      </TableRow>
+                                      <TableRow>
+                                        <TableCell style={{ paddingBottom: 0, paddingTop: 0 }} colSpan={4}>
+                                          <Collapse in={expandedCategory === category.id} timeout="auto" unmountOnExit>
+                                            <Box sx={{ ml: 4, mb: 2 }}>
+                                              <Button
+                                                variant="contained"
+                                                startIcon={<Add />}
+                                                onClick={() => {
+                                                  setSubCategoryForm({ 
+                                                    name: "", 
+                                                    category_id: category.id, 
+                                                    category_name: category.name, 
+                                                    id: null 
+                                                  })
+                                                  setOpenSubCategoryDialog(true)
+                                                }}
+                                                sx={{ mb: 2 }}
+                                              >
+                                                Add Subcategory
+                                              </Button>
+                                              <TableContainer component={Paper}>
+                                                <Table>
+                                                  <TableHead>
+                                                    <TableRow>
+                                                      <TableCell>Name</TableCell>
+                                                      <TableCell>Subcategory Code</TableCell>
+                                                      <TableCell>Actions</TableCell>
+                                                    </TableRow>
+                                                  </TableHead>
+                                                  <TableBody>
+                                                    {subCategories.length === 0 ? (
+                                                      <TableRow>
+                                                        <TableCell colSpan={3} align="center">No subcategories found</TableCell>
+                                                      </TableRow>
+                                                    ) : (
+                                                      subCategories.map((subCategory) => (
+                                                        <TableRow key={subCategory.id}>
+                                                          <TableCell>{subCategory.name}</TableCell>
+                                                          <TableCell>{subCategory.subcategory_code}</TableCell>
+                                                          <TableCell>
+                                                            <IconButton onClick={() => handleSubCategoryEdit(subCategory, category.id)}>
+                                                              <Edit />
+                                                            </IconButton>
+                                                            <IconButton onClick={() => handleSubCategoryDelete(subCategory.id, category.id)}>
+                                                              <Delete />
+                                                            </IconButton>
+                                                          </TableCell>
+                                                        </TableRow>
+                                                      ))
+                                                    )}
+                                                  </TableBody>
+                                                </Table>
+                                              </TableContainer>
+                                            </Box>
+                                          </Collapse>
+                                        </TableCell>
+                                      </TableRow>
+                                    </>
+                                  ))
+                                )}
                               </TableBody>
                             </Table>
-                          </Box>
-                        </TableCell>
-                      </TableRow>
-                    )}
-                  </React.Fragment>
-                ))
-              )}
-            </TableBody>
-          </Table>
-        </TableContainer>
-      </Paper>
+                          </TableContainer>
+                        </Box>
+                      </Collapse>
+                    </TableCell>
+                  </TableRow>
+                </>
+              ))
+            )}
+          </TableBody>
+        </Table>
+      </TableContainer>
+
+      {/* Parent Category Dialog */}
+      <Dialog open={openParentCategoryDialog} onClose={() => setOpenParentCategoryDialog(false)}>
+        <DialogTitle>{parentCategoryForm.id ? "Edit Parent Category" : "Add Parent Category"}</DialogTitle>
+        <DialogContent>
+          <TextField
+            fullWidth
+            label="Parent Category Name"
+            value={parentCategoryForm.name}
+            onChange={(e) => setParentCategoryForm({ ...parentCategoryForm, name: e.target.value })}
+            error={!!formErrors.name}
+            helperText={formErrors.name}
+            sx={{ mt: 2 }}
+          />
+          <TextField
+            fullWidth
+            label="Parent Category Code (e.g., M01)"
+            value={parentCategoryForm.parent_category_code}
+            onChange={(e) => setParentCategoryForm({ ...parentCategoryForm, parent_category_code: e.target.value })}
+            error={!!formErrors.parent_category_code}
+            helperText={formErrors.parent_category_code || "Enter one uppercase letter followed by two digits (e.g., M01)"}
+            sx={{ mt: 2 }}
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setOpenParentCategoryDialog(false)}>Cancel</Button>
+          <Button
+            variant="contained"
+            onClick={handleParentCategorySubmit}
+            disabled={loading}
+          >
+            {loading ? <CircularProgress size={24} /> : (parentCategoryForm.id ? "Update" : "Add")}
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       {/* Category Dialog */}
-      <Dialog open={categoryDialog} onClose={handleCloseDialog} maxWidth="sm" fullWidth>
-        <DialogTitle sx={{ pb: 2 }}>
-          <Typography variant="h6" fontWeight="bold">
-            {editMode ? "Edit Category" : "Add New Product Category"}
-          </Typography>
-        </DialogTitle>
-        <DialogContent sx={{ pt: 2 }}>
-          <Grid container spacing={3}>
-            <Grid item xs={12}>
-              <TextField
-                fullWidth
-                label="Category Name"
-                name="name"
-                placeholder="Enter category name"
-                variant="outlined"
-                value={formData.name}
-                onChange={handleInputChange}
-                required
-                error={formData.name.trim() === "" && errorMessage.includes("name")}
-                helperText={
-                  formData.name.trim() === "" && errorMessage.includes("name") ? errorMessage : ""
-                }
-                sx={{
-                  "& .MuiOutlinedInput-root": {
-                    borderRadius: 2,
-                  },
-                }}
-              />
-            </Grid>
-            <Grid item xs={12}>
-              <TextField
-                fullWidth
-                label="Description"
-                name="description"
-                placeholder="Enter category description"
-                variant="outlined"
-                value={formData.description}
-                onChange={handleInputChange}
-                multiline
-                rows={3}
-                error={formData.description.length > 1000 && errorMessage.includes("description")}
-                helperText={
-                  formData.description.length > 1000 && errorMessage.includes("description")
-                    ? errorMessage
-                    : ""
-                }
-                sx={{
-                  "& .MuiOutlinedInput-root": {
-                    borderRadius: 2,
-                  },
-                }}
-              />
-            </Grid>
-          </Grid>
+      <Dialog open={openCategoryDialog} onClose={() => setOpenCategoryDialog(false)}>
+        <DialogTitle>{categoryForm.id ? "Edit Category" : "Add Category"}</DialogTitle>
+        <DialogContent>
+          <FormControl fullWidth sx={{ mt: 2 }} error={!!formErrors.parent_category_id}>
+            <InputLabel>Parent Category</InputLabel>
+            <Select
+              value={categoryForm.parent_category_id}
+              onChange={(e) => setCategoryForm({ ...categoryForm, parent_category_id: e.target.value })}
+              label="Parent Category"
+              disabled={!!categoryForm.id}
+            >
+              <MenuItem value="" disabled>Select Parent Category</MenuItem>
+              {parentCategories.map((parentCategory) => (
+                <MenuItem key={parentCategory.id} value={parentCategory.id}>{parentCategory.name}</MenuItem>
+              ))}
+            </Select>
+            {formErrors.parent_category_id && <FormHelperText>{formErrors.parent_category_id}</FormHelperText>}
+          </FormControl>
+          <TextField
+            fullWidth
+            label="Category Name"
+            value={categoryForm.name}
+            onChange={(e) => setCategoryForm({ ...categoryForm, name: e.target.value })}
+            error={!!formErrors.name}
+            helperText={formErrors.name}
+            sx={{ mt: 2 }}
+          />
         </DialogContent>
-        <DialogActions sx={{ p: 3, pt: 2 }}>
+        <DialogActions>
+          <Button onClick={() => setOpenCategoryDialog(false)}>Cancel</Button>
           <Button
-            onClick={handleCloseDialog}
-            disabled={loading}
-            sx={{
-              textTransform: "none",
-              color: "#666",
-            }}
-          >
-            Cancel
-          </Button>
-          <Button
-            onClick={handleSaveCategory}
             variant="contained"
+            onClick={handleCategorySubmit}
             disabled={loading}
-            sx={{
-              bgcolor: "#1976d2",
-              "&:hover": { bgcolor: "#1565c0" },
-              textTransform: "none",
-              px: 4,
-              fontWeight: 600,
-            }}
           >
-            {loading ? "Saving..." : editMode ? "Update Category" : "Add Category"}
+            {loading ? <CircularProgress size={24} /> : (categoryForm.id ? "Update" : "Add")}
           </Button>
         </DialogActions>
       </Dialog>
 
       {/* Subcategory Dialog */}
-      <Dialog open={subCategoryDialog} onClose={handleCloseDialog} maxWidth="sm" fullWidth>
-        <DialogTitle sx={{ pb: 2 }}>
-          <Typography variant="h6" fontWeight="bold">
-            {editMode ? "Edit Subcategory" : "Add New SubCategory"}
-          </Typography>
-        </DialogTitle>
-        <DialogContent sx={{ pt: 2 }}>
-          <Grid container spacing={2}>
-            <Grid item xs={12}>
-              <TextField
-                fullWidth
-                label="Subcategory Name"
-                name="name"
-                placeholder="Enter subcategory name"
-                variant="outlined"
-                value={formData.name}
-                onChange={handleInputChange}
-                required
-                error={formData.name.trim() === "" && errorMessage.includes("name")}
-                helperText={
-                  formData.name.trim() === "" && errorMessage.includes("name") ? errorMessage : ""
-                }
-                sx={{
-                  "& .MuiOutlinedInput-root": {
-                    borderRadius: 2,
-                  },
-                }}
-              />
-            </Grid>
-            <Grid item xs={12}>
-              <TextField
-                fullWidth
-                label="Description"
-                name="description"
-                placeholder="Enter subcategory description"
-                variant="outlined"
-                value={formData.description}
-                onChange={handleInputChange}
-                multiline
-                rows={3}
-                error={formData.description.length > 1000 && errorMessage.includes("description")}
-                helperText={
-                  formData.description.length > 1000 && errorMessage.includes("description")
-                    ? errorMessage
-                    : ""
-                }
-                sx={{
-                  "& .MuiOutlinedInput-root": {
-                    borderRadius: 2,
-                  },
-                }}
-              />
-            </Grid>
-            <Grid item xs={12}>
-              <FormControl
-                fullWidth
-                required
-                error={formData.parentCategory === "" && errorMessage.includes("Parent category")}
-              >
-                <Select
-                  name="parentCategory"
-                  value={formData.parentCategory}
-                  onChange={handleInputChange}
-                  displayEmpty
-                  sx={{
-                    borderRadius: 2,
-                  }}
-                >
-                  <MenuItem value="">
-                    <em>Select Parent Category</em>
+      <Dialog open={openSubCategoryDialog} onClose={() => setOpenSubCategoryDialog(false)}>
+        <DialogTitle>{subCategoryForm.id ? "Edit Subcategory" : "Add Subcategory"}</DialogTitle>
+        <DialogContent>
+          <FormControl fullWidth sx={{ mt: 2 }} error={!!formErrors.category_id}>
+            <InputLabel>Category</InputLabel>
+            <Select
+              value={subCategoryForm.category_id}
+              onChange={(e) => {
+                const selectedCategory = categories.find(c => c.categories.some(cat => cat.id === e.target.value))
+                const category = selectedCategory?.categories.find(cat => cat.id === e.target.value)
+                setSubCategoryForm({ 
+                  ...subCategoryForm, 
+                  category_id: e.target.value,
+                  category_name: category?.name || ''
+                })
+              }}
+              label="Category"
+              disabled={!!subCategoryForm.id}
+            >
+              <MenuItem value="" disabled>Select Category</MenuItem>
+              {categories.map((parentCategory) => (
+                parentCategory.categories.map((category) => (
+                  <MenuItem key={category.id} value={category.id}>
+                    {category.name} ({parentCategory.name})
                   </MenuItem>
-                  {categories.map((category) => (
-                    <MenuItem key={category.id} value={category.id}>
-                      {category.name || 'N/A'}
-                    </MenuItem>
-                  ))}
-                </Select>
-                {formData.parentCategory === "" && errorMessage.includes("Parent category") && (
-                  <Typography variant="caption" color="error">
-                    {errorMessage}
-                  </Typography>
-                )}
-              </FormControl>
-            </Grid>
-          </Grid>
+                ))
+              ))}
+            </Select>
+            {formErrors.category_id && <FormHelperText>{formErrors.category_id}</FormHelperText>}
+          </FormControl>
+          <TextField
+            fullWidth
+            label="Subcategory Name"
+            value={subCategoryForm.name}
+            onChange={(e) => setSubCategoryForm({ ...subCategoryForm, name: e.target.value })}
+            error={!!formErrors.name}
+            helperText={formErrors.name}
+            sx={{ mt: 2 }}
+          />
         </DialogContent>
-        <DialogActions sx={{ p: 3, pt: 2 }}>
+        <DialogActions>
+          <Button onClick={() => setOpenSubCategoryDialog(false)}>Cancel</Button>
           <Button
-            onClick={handleCloseDialog}
-            disabled={loading}
-            sx={{
-              textTransform: "none",
-              color: "#666",
-            }}
-          >
-            Cancel
-          </Button>
-          <Button
-            onClick={handleSaveSubCategory}
             variant="contained"
+            onClick={handleSubCategorySubmit}
             disabled={loading}
-            sx={{
-              bgcolor: "#1976d2",
-              "&:hover": { bgcolor: "#1565c0" },
-              textTransform: "none",
-              px: 4,
-              fontWeight: 600,
-            }}
           >
-            {loading ? "Saving..." : editMode ? "Update Subcategory" : "Add Subcategory"}
+            {loading ? <CircularProgress size={24} /> : (subCategoryForm.id ? "Update" : "Add")}
           </Button>
         </DialogActions>
       </Dialog>

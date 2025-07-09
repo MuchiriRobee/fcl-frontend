@@ -23,6 +23,7 @@ import ManageItems from "../../../components/admin/ManageItems"
 import CategoryManagement from "../../../components/admin/CategoryManagement"
 import InventoryManagement from "../../../components/admin/InventoryManagement"
 import SalesAgentManagement from "../../../components/admin/SalesAgentManagement"
+import SupplierManagement from "../../../components/admin/SupplierManagement"
 
 // Error Boundary Component
 import React from 'react';
@@ -144,6 +145,13 @@ const AdminPage = () => {
             message: "Opening Category creation form...",
             severity: "info",
           })
+        } else if (section === "suppliers") {
+          setTabValue(5)
+          setCrudNotification({
+            open: true,
+            message: "Opening Supplier creation form...",
+            severity: "info",
+          })
         }
         break
 
@@ -161,6 +169,13 @@ const AdminPage = () => {
           setCrudNotification({
             open: true,
             message: "Loading categories...",
+            severity: "info",
+          })
+        } else if (section === "suppliers") {
+          setTabValue(5)
+          setCrudNotification({
+            open: true,
+            message: "Loading suppliers...",
             severity: "info",
           })
         }
@@ -208,6 +223,16 @@ const AdminPage = () => {
     setCrudNotification({
       open: true,
       message: "Categories updated successfully!",
+      severity: "success",
+    })
+  }, []);
+
+  // E-commerce supplier management
+  const handleSuppliersChange = useCallback((updatedSuppliers) => {
+    console.log('Parent received suppliers:', updatedSuppliers);
+    setCrudNotification({
+      open: true,
+      message: "Suppliers updated successfully!",
       severity: "success",
     })
   }, []);
@@ -348,37 +373,7 @@ const AdminPage = () => {
         {/* Item Master - E-commerce Product Management with CRUD */}
         <TabPanel value={tabValue} index={1}>
           {/* Clean sub-navigation without redundant headers */}
-          <Paper
-            sx={{
-              mb: 3,
-              bgcolor: "white",
-              borderRadius: 2,
-              overflow: "hidden",
-              mx: { xs: 2, sm: 3 },
-              mt: 3,
-            }}
-          >
-            <Tabs
-              value={subTabValue}
-              onChange={handleSubTabChange}
-              aria-label="item master tabs"
-              variant={isMobile ? "scrollable" : "standard"}
-              scrollButtons={isMobile ? "auto" : false}
-              allowScrollButtonsMobile
-              sx={{
-                "& .MuiTab-root": {
-                  textTransform: "none",
-                  fontSize: "0.9rem",
-                  fontWeight: 500,
-                  fontFamily: "'Poppins', sans-serif",
-                  minHeight: 48,
-                },
-              }}
-            >
-              <Tab icon={<AddIcon />} label="New Item" />
-              <Tab icon={<ListIcon />} label="Manage Items" />
-            </Tabs>
-          </Paper>
+          
 
           {/* E-commerce product forms with CRUD operations */}
           {subTabValue === 0 && (
@@ -420,14 +415,9 @@ const AdminPage = () => {
 
         {/* Suppliers - E-commerce Vendor Management with CRUD */}
         <TabPanel value={tabValue} index={5}>
-          <Paper sx={{ p: 4, textAlign: "center", borderRadius: 2 }}>
-            <Typography variant="h6" color="text.secondary" gutterBottom sx={{ fontFamily: "'Poppins', sans-serif" }}>
-              E-commerce Supplier Portal with CRUD Operations
-            </Typography>
-            <Typography variant="body1" color="text.secondary" sx={{ fontFamily: "'Poppins', sans-serif" }}>
-              Manage supplier information, create purchase orders, and handle vendor relationships.
-            </Typography>
-          </Paper>
+          <ErrorBoundary>
+            <SupplierManagement onSuppliersChange={handleSuppliersChange} />
+          </ErrorBoundary>
         </TabPanel>
 
         {/* Sales Agents - E-commerce Team Management with CRUD */}
