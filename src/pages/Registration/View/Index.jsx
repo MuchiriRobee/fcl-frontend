@@ -338,7 +338,7 @@ const RegistrationForm = () => {
             <Typography variant="body1" fontWeight="bold" gutterBottom>
               {formData.userType === "individual" ? "Individual Name" : "Company Name"}{" "}
               <Typography component="span" color="error" variant="body2">
-                (Please note: Your invoice will be generated in this name)
+                (*Please fill your First and Last name. Your invoice will be generated in this name)
               </Typography>
             </Typography>
             <TextField
@@ -384,18 +384,21 @@ const RegistrationForm = () => {
 
             <Typography variant="body1" fontWeight="bold" gutterBottom sx={{ mt: 2 }}>
               Phone Number
+              <Typography component="span" color="error" variant="body2">
+                (*SAFARICOM NUMBER ONLY)
+              </Typography>
             </Typography>
             <TextField
               fullWidth
               name="phoneNumber"
               value={formData.phoneNumber}
               onChange={handleChange}
-              placeholder="XXXXXXXXX"
+              placeholder="07XXXXXXXX"
               size="small"
               InputProps={{
                 startAdornment: (
                   <InputAdornment position="start" sx={{ mr: 0 }}>
-                    +254
+                    
                   </InputAdornment>
                 ),
               }}
@@ -407,7 +410,7 @@ const RegistrationForm = () => {
             <Typography variant="body1" fontWeight="bold" gutterBottom sx={{ mt: 2 }}>
               Cashback Phone Number{" "}
               <Typography component="span" color="error" variant="body2">
-                (SAFARICOM MOBILE NUMBER ONLY)
+                (*SAFARICOM NUMBER ONLY)
               </Typography>
             </Typography>
             <TextField
@@ -430,7 +433,7 @@ const RegistrationForm = () => {
             <Typography variant="body1" fontWeight="bold" gutterBottom sx={{ mt: 2 }}>
               {formData.userType === "individual" ? "Individual" : "Company"} KRA Pin{" "}
               <Typography component="span" color="error" variant="body2">
-                (Fill this field to claim VAT)
+                (*Fill this field to claim VAT)
               </Typography>
             </Typography>
             <TextField
