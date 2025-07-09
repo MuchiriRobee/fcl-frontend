@@ -393,12 +393,12 @@ const RegistrationForm = () => {
               name="phoneNumber"
               value={formData.phoneNumber}
               onChange={handleChange}
-              placeholder="07XXXXXXXX"
+              placeholder="XXXXXXXXX"
               size="small"
               InputProps={{
                 startAdornment: (
                   <InputAdornment position="start" sx={{ mr: 0 }}>
-                    
+                    +254
                   </InputAdornment>
                 ),
               }}
