@@ -117,7 +117,7 @@ export default function NewItemForm({ onSubmit, editItem = null }) {
   const [calculatedProfits, setCalculatedProfits] = useState({
     gp1: 0, np1: 0, gp2: 0, np2: 0, gp3: 0, np3: 0,
   })
-  const baseUrl = import.meta.env.VITE_BASE_URL || 'http://localhost:5000'
+  const baseUrl = import.meta.env.VITE_BASE_URL || 'http://localhost:5000' || 'https://fcl-back.onrender.com'
 
   // Fetch suppliers
   useEffect(() => {
