@@ -285,6 +285,45 @@ export default function ManageItems({ onEditItem, onAddNewItem, refreshItems, on
           if (item.alert_quantity && (isNaN(item.alert_quantity) || item.alert_quantity < 0)) {
             errors.push(`Row ${index + 2}: Alert quantity must be a non-negative integer`);
           }
+          // Validate cost_price
+          if (item.cost_price && (isNaN(item.cost_price) || item.cost_price < 0 || item.cost_price > 9999999999999.99)) {
+            errors.push(`Row ${index + 2}: Cost price must be between 0 and 9,999,999,999,999.99`);
+          }
+          if (item.cost_price && (item.cost_price.toString().split('.')[1]?.length || 0) > 2) {
+            errors.push(`Row ${index + 2}: Cost price must have at most 2 decimal places`);
+          }
+          // Validate vat
+          if (item.vat && (isNaN(item.vat) || item.vat < 0 || item.vat > 100)) {
+            errors.push(`Row ${index + 2}: VAT must be between 0 and 100`);
+          }
+          if (item.vat && (item.vat.toString().split('.')[1]?.length || 0) > 2) {
+            errors.push(`Row ${index + 2}: VAT must have at most 2 decimal places`);
+          }
+          // Validate sales agent cashbacks
+          if (item.sa_cashback_1st && (isNaN(item.sa_cashback_1st) || item.sa_cashback_1st < 0 || item.sa_cashback_1st > 100)) {
+            errors.push(`Row ${index + 2}: 1st purchase cashback must be between 0 and 100`);
+          }
+          if (item.sa_cashback_1st && (item.sa_cashback_1st.toString().split('.')[1]?.length || 0) > 2) {
+            errors.push(`Row ${index + 2}: 1st purchase cashback must have at most 2 decimal places`);
+          }
+          if (item.sa_cashback_2nd && (isNaN(item.sa_cashback_2nd) || item.sa_cashback_2nd < 0 || item.sa_cashback_2nd > 100)) {
+            errors.push(`Row ${index + 2}: 2nd purchase cashback must be between 0 and 100`);
+          }
+          if (item.sa_cashback_2nd && (item.sa_cashback_2nd.toString().split('.')[1]?.length || 0) > 2) {
+            errors.push(`Row ${index + 2}: 2nd purchase cashback must have at most 2 decimal places`);
+          }
+          if (item.sa_cashback_3rd && (isNaN(item.sa_cashback_3rd) || item.sa_cashback_3rd < 0 || item.sa_cashback_3rd > 100)) {
+            errors.push(`Row ${index + 2}: 3rd purchase cashback must be between 0 and 100`);
+          }
+          if (item.sa_cashback_3rd && (item.sa_cashback_3rd.toString().split('.')[1]?.length || 0) > 2) {
+            errors.push(`Row ${index + 2}: 3rd purchase cashback must have at most 2 decimal places`);
+          }
+          if (item.sa_cashback_4th && (isNaN(item.sa_cashback_4th) || item.sa_cashback_4th < 0 || item.sa_cashback_4th > 100)) {
+            errors.push(`Row ${index + 2}: 4th purchase cashback must be between 0 and 100`);
+          }
+          if (item.sa_cashback_4th && (item.sa_cashback_4th.toString().split('.')[1]?.length || 0) > 2) {
+            errors.push(`Row ${index + 2}: 4th purchase cashback must have at most 2 decimal places`);
+          }
 
           // Find parent category
           const parentCategory = categories.find(cat => cat.name === item.parent_category);
@@ -335,12 +374,12 @@ export default function ManageItems({ onEditItem, onAddNewItem, refreshItems, on
             sellingPrice2: item.selling_price2 ? parseFloat(item.selling_price2) : null,
             qty3Min: item.qty3_min ? parseInt(item.qty3_min) : null,
             sellingPrice3: item.selling_price3 ? parseFloat(item.selling_price3) : null,
-            costPrice: 0, // Default for bulk import
-            vat: 0, // Default for bulk import
-            saCashback1stPurchase: 0, // Default
-            saCashback2ndPurchase: 0, // Default
-            saCashback3rdPurchase: 0, // Default
-            saCashback4thPurchase: 0, // Default
+            costPrice: item.cost_price ? parseFloat(item.cost_price) : null,
+            vat: item.vat ? parseFloat(item.vat) : null,
+            saCashback1stPurchase: item.sa_cashback_1st ? parseFloat(item.sa_cashback_1st) : null,
+            saCashback2ndPurchase: item.sa_cashback_2nd ? parseFloat(item.sa_cashback_2nd) : null,
+            saCashback3rdPurchase: item.sa_cashback_3rd ? parseFloat(item.sa_cashback_3rd) : null,
+            saCashback4thPurchase: item.sa_cashback_4th ? parseFloat(item.sa_cashback_4th) : null,
             reorderActive: false // Default
           };
         });
@@ -452,185 +491,185 @@ export default function ManageItems({ onEditItem, onAddNewItem, refreshItems, on
       >
         <Box>
           <Typography variant="h4" fontWeight="bold" color="#1976d2" gutterBottom>
-            Manage Items
-          </Typography>
-          <Typography variant="body1" color="text.secondary">
-            View, edit, and manage your product inventory
-          </Typography>
-        </Box>
-        <Box sx={{ display: "flex", gap: 2 }}>
-          <Button
-            variant="contained"
-            startIcon={<Add />}
-            onClick={onAddNewItem}
-            sx={{
-              bgcolor: "#1976d2",
-              "&:hover": { bgcolor: "#1565c0" },
-              textTransform: "none",
-              fontWeight: 600,
-              px: 3,
-              py: 1.5,
-              borderRadius: 2,
-            }}
-          >
-            Add New Item
-          </Button>
-          <Button
-            variant="contained"
-            onClick={handleExport}
-            sx={{
-              bgcolor: "#1976d2",
-              "&:hover": { bgcolor: "#1565c0" },
-              textTransform: "none",
-              fontWeight: 600,
-              px: 3,
-              py: 1.5,
-              borderRadius: 2,
-            }}
-          >
-            Export to Excel
-          </Button>
-          <Button
-            variant="contained"
-            component="label"
-            sx={{
-              bgcolor: "#1976d2",
-              "&:hover": { bgcolor: "#1565c0" },
-              textTransform: "none",
-              fontWeight: 600,
-              px: 3,
-              py: 1.5,
-              borderRadius: 2,
-            }}
-          >
-            Import from Excel
-            <input type="file" accept=".xlsx,.xls" hidden onChange={handleImport} />
-          </Button>
-        </Box>
+          Manage Items
+        </Typography>
+        <Typography variant="body1" color="text.secondary">
+          View, edit, and manage your product inventory
+        </Typography>
       </Box>
-
-      {/* Messages */}
-      <Collapse in={!!successMessage}>
-        <Alert severity="success" sx={{ mb: 3, borderRadius: 2 }} onClose={() => setSuccessMessage("")}>
-          {successMessage}
-        </Alert>
-      </Collapse>
-      <Collapse in={!!errorMessage}>
-        <Alert severity="error" sx={{ mb: 3, borderRadius: 2 }} onClose={() => setErrorMessage("")}>
-          {errorMessage}
-        </Alert>
-      </Collapse>
-
-      {/* Search Bar */}
-      <Box sx={{ mb: 4 }}>
-        <TextField
-          placeholder="Search items by name, code, category, or subcategory..."
-          variant="outlined"
-          size="medium"
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          InputProps={{
-            startAdornment: (
-              <InputAdornment position="start">
-                <Search sx={{ color: "#666" }} />
-              </InputAdornment>
-            ),
-          }}
-          inputProps={{ "aria-label": "Search products" }}
+      <Box sx={{ display: "flex", gap: 2 }}>
+        <Button
+          variant="contained"
+          startIcon={<Add />}
+          onClick={onAddNewItem}
           sx={{
-            minWidth: { xs: "100%", sm: 400 },
-            "& .MuiOutlinedInput-root": {
-              bgcolor: "white",
-              borderRadius: 2,
-            },
+            bgcolor: "#1976d2",
+            "&:hover": { bgcolor: "#1565c0" },
+            textTransform: "none",
+            fontWeight: 600,
+            px: 3,
+            py: 1.5,
+            borderRadius: 2,
           }}
-        />
+        >
+          Add New Item
+        </Button>
+        <Button
+          variant="contained"
+          onClick={handleExport}
+          sx={{
+            bgcolor: "#1976d2",
+            "&:hover": { bgcolor: "#1565c0" },
+            textTransform: "none",
+            fontWeight: 600,
+            px: 3,
+            py: 1.5,
+            borderRadius: 2,
+          }}
+        >
+          Export to Excel
+        </Button>
+        <Button
+          variant="contained"
+          component="label"
+          sx={{
+            bgcolor: "#1976d2",
+            "&:hover": { bgcolor: "#1565c0" },
+            textTransform: "none",
+            fontWeight: 600,
+            px: 3,
+            py: 1.5,
+            borderRadius: 2,
+          }}
+        >
+          Import from Excel
+          <input type="file" accept=".xlsx,.xls" hidden onChange={handleImport} />
+        </Button>
       </Box>
+    </Box>
 
-      {/* Items Table */}
-      <Paper sx={{ overflow: "hidden", borderRadius: 2, boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)" }}>
-        <TableContainer sx={{ width: "100%" }}>
-          <Table stickyHeader aria-label="Products table">
-            <TableHead>
-              <TableRow sx={{ bgcolor: "#f8f9fa" }}>
-                <TableCell scope="col" sx={{ fontWeight: 700, color: "#333", fontSize: "0.95rem", minWidth: 200 }}>
-                  Product
-                </TableCell>
-                <TableCell scope="col" sx={{ fontWeight: 700, color: "#333", fontSize: "0.95rem", minWidth: 80 }}>
-                  Code
-                </TableCell>
-                <TableCell scope="col" sx={{ fontWeight: 700, color: "#333", fontSize: "0.95rem", minWidth: 120 }}>
-                  Parent Category
-                </TableCell>
-                <TableCell scope="col" sx={{ fontWeight: 700, color: "#333", fontSize: "0.95rem", minWidth: 140 }}>
-                  Price Range
-                </TableCell>
-                <TableCell scope="col" sx={{ fontWeight: 700, color: "#333", fontSize: "0.95rem", minWidth: 80 }}>
-                  Cashback
-                </TableCell>
-                <TableCell scope="col" sx={{ fontWeight: 700, color: "#333", fontSize: "0.95rem", minWidth: 100 }}>
-                  Stock
-                </TableCell>
-                <TableCell
-                  scope="col"
-                  sx={{ fontWeight: 700, color: "#333", fontSize: "0.95rem", minWidth: 120 }}
-                  align="center"
-                >
-                  Actions
+    {/* Messages */}
+    <Collapse in={!!successMessage}>
+      <Alert severity="success" sx={{ mb: 3, borderRadius: 2 }} onClose={() => setSuccessMessage("")}>
+        {successMessage}
+      </Alert>
+    </Collapse>
+    <Collapse in={!!errorMessage}>
+      <Alert severity="error" sx={{ mb: 3, borderRadius: 2 }} onClose={() => setErrorMessage("")}>
+        {errorMessage}
+      </Alert>
+    </Collapse>
+
+    {/* Search Bar */}
+    <Box sx={{ mb: 4 }}>
+      <TextField
+        placeholder="Search items by name, code, category, or subcategory..."
+        variant="outlined"
+        size="medium"
+        value={searchTerm}
+        onChange={(e) => setSearchTerm(e.target.value)}
+        InputProps={{
+          startAdornment: (
+            <InputAdornment position="start">
+              <Search sx={{ color: "#666" }} />
+            </InputAdornment>
+          ),
+        }}
+        inputProps={{ "aria-label": "Search products" }}
+        sx={{
+          minWidth: { xs: "100%", sm: 400 },
+          "& .MuiOutlinedInput-root": {
+            bgcolor: "white",
+            borderRadius: 2,
+          },
+        }}
+      />
+    </Box>
+
+    {/* Items Table */}
+    <Paper sx={{ overflow: "hidden", borderRadius: 2, boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)" }}>
+      <TableContainer sx={{ width: "100%" }}>
+        <Table stickyHeader aria-label="Products table">
+          <TableHead>
+            <TableRow sx={{ bgcolor: "#f8f9fa" }}>
+              <TableCell scope="col" sx={{ fontWeight: 700, color: "#333", fontSize: "0.95rem", minWidth: 200 }}>
+                Product
+              </TableCell>
+              <TableCell scope="col" sx={{ fontWeight: 700, color: "#333", fontSize: "0.95rem", minWidth: 80 }}>
+                Code
+              </TableCell>
+              <TableCell scope="col" sx={{ fontWeight: 700, color: "#333", fontSize: "0.95rem", minWidth: 120 }}>
+                Parent Category
+              </TableCell>
+              <TableCell scope="col" sx={{ fontWeight: 700, color: "#333", fontSize: "0.95rem", minWidth: 140 }}>
+                Price Range
+              </TableCell>
+              <TableCell scope="col" sx={{ fontWeight: 700, color: "#333", fontSize: "0.95rem", minWidth: 80 }}>
+                Cashback
+              </TableCell>
+              <TableCell scope="col" sx={{ fontWeight: 700, color: "#333", fontSize: "0.95rem", minWidth: 100 }}>
+                Stock
+              </TableCell>
+              <TableCell
+                scope="col"
+                sx={{ fontWeight: 700, color: "#333", fontSize: "0.95rem", minWidth: 120 }}
+                align="center"
+              >
+                Actions
+              </TableCell>
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {filteredItems.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={7} sx={{ textAlign: "center", py: 4 }}>
+                  <Typography variant="body1" color="text.secondary">
+                    No products found
+                  </Typography>
                 </TableCell>
               </TableRow>
-            </TableHead>
-            <TableBody>
-              {filteredItems.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={7} sx={{ textAlign: "center", py: 4 }}>
-                    <Typography variant="body1" color="text.secondary">
-                      No products found
-                    </Typography>
-                  </TableCell>
-                </TableRow>
-              ) : (
-                filteredItems.map((item) => {
-                  const stockStatus = getStockStatus(item.stockUnits, item.alertQuantity)
-                  const validTiers = item.tierPricing.filter(tier => tier.price > 0)
-                  const lowestPrice = validTiers.length > 0 ? Math.min(...validTiers.map(tier => tier.price)) : 0
-                  const highestPrice = validTiers.length > 0 ? Math.max(...validTiers.map(tier => tier.price)) : 0
-                  const parentCategory = getParentCategory(item.category_id)
+            ) : (
+              filteredItems.map((item) => {
+                const stockStatus = getStockStatus(item.stockUnits, item.alertQuantity)
+                const validTiers = item.tierPricing.filter(tier => tier.price > 0)
+                const lowestPrice = validTiers.length > 0 ? Math.min(...validTiers.map(tier => tier.price)) : 0
+                const highestPrice = validTiers.length > 0 ? Math.max(...validTiers.map(tier => tier.price)) : 0
+                const parentCategory = getParentCategory(item.category_id)
 
-                  return (
-                    <TableRow
-                      key={item.id}
-                      hover
-                      sx={{
-                        "&:hover": { bgcolor: "#f8f9fa" },
-                        borderBottom: "1px solid #e9ecef",
-                      }}
-                    >
-                      <TableCell>
-                        <Box sx={{ display: "flex", alignItems: "center" }}>
-                          <Avatar
-                            src={item.image}
-                            alt={item.productName}
-                            sx={{
-                              mr: 1.5,
-                              width: 40,
-                              height: 40,
-                              bgcolor: "#f5f5f5",
-                              borderRadius: 1,
-                            }}
-                          />
-                          <Box>
-                            <Typography variant="body2" sx={{ fontWeight: 600, color: "#333", fontSize: "0.95rem" }}>
-                              {item.productName}
-                            </Typography>
-                            <Typography
-                              variant="caption"
-                              color="text.secondary"
-                              sx={{ fontSize: "0.85rem" }}
-                            >
-                              {item.description ? item.description.substring(0, 30) + "..." : "No description"}
-                            </Typography>
-                          </Box>
+                return (
+                  <TableRow
+                    key={item.id}
+                    hover
+                    sx={{
+                      "&:hover": { bgcolor: "#f8f9fa" },
+                      borderBottom: "1px solid #e9ecef",
+                    }}
+                  >
+                    <TableCell>
+                      <Box sx={{ display: "flex", alignItems: "center" }}>
+                        <Avatar
+                          src={item.image}
+                          alt={item.productName}
+                          sx={{
+                            mr: 1.5,
+                            width: 40,
+                            height: 40,
+                            bgcolor: "#f5f5f5",
+                            borderRadius: 1,
+                          }}
+                        />
+                        <Box>
+                          <Typography variant="body2" sx={{ fontWeight: 600, color: "#333", fontSize: "0.95rem" }}>
+                            {item.productName}
+                          </Typography>
+                          <Typography
+                            variant="caption"
+                            color="text.secondary"
+                            sx={{ fontSize: "0.85rem" }}
+                          >
+                            {item.description ? item.description.substring(0, 30) + "..." : "No description"}
+                          </Typography>
+                        </Box>
                         </Box>
                       </TableCell>
                       <TableCell>
@@ -783,7 +822,7 @@ export default function ManageItems({ onEditItem, onAddNewItem, refreshItems, on
                 {selectedItem?.description || "No description"}
               </Typography>
               <Typography variant="body2" sx={{ mb: 1 }}>
-                <strong>Category:</strong> {selectedItem?.parent_category} &gt;{" "}
+                <strong>Category:</strong> {selectedItem?.parent_category} {" "}
                 {selectedItem?.category}
                 {selectedItem?.subCategory && ` > ${selectedItem.subCategory}`}
               </Typography>
