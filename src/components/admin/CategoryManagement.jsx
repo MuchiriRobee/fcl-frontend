@@ -73,6 +73,10 @@ export default function CategoryManagement() {
   const [openParentCategoryDialog, setOpenParentCategoryDialog] = useState(false)
   const [openCategoryDialog, setOpenCategoryDialog] = useState(false)
   const [openSubCategoryDialog, setOpenSubCategoryDialog] = useState(false)
+  const [openParentCategoryDeleteDialog, setOpenParentCategoryDeleteDialog] = useState(false)
+  const [openCategoryDeleteDialog, setOpenCategoryDeleteDialog] = useState(false)
+  const [openSubCategoryDeleteDialog, setOpenSubCategoryDeleteDialog] = useState(false)
+  const [deleteItem, setDeleteItem] = useState(null)
   const [parentCategoryForm, setParentCategoryForm] = useState({ name: "", parent_category_code: "", id: null })
   const [categoryForm, setCategoryForm] = useState({ name: "", parent_category_id: "", id: null })
   const [subCategoryForm, setSubCategoryForm] = useState({ name: "", category_id: "", category_name: "", id: null })
@@ -326,18 +330,23 @@ export default function CategoryManagement() {
     setOpenSubCategoryDialog(true)
   }
 
-  const handleParentCategoryDelete = async (id) => {
-    if (!window.confirm("Are you sure you want to delete this parent category?")) return
+  const handleParentCategoryDelete = (parentCategory) => {
+    setDeleteItem(parentCategory)
+    setOpenParentCategoryDeleteDialog(true)
+  }
+
+  const confirmParentCategoryDelete = async () => {
+    if (!deleteItem) return
     setLoading(true)
     try {
-      console.log(`[SUBMIT] DELETE ${API_URL}/categories/parent/${id}`)
-      const response = await axios.delete(`${API_URL}/categories/parent/${id}`, {
+      console.log(`[SUBMIT] DELETE ${API_URL}/categories/parent/${deleteItem.id}`)
+      const response = await axios.delete(`${API_URL}/categories/parent/${deleteItem.id}`, {
         headers: { 'Content-Type': 'application/json' }
       })
       console.log('[SUBMIT] Response:', response.data)
       await refreshCategories()
       await fetchParentCategories()
-      setSuccessMessage('Parent category deleted successfully')
+      setSuccessMessage('Parent category and associated data deleted successfully')
       setTimeout(() => setSuccessMessage(null), 3000)
       setExpandedParent(null)
       setError(null)
@@ -349,21 +358,28 @@ export default function CategoryManagement() {
       setError(errorMessage)
     } finally {
       setLoading(false)
+      setOpenParentCategoryDeleteDialog(false)
+      setDeleteItem(null)
     }
   }
 
-  const handleCategoryDelete = async (id) => {
-    if (!window.confirm("Are you sure you want to delete this category?")) return
+  const handleCategoryDelete = (category) => {
+    setDeleteItem(category)
+    setOpenCategoryDeleteDialog(true)
+  }
+
+  const confirmCategoryDelete = async () => {
+    if (!deleteItem) return
     setLoading(true)
     try {
-      console.log(`[SUBMIT] DELETE ${API_URL}/categories/${id}`)
-      const response = await axios.delete(`${API_URL}/categories/${id}`, {
+      console.log(`[SUBMIT] DELETE ${API_URL}/categories/${deleteItem.id}`)
+      const response = await axios.delete(`${API_URL}/categories/${deleteItem.id}`, {
         headers: { 'Content-Type': 'application/json' }
       })
       console.log('[SUBMIT] Response:', response.data)
       await refreshCategories()
       await fetchParentCategories()
-      setSuccessMessage('Category deleted successfully')
+      setSuccessMessage('Category and associated data deleted successfully')
       setTimeout(() => setSuccessMessage(null), 3000)
       setExpandedCategory(null)
       setError(null)
@@ -375,22 +391,29 @@ export default function CategoryManagement() {
       setError(errorMessage)
     } finally {
       setLoading(false)
+      setOpenCategoryDeleteDialog(false)
+      setDeleteItem(null)
     }
   }
 
-  const handleSubCategoryDelete = async (id, categoryId) => {
-    if (!window.confirm("Are you sure you want to delete this subcategory?")) return
+  const handleSubCategoryDelete = (subCategory, categoryId) => {
+    setDeleteItem({ ...subCategory, categoryId })
+    setOpenSubCategoryDeleteDialog(true)
+  }
+
+  const confirmSubCategoryDelete = async () => {
+    if (!deleteItem) return
     setLoading(true)
     try {
-      console.log(`[SUBMIT] DELETE ${API_URL}/categories/subcategories/${id}`)
-      const response = await axios.delete(`${API_URL}/categories/subcategories/${id}`, {
+      console.log(`[SUBMIT] DELETE ${API_URL}/categories/subcategories/${deleteItem.id}`)
+      const response = await axios.delete(`${API_URL}/categories/subcategories/${deleteItem.id}`, {
         headers: { 'Content-Type': 'application/json' }
       })
       console.log('[SUBMIT] Response:', response.data)
-      await fetchSubCategories(categoryId)
+      await fetchSubCategories(deleteItem.categoryId)
       await refreshCategories()
       await fetchParentCategories()
-      setSuccessMessage('Subcategory deleted successfully')
+      setSuccessMessage('Subcategory and associated products deleted successfully')
       setTimeout(() => setSuccessMessage(null), 3000)
       setError(null)
     } catch (err) {
@@ -401,6 +424,8 @@ export default function CategoryManagement() {
       setError(errorMessage)
     } finally {
       setLoading(false)
+      setOpenSubCategoryDeleteDialog(false)
+      setDeleteItem(null)
     }
   }
 
@@ -484,7 +509,7 @@ export default function CategoryManagement() {
                       <StyledIconButton onClick={() => handleParentCategoryEdit(parentCategory)}>
                         <Edit sx={{ color: 'info.main' }} />
                       </StyledIconButton>
-                      <StyledIconButton onClick={() => handleParentCategoryDelete(parentCategory.id)}>
+                      <StyledIconButton onClick={() => handleParentCategoryDelete(parentCategory)}>
                         <Delete sx={{ color: 'error.main' }} />
                       </StyledIconButton>
                     </StyledTableCell>
@@ -538,7 +563,7 @@ export default function CategoryManagement() {
                                           <StyledIconButton onClick={() => handleCategoryEdit(category)}>
                                             <Edit sx={{ color: 'info.main' }} />
                                           </StyledIconButton>
-                                          <StyledIconButton onClick={() => handleCategoryDelete(category.id)}>
+                                          <StyledIconButton onClick={() => handleCategoryDelete(category)}>
                                             <Delete sx={{ color: 'error.main' }} />
                                           </StyledIconButton>
                                         </StyledTableCell>
@@ -585,7 +610,7 @@ export default function CategoryManagement() {
                                                             <StyledIconButton onClick={() => handleSubCategoryEdit(subCategory, category.id)}>
                                                               <Edit sx={{ color: 'info.main' }} />
                                                             </StyledIconButton>
-                                                            <StyledIconButton onClick={() => handleSubCategoryDelete(subCategory.id, category.id)}>
+                                                            <StyledIconButton onClick={() => handleSubCategoryDelete(subCategory, category.id)}>
                                                               <Delete sx={{ color: 'error.main' }} />
                                                             </StyledIconButton>
                                                           </StyledTableCell>
@@ -782,6 +807,99 @@ export default function CategoryManagement() {
           >
             {loading ? <CircularProgress size={24} color="inherit" /> : (subCategoryForm.id ? "Update" : "Add")}
           </StyledAddButton>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog open={openParentCategoryDeleteDialog} onClose={() => setOpenParentCategoryDeleteDialog(false)}>
+        <DialogTitle sx={{ bgcolor: 'primary.dark', color: 'white', py: 2 }}>
+          Confirm Delete Parent Category
+        </DialogTitle>
+        <DialogContent sx={{ bgcolor: 'grey.50' }}>
+          <Typography sx={{ mt: 2 }}>
+            Are you sure you want to delete the parent category "{deleteItem?.name}"?
+            This will also delete all associated categories, subcategories, and products.
+            This action cannot be undone.
+          </Typography>
+        </DialogContent>
+        <DialogActions sx={{ bgcolor: 'grey.50', py: 2 }}>
+          <Button onClick={() => setOpenParentCategoryDeleteDialog(false)} color="secondary">
+            Cancel
+          </Button>
+          <Button
+            onClick={confirmParentCategoryDelete}
+            disabled={loading}
+            sx={{
+              backgroundColor: 'error.main',
+              color: 'white',
+              '&:hover': { backgroundColor: 'error.dark' },
+              padding: '8px 16px',
+              borderRadius: '4px',
+            }}
+          >
+            {loading ? <CircularProgress size={24} color="inherit" /> : 'Delete'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog open={openCategoryDeleteDialog} onClose={() => setOpenCategoryDeleteDialog(false)}>
+        <DialogTitle sx={{ bgcolor: 'primary.dark', color: 'white', py: 2 }}>
+          Confirm Delete Category
+        </DialogTitle>
+        <DialogContent sx={{ bgcolor: 'grey.50' }}>
+          <Typography sx={{ mt: 2 }}>
+            Are you sure you want to delete the category "{deleteItem?.name}"?
+            This will also delete all associated subcategories and products.
+            This action cannot be undone.
+          </Typography>
+        </DialogContent>
+        <DialogActions sx={{ bgcolor: 'grey.50', py: 2 }}>
+          <Button onClick={() => setOpenCategoryDeleteDialog(false)} color="secondary">
+            Cancel
+          </Button>
+          <Button
+            onClick={confirmCategoryDelete}
+            disabled={loading}
+            sx={{
+              backgroundColor: 'error.main',
+              color: 'white',
+              '&:hover': { backgroundColor: 'error.dark' },
+              padding: '8px 16px',
+              borderRadius: '4px',
+            }}
+          >
+            {loading ? <CircularProgress size={24} color="inherit" /> : 'Delete'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog open={openSubCategoryDeleteDialog} onClose={() => setOpenSubCategoryDeleteDialog(false)}>
+        <DialogTitle sx={{ bgcolor: 'primary.dark', color: 'white', py: 2 }}>
+          Confirm Delete Subcategory
+        </DialogTitle>
+        <DialogContent sx={{ bgcolor: 'grey.50' }}>
+          <Typography sx={{ mt: 2 }}>
+            Are you sure you want to delete the subcategory "{deleteItem?.name}"?
+            This will also delete all associated products.
+            This action cannot be undone.
+          </Typography>
+        </DialogContent>
+        <DialogActions sx={{ bgcolor: 'grey.50', py: 2 }}>
+          <Button onClick={() => setOpenSubCategoryDeleteDialog(false)} color="secondary">
+            Cancel
+          </Button>
+          <Button
+            onClick={confirmSubCategoryDelete}
+            disabled={loading}
+            sx={{
+              backgroundColor: 'error.main',
+              color: 'white',
+              '&:hover': { backgroundColor: 'error.dark' },
+              padding: '8px 16px',
+              borderRadius: '4px',
+            }}
+          >
+            {loading ? <CircularProgress size={24} color="inherit" /> : 'Delete'}
+          </Button>
         </DialogActions>
       </Dialog>
     </Box>
