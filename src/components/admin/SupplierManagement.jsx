@@ -17,6 +17,10 @@ import {
   Snackbar,
   Alert,
   CircularProgress,
+  Select,
+  MenuItem,
+  InputLabel,
+  FormControl,
 } from "@mui/material"
 import { Add as AddIcon, Edit as EditIcon, Delete as DeleteIcon } from "@mui/icons-material"
 import { styled } from "@mui/material/styles"
@@ -30,17 +34,28 @@ const StyledTableRow = styled(TableRow)(({ theme, index }) => ({
 
 const SupplierManagement = ({ onSuppliersChange }) => {
   const [suppliers, setSuppliers] = useState([])
+  const [filteredSuppliers, setFilteredSuppliers] = useState([])
   const [formData, setFormData] = useState({
     id: null,
     name: "",
-    code: "",
     email: "",
     telephone: "",
+    telephone2: "",
+    contact_name: "",
+    contact_name2: "",
+    office: "",
+    floor: "",
+    building_name: "",
+    street_name: "",
+    city: "",
+    postal_address: "",
   })
   const [formErrors, setFormErrors] = useState({})
   const [isFormOpen, setIsFormOpen] = useState(false)
   const [notification, setNotification] = useState({ open: false, message: "", severity: "success" })
   const [loading, setLoading] = useState(false)
+  const [sortOrder, setSortOrder] = useState("A-Z")
+  const [searchQuery, setSearchQuery] = useState("")
 
   const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000/api"
 
@@ -55,6 +70,7 @@ const SupplierManagement = ({ onSuppliersChange }) => {
         if (!response.ok) throw new Error("Failed to fetch suppliers")
         const data = await response.json()
         setSuppliers(data || [])
+        setFilteredSuppliers(data || [])
       } catch (error) {
         setNotification({ open: true, message: `Error: ${error.message}`, severity: "error" })
       } finally {
@@ -64,22 +80,41 @@ const SupplierManagement = ({ onSuppliersChange }) => {
     fetchSuppliers()
   }, [API_URL])
 
+  // Handle sorting and searching
+  useEffect(() => {
+    let updatedSuppliers = [...suppliers]
+    
+    // Filter by search query
+    if (searchQuery.trim()) {
+      updatedSuppliers = updatedSuppliers.filter((supplier) =>
+        supplier.name.toLowerCase().includes(searchQuery.toLowerCase())
+      )
+    }
+
+    // Sort by name
+    updatedSuppliers.sort((a, b) => {
+      const nameA = a.name.toLowerCase()
+      const nameB = b.name.toLowerCase()
+      return sortOrder === "A-Z" ? nameA.localeCompare(nameB) : nameB.localeCompare(nameA)
+    })
+
+    setFilteredSuppliers(updatedSuppliers)
+  }, [suppliers, sortOrder, searchQuery])
+
   // Validate form
   const validateForm = () => {
     const errors = {}
-    // Mandatory field validations
     if (!formData.name.trim()) errors.name = "Supplier name is required"
-    if (!formData.code.trim()) errors.code = "Supplier code is required"
-    else if (!/^[A-Z0-9]+$/.test(formData.code)) errors.code = "Code must be alphanumeric (e.g., A01)"
     if (!formData.email.trim()) errors.email = "Email is required"
     else if (!/^\S+@\S+\.\S+$/.test(formData.email)) errors.email = "Invalid email format (e.g., user@domain.com)"
-    if (!formData.telephone.trim()) errors.telephone = "Telephone is required"
+    if (!formData.telephone.trim()) errors.telephone = "Primary telephone is required"
     else if (!/^07\d{8}$/.test(formData.telephone)) errors.telephone = "Telephone must be 10 digits starting with 07 (e.g., 0712345678)"
-
-    // Check for unique supplier code
-    if (formData.code && suppliers.some((s) => s.code === formData.code && s.id !== formData.id)) {
-      errors.code = "Supplier code must be unique"
-    }
+    if (formData.telephone2 && !/^07\d{8}$/.test(formData.telephone2)) errors.telephone2 = "Secondary telephone must be 10 digits starting with 07 (e.g., 0712345678)"
+    if (!formData.contact_name.trim()) errors.contact_name = "Primary contact name is required"
+    if (!formData.office.trim()) errors.office = "Office is required"
+    if (!formData.street_name.trim()) errors.street_name = "Street name is required"
+    if (!formData.city.trim()) errors.city = "City is required"
+    if (!formData.postal_address.trim()) errors.postal_address = "Postal address/code is required"
 
     setFormErrors(errors)
     return Object.keys(errors).length === 0
@@ -148,7 +183,21 @@ const SupplierManagement = ({ onSuppliersChange }) => {
 
   // Reset form
   const resetForm = () => {
-    setFormData({ id: null, name: "", code: "", email: "", telephone: "" })
+    setFormData({
+      id: null,
+      name: "",
+      email: "",
+      telephone: "",
+      telephone2: "",
+      contact_name: "",
+      contact_name2: "",
+      office: "",
+      floor: "",
+      building_name: "",
+      street_name: "",
+      city: "",
+      postal_address: "",
+    })
     setFormErrors({})
     setIsFormOpen(false)
   }
@@ -158,22 +207,50 @@ const SupplierManagement = ({ onSuppliersChange }) => {
     setNotification({ ...notification, open: false })
   }
 
+  // Handle sort change
+  const handleSortChange = (event) => {
+    setSortOrder(event.target.value)
+  }
+
+  // Handle search change
+  const handleSearchChange = (event) => {
+    setSearchQuery(event.target.value)
+  }
+
   return (
     <Box sx={{ p: { xs: 2, sm: 3 }, bgcolor: "#f8fafc" }}>
       <Typography variant="h5" gutterBottom sx={{ fontFamily: "'Poppins', sans-serif", fontWeight: 600 }}>
         Supplier Management
       </Typography>
 
-      {/* Add Supplier Button */}
+      {/* Add Supplier Button and Filters */}
       {!isFormOpen && (
-        <Button
-          variant="contained"
-          startIcon={<AddIcon />}
-          onClick={() => setIsFormOpen(true)}
-          sx={{ mb: 3, fontFamily: "'Poppins', sans-serif" }}
-        >
-          Add Supplier
-        </Button>
+        <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 3 }}>
+          <Button
+            variant="contained"
+            startIcon={<AddIcon />}
+            onClick={() => setIsFormOpen(true)}
+            sx={{ fontFamily: "'Poppins', sans-serif" }}
+          >
+            Add Supplier
+          </Button>
+          <Box sx={{ display: "flex", gap: 2 }}>
+            <TextField
+              label="Search by Name"
+              value={searchQuery}
+              onChange={handleSearchChange}
+              size="small"
+              sx={{ width: 200 }}
+            />
+            <FormControl size="small" sx={{ width: 120 }}>
+              <InputLabel>Sort</InputLabel>
+              <Select value={sortOrder} onChange={handleSortChange} label="Sort">
+                <MenuItem value="A-Z">Name (A-Z)</MenuItem>
+                <MenuItem value="Z-A">Name (Z-A)</MenuItem>
+              </Select>
+            </FormControl>
+          </Box>
+        </Box>
       )}
 
       {/* Supplier Form */}
@@ -183,23 +260,13 @@ const SupplierManagement = ({ onSuppliersChange }) => {
             {formData.id ? "Edit Supplier" : "Add New Supplier"}
           </Typography>
           <form onSubmit={handleSubmit}>
-            <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
+            <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr" }, gap: 2 }}>
               <TextField
                 label="Supplier Name"
                 value={formData.name}
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                 error={!!formErrors.name}
                 helperText={formErrors.name}
-                fullWidth
-                size="small"
-                required
-              />
-              <TextField
-                label="Supplier Code (e.g., A01)"
-                value={formData.code}
-                onChange={(e) => setFormData({ ...formData, code: e.target.value.toUpperCase() })}
-                error={!!formErrors.code}
-                helperText={formErrors.code}
                 fullWidth
                 size="small"
                 required
@@ -215,7 +282,7 @@ const SupplierManagement = ({ onSuppliersChange }) => {
                 required
               />
               <TextField
-                label="Telephone (e.g., 0712345678)"
+                label="Primary Telephone (e.g., 0712345678)"
                 value={formData.telephone}
                 onChange={(e) => setFormData({ ...formData, telephone: e.target.value })}
                 error={!!formErrors.telephone}
@@ -224,7 +291,93 @@ const SupplierManagement = ({ onSuppliersChange }) => {
                 size="small"
                 required
               />
-              <Box sx={{ display: "flex", gap: 1 }}>
+              <TextField
+                label="Secondary Telephone (e.g., 0712345678)"
+                value={formData.telephone2}
+                onChange={(e) => setFormData({ ...formData, telephone2: e.target.value })}
+                error={!!formErrors.telephone2}
+                helperText={formErrors.telephone2}
+                fullWidth
+                size="small"
+              />
+              <TextField
+                label="Primary Contact Name"
+                value={formData.contact_name}
+                onChange={(e) => setFormData({ ...formData, contact_name: e.target.value })}
+                error={!!formErrors.contact_name}
+                helperText={formErrors.contact_name}
+                fullWidth
+                size="small"
+                required
+              />
+              <TextField
+                label="Secondary Contact Name"
+                value={formData.contact_name2}
+                onChange={(e) => setFormData({ ...formData, contact_name2: e.target.value })}
+                error={!!formErrors.contact_name2}
+                helperText={formErrors.contact_name2}
+                fullWidth
+                size="small"
+              />
+              <TextField
+                label="Office"
+                value={formData.office}
+                onChange={(e) => setFormData({ ...formData, office: e.target.value })}
+                error={!!formErrors.office}
+                helperText={formErrors.office}
+                fullWidth
+                size="small"
+                required
+              />
+              <TextField
+                label="Floor"
+                value={formData.floor}
+                onChange={(e) => setFormData({ ...formData, floor: e.target.value })}
+                error={!!formErrors.floor}
+                helperText={formErrors.floor}
+                fullWidth
+                size="small"
+              />
+              <TextField
+                label="Building Name"
+                value={formData.building_name}
+                onChange={(e) => setFormData({ ...formData, building_name: e.target.value })}
+                error={!!formErrors.building_name}
+                helperText={formErrors.building_name}
+                fullWidth
+                size="small"
+              />
+              <TextField
+                label="Street Name"
+                value={formData.street_name}
+                onChange={(e) => setFormData({ ...formData, street_name: e.target.value })}
+                error={!!formErrors.street_name}
+                helperText={formErrors.street_name}
+                fullWidth
+                size="small"
+                required
+              />
+              <TextField
+                label="City"
+                value={formData.city}
+                onChange={(e) => setFormData({ ...formData, city: e.target.value })}
+                error={!!formErrors.city}
+                helperText={formErrors.city}
+                fullWidth
+                size="small"
+                required
+              />
+              <TextField
+                label="Postal Address/Code"
+                value={formData.postal_address}
+                onChange={(e) => setFormData({ ...formData, postal_address: e.target.value })}
+                error={!!formErrors.postal_address}
+                helperText={formErrors.postal_address}
+                fullWidth
+                size="small"
+                required
+              />
+              <Box sx={{ gridColumn: { sm: "1 / 3" }, display: "flex", gap: 1 }}>
                 <Button
                   type="submit"
                   variant="contained"
@@ -254,25 +407,27 @@ const SupplierManagement = ({ onSuppliersChange }) => {
               <TableCell sx={{ fontFamily: "'Poppins', sans-serif", fontWeight: 600 }}>Name</TableCell>
               <TableCell sx={{ fontFamily: "'Poppins', sans-serif", fontWeight: 600 }}>Code</TableCell>
               <TableCell sx={{ fontFamily: "'Poppins', sans-serif", fontWeight: 600 }}>Email</TableCell>
-              <TableCell sx={{ fontFamily: "'Poppins', sans-serif", fontWeight: 600 }}>Telephone</TableCell>
+              <TableCell sx={{ fontFamily: "'Poppins', sans-serif", fontWeight: 600 }}>Primary Telephone</TableCell>
+              <TableCell sx={{ fontFamily: "'Poppins', sans-serif", fontWeight: 600 }}>Primary Contact</TableCell>
+              <TableCell sx={{ fontFamily: "'Poppins', sans-serif", fontWeight: 600 }}>Address</TableCell>
               <TableCell sx={{ fontFamily: "'Poppins', sans-serif", fontWeight: 600 }}>Actions</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
             {loading ? (
               <TableRow>
-                <TableCell colSpan={5} align="center">
+                <TableCell colSpan={7} align="center">
                   <CircularProgress />
                 </TableCell>
               </TableRow>
-            ) : suppliers.length === 0 ? (
+            ) : filteredSuppliers.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={5} align="center">
+                <TableCell colSpan={7} align="center">
                   <Typography sx={{ fontFamily: "'Poppins', sans-serif" }}>No suppliers found</Typography>
                 </TableCell>
               </TableRow>
             ) : (
-              suppliers.map((supplier, index) => (
+              filteredSuppliers.map((supplier, index) => (
                 <StyledTableRow key={supplier.id} index={index}>
                   <TableCell sx={{ fontFamily: "'Poppins', sans-serif" }}>{supplier.name}</TableCell>
                   <TableCell sx={{ fontFamily: "'Poppins', sans-serif" }}>{supplier.code}</TableCell>
@@ -281,7 +436,13 @@ const SupplierManagement = ({ onSuppliersChange }) => {
                       {supplier.email}
                     </a>
                   </TableCell>
-                  <TableCell sx={{ fontFamily: "'Poppins', sans-serif" }}>{supplier.telephone}</TableCell>
+                  <TableCell sx={{ fontFamily: "'Poppins', sans-serif" }}><a href={`tel:${supplier.telephone}`} style={{ color: 'inherit', textDecoration: 'none' }}>
+                      {supplier.telephone}
+                    </a></TableCell>
+                  <TableCell sx={{ fontFamily: "'Poppins', sans-serif" }}>{supplier.contact_name}</TableCell>
+                  <TableCell sx={{ fontFamily: "'Poppins', sans-serif" }}>
+                    {`${supplier.office || ''} ${supplier.floor || ''} ${supplier.building_name || ''}, ${supplier.street_name}, ${supplier.city}, ${supplier.postal_address}`.trim()}
+                  </TableCell>
                   <TableCell>
                     <IconButton onClick={() => handleEdit(supplier)} color="primary">
                       <EditIcon />

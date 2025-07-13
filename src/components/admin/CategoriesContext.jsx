@@ -1,36 +1,72 @@
-import React, { createContext, useState, useEffect } from 'react';
+import React, { createContext, useState, useEffect, useCallback } from 'react';
+import axios from 'axios';
 
 export const CategoriesContext = createContext({
   categories: [],
-  setCategories: () => {}
+  setCategories: () => {},
+  refreshCategories: () => {},
+  loading: false,
+  error: null,
+  clearError: () => {},
 });
+
 export function CategoriesProvider({ children }) {
   const [categories, setCategories] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
-  useEffect(() => {
+  const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+
+  const fetchCategories = useCallback(async () => {
     setLoading(true);
     setError(null);
-    fetch(`${import.meta.env.VITE_API_URL}/categories`)
-      .then(res => {
-        if (!res.ok) throw new Error('Failed to fetch categories');
-        return res.json();
-      })
-      .then(data => {
-        // Data is already in the correct format
-        setCategories(data);
-      })
-      .catch(err => {
-        console.error('Fetch categories error:', err);
-        setError(err.message);
-        setCategories([]);
-      })
-      .finally(() => setLoading(false));
+    try {
+      console.log(`[FETCH] GET ${API_URL}/categories`);
+      const response = await axios.get(`${API_URL}/categories`, {
+        headers: { 'Content-Type': 'application/json' },
+      });
+      console.log('[FETCH] Categories response:', response.data);
+      // Validate data structure
+      const data = Array.isArray(response.data) ? response.data : [];
+      setCategories(data);
+    } catch (err) {
+      const errorMessage = err.response
+        ? `Failed to fetch categories: ${err.response.status} ${err.response.data?.message || err.message}`
+        : `Failed to fetch categories: Network error (${err.message})`;
+      console.error(errorMessage, err);
+      setError(errorMessage);
+      setCategories([]);
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
+  // Clear error
+  const clearError = useCallback(() => {
+    setError(null);
+  }, []);
+
+  // Expose refresh function
+  const refreshCategories = useCallback(async () => {
+    await fetchCategories();
+  }, [fetchCategories]);
+
+  useEffect(() => {
+    console.log('[INIT] CategoriesProvider mounted, fetching categories...');
+    fetchCategories();
+  }, [fetchCategories]);
+
   return (
-    <CategoriesContext.Provider value={{ categories, setCategories, loading, error }}>
+    <CategoriesContext.Provider
+      value={{
+        categories,
+        setCategories,
+        refreshCategories,
+        loading,
+        error,
+        clearError,
+      }}
+    >
       {children}
     </CategoriesContext.Provider>
   );

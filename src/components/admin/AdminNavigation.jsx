@@ -342,6 +342,24 @@ const AdminNavigation = ({
             Dashboard
           </AdminNavButton>
 
+          {/* Suppliers - Direct to SupplierManagement */}
+          <AdminNavButton
+            startIcon={<SuppliersIcon sx={{ fontSize: 18 }} />}
+            active={isTabActive(5) || activeComponent === "SupplierManagement"}
+            onClick={() => handleDirectComponentNavigation("SupplierManagement", 5, "suppliers", { type: "supplier" })}
+          >
+            Suppliers
+          </AdminNavButton>
+
+           {/* Categories - Direct to CategoryManagement */}
+          <AdminNavButton
+            startIcon={<CategoryIcon sx={{ fontSize: 18 }} />}
+            active={isTabActive(2) || activeComponent === "CategoryManagement"}
+            onClick={() => handleDirectComponentNavigation("CategoryManagement", 2, "categories", { type: "category" })}
+          >
+            Categories
+          </AdminNavButton>
+
           {/* Item Master - Direct to ManageItems */}
           <AdminNavButton
             startIcon={<ShoppingCart sx={{ fontSize: 18 }} />}
@@ -351,15 +369,42 @@ const AdminNavigation = ({
             Item Master
           </AdminNavButton>
 
-          {/* Categories - Direct to CategoryManagement */}
-          <AdminNavButton
-            startIcon={<CategoryIcon sx={{ fontSize: 18 }} />}
-            active={isTabActive(2) || activeComponent === "CategoryManagement"}
-            onClick={() => handleDirectComponentNavigation("CategoryManagement", 2, "categories", { type: "category" })}
+          {/* Sales Agents Dropdown */}
+          <Box
+            ref={dropdownRefs.agents}
+            onMouseEnter={() => handleDropdownToggle("agents", true)}
+            onMouseLeave={() => handleDropdownToggle("agents", false)}
+            sx={{ position: "relative" }}
           >
-            Categories
-          </AdminNavButton>
+            <AdminNavButton
+              startIcon={<People sx={{ fontSize: 18 }} />}
+              endIcon={<KeyboardArrowDown sx={{ fontSize: 16 }} />}
+              active={isTabActive(6) || activeComponent === "SalesAgentAdminPanel"}
+            >
+              Sales Agents
+            </AdminNavButton>
 
+            {renderCRUDDropdown("agents", dropdownStates.agents, dropdownRefs.agents, [
+              {
+                label: "Manage Agents",
+                description: "View and manage sales agents",
+                icon: <ViewIcon sx={{ color: "#4caf50", fontSize: 18 }} />,
+                componentName: "SalesAgentAdminPanel",
+                tabIndex: 6,
+                data: { type: "agent" },
+              },
+            ])}
+          </Box>
+
+          {/* Customers Button */}
+          <AdminNavButton
+            startIcon={<People sx={{ fontSize: 18 }} />}
+            active={isTabActive(7) || activeComponent === "CustomerManagement"}
+            onClick={() => handleDirectComponentNavigation("CustomerManagement", 7, "customers")}
+          >
+            Customers
+          </AdminNavButton>
+          
           {/* Sales Dropdown */}
           <Box
             ref={dropdownRefs.sales}
@@ -436,50 +481,8 @@ const AdminNavigation = ({
             ])}
           </Box>
 
-          {/* Suppliers - Direct to SupplierManagement */}
-          <AdminNavButton
-            startIcon={<SuppliersIcon sx={{ fontSize: 18 }} />}
-            active={isTabActive(5) || activeComponent === "SupplierManagement"}
-            onClick={() => handleDirectComponentNavigation("SupplierManagement", 5, "suppliers", { type: "supplier" })}
-          >
-            Suppliers
-          </AdminNavButton>
-
-          {/* Sales Agents Dropdown */}
-          <Box
-            ref={dropdownRefs.agents}
-            onMouseEnter={() => handleDropdownToggle("agents", true)}
-            onMouseLeave={() => handleDropdownToggle("agents", false)}
-            sx={{ position: "relative" }}
-          >
-            <AdminNavButton
-              startIcon={<People sx={{ fontSize: 18 }} />}
-              endIcon={<KeyboardArrowDown sx={{ fontSize: 16 }} />}
-              active={isTabActive(6) || activeComponent === "SalesAgentAdminPanel"}
-            >
-              Sales Agents
-            </AdminNavButton>
-
-            {renderCRUDDropdown("agents", dropdownStates.agents, dropdownRefs.agents, [
-              {
-                label: "Manage Agents",
-                description: "View and manage sales agents",
-                icon: <ViewIcon sx={{ color: "#4caf50", fontSize: 18 }} />,
-                componentName: "SalesAgentAdminPanel",
-                tabIndex: 6,
-                data: { type: "agent" },
-              },
-            ])}
-          </Box>
-
-          {/* Customers Button */}
-          <AdminNavButton
-            startIcon={<People sx={{ fontSize: 18 }} />}
-            active={isTabActive(7) || activeComponent === "CustomerManagement"}
-            onClick={() => handleDirectComponentNavigation("CustomerManagement", 7, "customers")}
-          >
-            Customers
-          </AdminNavButton>
+          
+          
         </Box>
 
         {/* Right side icons - Store and Profile only */}

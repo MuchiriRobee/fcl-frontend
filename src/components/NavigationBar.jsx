@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useState, useRef, useEffect } from "react"
+import React, { useState, useRef, useEffect, useContext } from "react"
 import {
   AppBar,
   Toolbar,
@@ -33,7 +33,6 @@ import {
   Menu,
   MenuItem,
   ListItemIcon,
-  Menu as MuiMenu,
 } from "@mui/material"
 import {
   Menu as MenuIcon,
@@ -58,6 +57,7 @@ import {
 } from "@mui/icons-material"
 import { styled, alpha, useTheme } from "@mui/material/styles"
 import { useNavigate, useLocation } from "react-router-dom"
+import { CategoriesContext } from "./admin/CategoriesContext"
 import FirstCraftLogo from "../assets/images/FirstCraft-logo.png"
 import RegistrationForm from "../pages/Registration/View/Index"
 import LoginPage from "../pages/Login/View/Index"
@@ -194,10 +194,7 @@ const NavigationBar = ({ isLoggedIn, currentUser, onLogout, isAdminPage }) => {
   const theme = useTheme()
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"))
   const isTablet = useMediaQuery(theme.breakpoints.down("md"))
-
-  // State for parent categories
-  const [parentCategories, setParentCategories] = useState([])
-  const [error, setError] = useState(null)
+  const { categories, loading, error } = useContext(CategoriesContext)
 
   // Refs for menu buttons
   const menuRefs = useRef({})
@@ -217,37 +214,13 @@ const NavigationBar = ({ isLoggedIn, currentUser, onLogout, isAdminPage }) => {
   const [cartItemsCount, setCartItemsCount] = useState(0)
 
   // State for tooltips and dropdowns
-  const [activeTooltip, setActiveTooltip] = useState("")
   const [activeDropdown, setActiveDropdown] = useState("")
   const [activeCategoryDropdown, setActiveCategoryDropdown] = useState("")
 
-  // Base API URL from .env
-  const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api'
-
-  // Fetch parent categories from backend
+  // Debug categories changes
   useEffect(() => {
-    const fetchParentCategories = async () => {
-      try {
-        console.log('Fetching parent categories from:', `${API_URL}/categories/parent`)
-        const response = await fetch(`${API_URL}/categories/parent`, {
-          headers: {
-            'Content-Type': 'application/json',
-          },
-        })
-        if (!response.ok) {
-          const errorData = await response.json()
-          throw new Error(errorData.message || 'Failed to fetch parent categories')
-        }
-        const data = await response.json()
-        console.log('Fetched parent categories:', data)
-        setParentCategories(data || [])
-      } catch (error) {
-        console.error('Fetch parent categories error:', error)
-        setError(`Error: ${error.message}`)
-      }
-    }
-    fetchParentCategories()
-  }, [API_URL])
+    console.log('[NavigationBar] Categories updated:', categories)
+  }, [categories])
 
   // Get cart items count from localStorage
   useEffect(() => {
@@ -266,8 +239,8 @@ const NavigationBar = ({ isLoggedIn, currentUser, onLogout, isAdminPage }) => {
   }
   const handleCategoryDropdownOpen = (menuName) => setActiveCategoryDropdown(menuName)
   const handleCategoryDropdownClose = () => setActiveCategoryDropdown("")
-  const handleTooltipOpen = (tooltipName) => setActiveTooltip(tooltipName)
-  const handleTooltipClose = () => setActiveTooltip("")
+  const handleTooltipOpen = (tooltipName) => {} // Simplified for brevity
+  const handleTooltipClose = () => {}
 
   const toggleDrawer = () => setDrawerOpen((prev) => !prev)
   const toggleSubmenu = (key) => {
@@ -324,21 +297,6 @@ const NavigationBar = ({ isLoggedIn, currentUser, onLogout, isAdminPage }) => {
     // The login component will handle navigation
   }
 
-  // Fallback UI for API error
-  if (error && !parentCategories.length) {
-    return (
-      <AppBar position="static" sx={{ bgcolor: theme.palette.error.main, color: 'white' }}>
-        <Container maxWidth="xl">
-          <Toolbar>
-            <Typography variant="body1">
-              Failed to load navigation. Please try again later.
-            </Typography>
-          </Toolbar>
-        </Container>
-      </AppBar>
-    )
-  }
-
   return (
     <>
       {isAdminPage ? null : (
@@ -381,7 +339,6 @@ const NavigationBar = ({ isLoggedIn, currentUser, onLogout, isAdminPage }) => {
                   mb: { xs: 0, sm: 0 },
                 }}
               >
-                {/* Logo */}
                 <Box
                   sx={{
                     display: "flex",
@@ -404,7 +361,6 @@ const NavigationBar = ({ isLoggedIn, currentUser, onLogout, isAdminPage }) => {
                   </Typography>
                 </Box>
 
-                {/* Mobile Menu Button */}
                 {isMobile && (
                   <IconButton sx={{ color: theme.palette.primary.main }} onClick={toggleDrawer} aria-label="menu">
                     <MenuIcon />
@@ -412,7 +368,6 @@ const NavigationBar = ({ isLoggedIn, currentUser, onLogout, isAdminPage }) => {
                 )}
               </Box>
 
-              {/* Mobile Search Bar - Expandable */}
               {isMobile && mobileSearchOpen && (
                 <Box
                   sx={{
@@ -451,7 +406,6 @@ const NavigationBar = ({ isLoggedIn, currentUser, onLogout, isAdminPage }) => {
                 </Box>
               )}
 
-              {/* Right Side - Desktop and Mobile */}
               <Box
                 sx={{
                   display: "flex",
@@ -468,7 +422,6 @@ const NavigationBar = ({ isLoggedIn, currentUser, onLogout, isAdminPage }) => {
                   mt: isMobile && mobileSearchOpen ? 1 : 0,
                 }}
               >
-                {/* Search bar - desktop only */}
                 {!isMobile && (
                   <Search>
                     <SearchIconWrapper>
@@ -481,7 +434,6 @@ const NavigationBar = ({ isLoggedIn, currentUser, onLogout, isAdminPage }) => {
                   </Search>
                 )}
 
-                {/* Mobile Search Toggle Button */}
                 {isMobile && !mobileSearchOpen && (
                   <IconButton
                     size="small"
@@ -492,7 +444,6 @@ const NavigationBar = ({ isLoggedIn, currentUser, onLogout, isAdminPage }) => {
                   </IconButton>
                 )}
 
-                {/* Action buttons row */}
                 <Box
                   sx={{
                     display: "flex",
@@ -500,7 +451,6 @@ const NavigationBar = ({ isLoggedIn, currentUser, onLogout, isAdminPage }) => {
                     justifyContent: "flex-end",
                   }}
                 >
-                  {/* Wishlist Icon with Tooltip - Hide on admin page */}
                   {!isAdminPage && (
                     <Tooltip title="My Wishlist" arrow>
                       <IconButton
@@ -515,7 +465,6 @@ const NavigationBar = ({ isLoggedIn, currentUser, onLogout, isAdminPage }) => {
                     </Tooltip>
                   )}
 
-                  {/* Profile Icon with Tooltip */}
                   <Tooltip title={isLoggedIn ? "My Account" : "Sign In"} arrow>
                     <IconButton
                       size={isMobile ? "small" : "medium"}
@@ -541,7 +490,6 @@ const NavigationBar = ({ isLoggedIn, currentUser, onLogout, isAdminPage }) => {
                     </IconButton>
                   </Tooltip>
 
-                  {/* Cart Icon with Tooltip - Hide on admin page */}
                   {!isAdminPage && (
                     <Tooltip title="My Cart" arrow>
                       <IconButton
@@ -558,19 +506,16 @@ const NavigationBar = ({ isLoggedIn, currentUser, onLogout, isAdminPage }) => {
                     </Tooltip>
                   )}
 
-                  {/* E-Wallet Button - Desktop only, hide on admin page */}
                   {!isTablet && !isMobile && !isAdminPage && (
                     <WalletButton startIcon={<WalletIcon />} onClick={() => navigate("/wallet")}>
                       E-Wallet
                     </WalletButton>
                   )}
 
-                  {/* Register/Login Button - Desktop only, hide on admin page */}
                   {!isMobile && !isLoggedIn && !isAdminPage && (
                     <RegisterButton onClick={handleOpenRegistration}>Register</RegisterButton>
                   )}
 
-                  {/* User greeting - Desktop only */}
                   {!isMobile && isLoggedIn && (
                     <Typography variant="body2" sx={{ ml: 1, fontWeight: "medium" }}>
                       Hello, {currentUser?.username || "User"}
@@ -581,7 +526,6 @@ const NavigationBar = ({ isLoggedIn, currentUser, onLogout, isAdminPage }) => {
             </Toolbar>
           </Container>
 
-          {/* Bottom Toolbar - ONLY show on customer pages, COMPLETELY HIDDEN on admin pages */}
           {!isMobile && !isAdminPage && (
             <Box
               sx={{
@@ -607,127 +551,126 @@ const NavigationBar = ({ isLoggedIn, currentUser, onLogout, isAdminPage }) => {
                     alignItems: "center",
                   }}
                 >
-                  {/* Home Button - Far Left */}
                   <NavButton startIcon={<HomeIcon fontSize="small" />} onClick={() => navigate("/")}>
                     Home
                   </NavButton>
 
-                  {/* Parent Category Dropdowns - Center */}
                   <Box sx={{ display: 'flex', flexWrap: 'nowrap', mx: 2 }}>
-                    {parentCategories.map((parentCategory) => (
-                      <Box
-                        key={parentCategory.id}
-                        ref={(el) => setMenuRef(parentCategory.name, el)}
-                        sx={{ position: "relative" }}
-                        onMouseEnter={() => handleDropdownOpen(parentCategory.name)}
-                        onMouseLeave={handleDropdownClose}
-                      >
-                        <NavButton
-                          endIcon={
-                            (parentCategory.categories || []).length > 0 ? <ChevronDownIcon fontSize="small" /> : null
-                          }
-                          aria-haspopup="true"
-                          aria-expanded={activeDropdown === parentCategory.name ? "true" : "false"}
-                          onClick={() => handleDropdownItemClick(parentCategory.id)}
+                    {loading ? (
+                      <Typography>Loading categories...</Typography>
+                    ) : error ? (
+                      <Typography color="error">Failed to load categories</Typography>
+                    ) : categories.length === 0 ? (
+                      <Typography>No categories available</Typography>
+                    ) : (
+                      categories.map((parentCategory) => (
+                        <Box
+                          key={parentCategory.id}
+                          ref={(el) => setMenuRef(parentCategory.id, el)} // Use ID for unique ref
+                          sx={{ position: "relative" }}
+                          onMouseEnter={() => handleDropdownOpen(parentCategory.id)}
+                          onMouseLeave={handleDropdownClose}
                         >
-                          {parentCategory.name || 'N/A'}
-                        </NavButton>
-
-                        {/* Parent Category Dropdown */}
-                        {(parentCategory.categories || []).length > 0 && (
-                          <Popper
-                            open={activeDropdown === parentCategory.name}
-                            anchorEl={menuRefs.current[parentCategory.name]}
-                            placement="bottom-start"
-                            transition
-                            disablePortal={false}
-                            style={{ zIndex: 1400 }}
-                            modifiers={[
-                              {
-                                name: "offset",
-                                options: {
-                                  offset: [0, 8],
-                                },
-                              },
-                            ]}
+                          <NavButton
+                            endIcon={
+                              (parentCategory.categories || []).length > 0 ? <ChevronDownIcon fontSize="small" /> : null
+                            }
+                            aria-haspopup="true"
+                            aria-expanded={activeDropdown === parentCategory.id ? "true" : "false"}
+                            onClick={() => handleDropdownItemClick(parentCategory.id)}
                           >
-                            {({ TransitionProps }) => (
-                              <Fade {...TransitionProps} timeout={200}>
-                                <DropdownContent
-                                  onMouseEnter={() => handleDropdownOpen(parentCategory.name)}
-                                  onMouseLeave={handleDropdownClose}
-                                >
-                                  {(parentCategory.categories || []).map((category) => (
-                                    <Box
-                                      key={category.id}
-                                      ref={(el) => setCategoryMenuRef(`${parentCategory.name}-${category.name}`, el)}
-                                      sx={{ position: "relative" }}
-                                      onMouseEnter={() => handleCategoryDropdownOpen(`${parentCategory.name}-${category.name}`)}
-                                      onMouseLeave={handleCategoryDropdownClose}
-                                    >
-                                      <DropdownItem
-                                        onClick={() => handleDropdownItemClick(parentCategory.id, category.id)}
-                                        sx={{
-                                          display: 'flex',
-                                          alignItems: 'center',
-                                          justifyContent: 'space-between',
-                                        }}
-                                      >
-                                        {category.name || 'N/A'}
-                                        {(category.subcategories || []).length > 0 && (
-                                          <ChevronRightIcon fontSize="small" />
-                                        )}
-                                      </DropdownItem>
+                            {parentCategory.name || 'N/A'}
+                          </NavButton>
 
-                                      {/* Subcategory Dropdown */}
-                                      {(category.subcategories || []).length > 0 && (
-                                        <Popper
-                                          open={activeCategoryDropdown === `${parentCategory.name}-${category.name}`}
-                                          anchorEl={categoryMenuRefs.current[`${parentCategory.name}-${category.name}`]}
-                                          placement="right-start"
-                                          transition
-                                          disablePortal={false}
-                                          style={{ zIndex: 1500 }}
-                                          modifiers={[
-                                            {
-                                              name: "offset",
-                                              options: {
-                                                offset: [0, 8],
-                                              },
-                                            },
-                                          ]}
+                          {(parentCategory.categories || []).length > 0 && (
+                            <Popper
+                              open={activeDropdown === parentCategory.id}
+                              anchorEl={menuRefs.current[parentCategory.id]}
+                              placement="bottom-start"
+                              transition
+                              disablePortal={false}
+                              style={{ zIndex: 1400 }}
+                              modifiers={[
+                                {
+                                  name: "offset",
+                                  options: { offset: [0, 8] },
+                                },
+                              ]}
+                            >
+                              {({ TransitionProps }) => (
+                                <Fade {...TransitionProps} timeout={200}>
+                                  <DropdownContent
+                                    onMouseEnter={() => handleDropdownOpen(parentCategory.id)}
+                                    onMouseLeave={handleDropdownClose}
+                                  >
+                                    {(parentCategory.categories || []).map((category) => (
+                                      <Box
+                                        key={category.id}
+                                        ref={(el) => setCategoryMenuRef(`${parentCategory.id}-${category.id}`, el)}
+                                        sx={{ position: "relative" }}
+                                        onMouseEnter={() => handleCategoryDropdownOpen(`${parentCategory.id}-${category.id}`)}
+                                        onMouseLeave={handleCategoryDropdownClose}
+                                      >
+                                        <DropdownItem
+                                          onClick={() => handleDropdownItemClick(parentCategory.id, category.id)}
+                                          sx={{
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'space-between',
+                                          }}
                                         >
-                                          {({ TransitionProps }) => (
-                                            <Fade {...TransitionProps} timeout={200}>
-                                              <NestedDropdownContent
-                                                onMouseEnter={() => handleCategoryDropdownOpen(`${parentCategory.name}-${category.name}`)}
-                                                onMouseLeave={handleCategoryDropdownClose}
-                                              >
-                                                {(category.subcategories || []).map((subcategory) => (
-                                                  <DropdownItem
-                                                    key={subcategory.id}
-                                                    onClick={() => handleDropdownItemClick(parentCategory.id, category.id, subcategory.id)}
-                                                  >
-                                                    {subcategory.name || 'N/A'}
-                                                  </DropdownItem>
-                                                ))}
-                                              </NestedDropdownContent>
-                                            </Fade>
+                                          {category.name || 'N/A'}
+                                          {(category.subcategories || []).length > 0 && (
+                                            <ChevronRightIcon fontSize="small" />
                                           )}
-                                        </Popper>
-                                      )}
-                                    </Box>
-                                  ))}
-                                </DropdownContent>
-                              </Fade>
-                            )}
-                          </Popper>
-                        )}
-                      </Box>
-                    ))}
+                                        </DropdownItem>
+
+                                        {(category.subcategories || []).length > 0 && (
+                                          <Popper
+                                            open={activeCategoryDropdown === `${parentCategory.id}-${category.id}`}
+                                            anchorEl={categoryMenuRefs.current[`${parentCategory.id}-${category.id}`]}
+                                            placement="right-start"
+                                            transition
+                                            disablePortal={false}
+                                            style={{ zIndex: 1500 }}
+                                            modifiers={[
+                                              {
+                                                name: "offset",
+                                                options: { offset: [0, 8] },
+                                              },
+                                            ]}
+                                          >
+                                            {({ TransitionProps }) => (
+                                              <Fade {...TransitionProps} timeout={200}>
+                                                <NestedDropdownContent
+                                                  onMouseEnter={() => handleCategoryDropdownOpen(`${parentCategory.id}-${category.id}`)}
+                                                  onMouseLeave={handleCategoryDropdownClose}
+                                                >
+                                                  {(category.subcategories || []).map((subcategory) => (
+                                                    <DropdownItem
+                                                      key={subcategory.id}
+                                                      onClick={() => handleDropdownItemClick(parentCategory.id, category.id, subcategory.id)}
+                                                    >
+                                                      {subcategory.name || 'N/A'}
+                                                    </DropdownItem>
+                                                  ))}
+                                                </NestedDropdownContent>
+                                              </Fade>
+                                            )}
+                                          </Popper>
+                                        )}
+                                      </Box>
+                                    ))}
+                                  </DropdownContent>
+                                </Fade>
+                              )}
+                            </Popper>
+                          )}
+                        </Box>
+                      ))
+                    )}
                   </Box>
 
-                  {/* Contact Us Button - Far Right */}
                   <NavButton onClick={() => navigate("/contact")}>
                     Contact Us
                   </NavButton>
@@ -738,7 +681,6 @@ const NavigationBar = ({ isLoggedIn, currentUser, onLogout, isAdminPage }) => {
         </AppBar>
       )}
 
-      {/* Mobile Drawer */}
       <Drawer
         anchor="left"
         open={drawerOpen}
@@ -751,7 +693,6 @@ const NavigationBar = ({ isLoggedIn, currentUser, onLogout, isAdminPage }) => {
         }}
       >
         <Box sx={{ width: "100%" }} role="presentation">
-          {/* User Profile Section */}
           <Box
             sx={{
               p: 2,
@@ -866,7 +807,6 @@ const NavigationBar = ({ isLoggedIn, currentUser, onLogout, isAdminPage }) => {
             )}
           </Box>
 
-          {/* Search in drawer */}
           <Box sx={{ p: 2 }}>
             <TextField
               fullWidth
@@ -882,7 +822,6 @@ const NavigationBar = ({ isLoggedIn, currentUser, onLogout, isAdminPage }) => {
             />
           </Box>
 
-          {/* Quick Actions */}
           <Box
             sx={{
               display: "flex",
@@ -928,7 +867,6 @@ const NavigationBar = ({ isLoggedIn, currentUser, onLogout, isAdminPage }) => {
           </Box>
 
           <List>
-            {/* Home option */}
             <ListItem disablePadding>
               <ListItemButton
                 onClick={() => {
@@ -971,67 +909,81 @@ const NavigationBar = ({ isLoggedIn, currentUser, onLogout, isAdminPage }) => {
               </ListItem>
             )}
 
-            {/* Dynamic Parent Categories - Only on non-admin pages */}
-            {!isAdminPage && parentCategories.map((parentCategory) => (
-              <React.Fragment key={parentCategory.id}>
-                <ListItem disablePadding>
-                  <ListItemButton
-                    onClick={() => {
-                      toggleSubmenu(`parent-${parentCategory.id}`)
-                      if (!parentCategory.categories?.length) {
-                        handleDropdownItemClick(parentCategory.id)
-                      }
-                    }}
-                  >
-                    <ListItemText primary={parentCategory.name || 'N/A'} />
-                    {(parentCategory.categories || []).length > 0 ? (
-                      drawerSubmenus[`parent-${parentCategory.id}`] ? <ExpandLess /> : <ChevronRightIcon />
-                    ) : null}
-                  </ListItemButton>
+            {!isAdminPage && (
+              loading ? (
+                <ListItem>
+                  <ListItemText primary="Loading categories..." />
                 </ListItem>
-                {(parentCategory.categories || []).length > 0 && (
-                  <Collapse in={drawerSubmenus[`parent-${parentCategory.id}`]} timeout="auto" unmountOnExit>
-                    <List component="div" disablePadding>
-                      {(parentCategory.categories || []).map((category) => (
-                        <React.Fragment key={category.id}>
-                          <ListItemButton
-                            sx={{ pl: 4 }}
-                            onClick={() => {
-                              toggleSubmenu(`category-${parentCategory.id}-${category.id}`)
-                              if (!category.subcategories?.length) {
-                                handleDropdownItemClick(parentCategory.id, category.id)
-                              }
-                            }}
-                          >
-                            <ListItemText primary={category.name || 'N/A'} />
-                            {(category.subcategories || []).length > 0 ? (
-                              drawerSubmenus[`category-${parentCategory.id}-${category.id}`] ? <ExpandLess /> : <ChevronRightIcon />
-                            ) : null}
-                          </ListItemButton>
-                          {(category.subcategories || []).length > 0 && (
-                            <Collapse in={drawerSubmenus[`category-${parentCategory.id}-${category.id}`]} timeout="auto" unmountOnExit>
-                              <List component="div" disablePadding>
-                                {(category.subcategories || []).map((subcategory) => (
-                                  <ListItemButton
-                                    key={subcategory.id}
-                                    sx={{ pl: 8 }}
-                                    onClick={() => handleDropdownItemClick(parentCategory.id, category.id, subcategory.id)}
-                                  >
-                                    <ListItemText primary={subcategory.name || 'N/A'} />
-                                  </ListItemButton>
-                                ))}
-                              </List>
-                            </Collapse>
-                          )}
-                        </React.Fragment>
-                      ))}
-                    </List>
-                  </Collapse>
-                )}
-              </React.Fragment>
-            ))}
+              ) : error ? (
+                <ListItem>
+                  <ListItemText primary="Failed to load categories" sx={{ color: 'error.main' }} />
+                </ListItem>
+              ) : categories.length === 0 ? (
+                <ListItem>
+                  <ListItemText primary="No categories available" />
+                </ListItem>
+              ) : (
+                categories.map((parentCategory) => (
+                  <React.Fragment key={parentCategory.id}>
+                    <ListItem disablePadding>
+                      <ListItemButton
+                        onClick={() => {
+                          toggleSubmenu(`parent-${parentCategory.id}`)
+                          if (!parentCategory.categories?.length) {
+                            handleDropdownItemClick(parentCategory.id)
+                          }
+                        }}
+                      >
+                        <ListItemText primary={parentCategory.name || 'N/A'} />
+                        {(parentCategory.categories || []).length > 0 ? (
+                          drawerSubmenus[`parent-${parentCategory.id}`] ? <ExpandLess /> : <ChevronRightIcon />
+                        ) : null}
+                      </ListItemButton>
+                    </ListItem>
+                    {(parentCategory.categories || []).length > 0 && (
+                      <Collapse in={drawerSubmenus[`parent-${parentCategory.id}`]} timeout="auto" unmountOnExit>
+                        <List component="div" disablePadding>
+                          {(parentCategory.categories || []).map((category) => (
+                            <React.Fragment key={category.id}>
+                              <ListItemButton
+                                sx={{ pl: 4 }}
+                                onClick={() => {
+                                  toggleSubmenu(`category-${parentCategory.id}-${category.id}`)
+                                  if (!category.subcategories?.length) {
+                                    handleDropdownItemClick(parentCategory.id, category.id)
+                                  }
+                                }}
+                              >
+                                <ListItemText primary={category.name || 'N/A'} />
+                                {(category.subcategories || []).length > 0 ? (
+                                  drawerSubmenus[`category-${parentCategory.id}-${category.id}`] ? <ExpandLess /> : <ChevronRightIcon />
+                                ) : null}
+                              </ListItemButton>
+                              {(category.subcategories || []).length > 0 && (
+                                <Collapse in={drawerSubmenus[`category-${parentCategory.id}-${category.id}`]} timeout="auto" unmountOnExit>
+                                  <List component="div" disablePadding>
+                                    {(category.subcategories || []).map((subcategory) => (
+                                      <ListItemButton
+                                        key={subcategory.id}
+                                        sx={{ pl: 8 }}
+                                        onClick={() => handleDropdownItemClick(parentCategory.id, category.id, subcategory.id)}
+                                      >
+                                        <ListItemText primary={subcategory.name || 'N/A'} />
+                                      </ListItemButton>
+                                    ))}
+                                  </List>
+                                </Collapse>
+                              )}
+                            </React.Fragment>
+                          ))}
+                        </List>
+                      </Collapse>
+                    )}
+                  </React.Fragment>
+                ))
+              )
+            )}
 
-            {/* Contact Us - Only on non-admin pages */}
             {!isAdminPage && (
               <ListItem disablePadding>
                 <ListItemButton
@@ -1048,7 +1000,6 @@ const NavigationBar = ({ isLoggedIn, currentUser, onLogout, isAdminPage }) => {
 
           <Divider />
 
-          {/* Contact Information */}
           <Box sx={{ p: 2 }}>
             <Typography variant="subtitle2" color="primary" gutterBottom>
               Contact Us
@@ -1065,7 +1016,6 @@ const NavigationBar = ({ isLoggedIn, currentUser, onLogout, isAdminPage }) => {
         </Box>
       </Drawer>
 
-      {/* User Menu */}
       <Menu
         anchorEl={userMenuAnchorEl}
         open={userMenuOpen}
@@ -1141,7 +1091,6 @@ const NavigationBar = ({ isLoggedIn, currentUser, onLogout, isAdminPage }) => {
         </MenuItem>
       </Menu>
 
-      {/* Registration Form Dialog */}
       <Dialog
         open={registrationOpen}
         onClose={handleCloseRegistration}
@@ -1176,7 +1125,6 @@ const NavigationBar = ({ isLoggedIn, currentUser, onLogout, isAdminPage }) => {
         </DialogContent>
       </Dialog>
 
-      {/* Login Dialog */}
       <Dialog
         open={loginOpen}
         onClose={handleCloseLogin}

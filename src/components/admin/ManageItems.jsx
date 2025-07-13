@@ -30,6 +30,7 @@ import {
 } from "@mui/material"
 import { Search, Edit, Delete, Visibility, Add } from "@mui/icons-material"
 import { CategoriesContext } from "./CategoriesContext"
+import * as XLSX from 'xlsx'
 
 export default function ManageItems({ onEditItem, onAddNewItem, refreshItems, onItemsRefreshed }) {
   const [items, setItems] = useState([])
@@ -40,7 +41,29 @@ export default function ManageItems({ onEditItem, onAddNewItem, refreshItems, on
   const [successMessage, setSuccessMessage] = useState("")
   const [errorMessage, setErrorMessage] = useState("")
   const [loading, setLoading] = useState(true)
+  const [suppliers, setSuppliers] = useState([])
+  const [suppliersLoading, setSuppliersLoading] = useState(false)
+  const [suppliersError, setSuppliersError] = useState(null)
   const { categories, loading: categoriesLoading, error: categoriesError } = useContext(CategoriesContext)
+
+  // Fetch suppliers
+  useEffect(() => {
+    setSuppliersLoading(true)
+    setSuppliersError(null)
+    fetch(`${import.meta.env.VITE_API_URL}/suppliers`)
+      .then(res => {
+        if (!res.ok) throw new Error("Failed to fetch suppliers")
+        return res.json()
+      })
+      .then(data => {
+        setSuppliers(data)
+      })
+      .catch(err => {
+        setSuppliersError(err.message)
+        setSuppliers([])
+      })
+      .finally(() => setSuppliersLoading(false))
+  }, [])
 
   // Fetch products
   const fetchProducts = async () => {
@@ -58,8 +81,12 @@ export default function ManageItems({ onEditItem, onAddNewItem, refreshItems, on
         description: item.description || "",
         category: item.category?.name || "Unknown",
         category_id: item.category_id,
+        parent_category: categories.find(cat => cat.id === item.parent_cat_id)?.name || "Unknown",
+        parent_category_id: item.parent_cat_id,
         subCategory: item.subcategory?.name || "",
         subCategory_id: item.subcategory_id || "",
+        preferred_vendor: item.preferred_vendor1 ? suppliers.find(s => s.id === item.preferred_vendor1)?.name || "" : "",
+        preferred_vendor_id: item.preferred_vendor1 || "",
         cashbackRate: item.cashback_rate || 0,
         stockUnits: item.stock_units,
         alertQuantity: item.alert_quantity || 0,
@@ -83,11 +110,13 @@ export default function ManageItems({ onEditItem, onAddNewItem, refreshItems, on
 
   // Fetch products on mount and when refreshItems changes
   useEffect(() => {
-    fetchProducts()
-    if (refreshItems && onItemsRefreshed) {
-      onItemsRefreshed()
+    if (!suppliersLoading && !suppliersError && !categoriesLoading && !categoriesError) {
+      fetchProducts()
+      if (refreshItems && onItemsRefreshed) {
+        onItemsRefreshed()
+      }
     }
-  }, [refreshItems])
+  }, [refreshItems, suppliersLoading, suppliersError, categoriesLoading, categoriesError])
 
   // Filter items based on search
   const filteredItems = items.filter(
@@ -106,6 +135,7 @@ export default function ManageItems({ onEditItem, onAddNewItem, refreshItems, on
         product_name: item.productName,
         product_code: item.itemCode,
         description: item.description,
+        parent_cat_id: item.parent_category_id,
         category_id: item.category_id,
         subcategory_id: item.subCategory_id,
         uom: item.measurementUnit,
@@ -121,6 +151,7 @@ export default function ManageItems({ onEditItem, onAddNewItem, refreshItems, on
         selling_price2: item.tierPricing[1]?.price || "",
         qty3_min: item.tierPricing[2]?.minQuantity || "",
         selling_price3: item.tierPricing[2]?.price || "",
+        preferred_vendor1: item.preferred_vendor_id,
       }
       onEditItem(editItem)
     }
@@ -154,6 +185,117 @@ export default function ManageItems({ onEditItem, onAddNewItem, refreshItems, on
     setSelectedItem(item)
     setViewDialog(true)
   }
+
+  const handleExport = () => {
+    const exportData = items.map(item => ({
+      product_name: item.productName,
+      product_code: item.itemCode,
+      description: item.description,
+      parent_category: item.parent_category,
+      category: item.category,
+      subcategory: item.subCategory,
+      preferred_vendor: item.preferred_vendor,
+      uom: item.measurementUnit,
+      cashback_rate: item.cashbackRate,
+      stock_units: item.stockUnits,
+      alert_quantity: item.alertQuantity,
+      qty1_min: item.tierPricing[0]?.minQuantity || null,
+      qty1_max: item.tierPricing[0]?.maxQuantity || null,
+      selling_price1: item.tierPricing[0]?.price || null,
+      qty2_min: item.tierPricing[1]?.minQuantity || null,
+      qty2_max: item.tierPricing[1]?.maxQuantity || null,
+      selling_price2: item.tierPricing[1]?.price || null,
+      qty3_min: item.tierPricing[2]?.minQuantity || null,
+      selling_price3: item.tierPricing[2]?.price || null,
+    }));
+
+    const worksheet = XLSX.utils.json_to_sheet(exportData);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Products');
+    XLSX.writeFile(workbook, 'products_export.xlsx');
+  };
+
+  const handleImport = async (event) => {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    setLoading(true);
+    setErrorMessage("");
+    try {
+      const reader = new FileReader();
+      reader.onload = async (e) => {
+        const data = new Uint8Array(e.target.result);
+        const workbook = XLSX.read(data, { type: 'array' });
+        const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+        const jsonData = XLSX.utils.sheet_to_json(worksheet);
+
+        // Map names to IDs
+        const importData = jsonData.map(item => {
+          const parentCategory = categories.find(cat => cat.name === item.parent_category);
+          if (!parentCategory && item.parent_category) {
+            throw new Error(`Parent category "${item.parent_category}" not found`);
+          }
+          const parentCategories = categories.filter(cat => cat.categories && cat.categories.length > 0);
+          const filteredCategories = parentCategory ? parentCategories.find(cat => cat.id === parentCategory.id)?.categories || [] : [];
+          const category = filteredCategories.find(cat => cat.name === item.category);
+          if (!category && item.category) {
+            throw new Error(`Category "${item.category}" not found`);
+          }
+          const subCategory = category ? subCategories.find(sub => sub.name === item.subcategory && sub.category_id === category.id) : null;
+          if (!subCategory && item.subcategory) {
+            throw new Error(`Subcategory "${item.subcategory}" not found for category "${item.category}"`);
+          }
+          const supplier = suppliers.find(s => s.name === item.preferred_vendor);
+          if (!supplier && item.preferred_vendor) {
+            throw new Error(`Preferred vendor "${item.preferred_vendor}" not found`);
+          }
+
+          return {
+            product_name: item.product_name,
+            product_code: item.product_code,
+            description: item.description,
+            parent_cat_id: parentCategory ? parentCategory.id : null,
+            category_id: category ? category.id : null,
+            subcategory_id: subCategory ? subCategory.id : null,
+            preferred_vendor1: supplier ? supplier.id : null,
+            uom: item.uom,
+            cashback_rate: item.cashback_rate,
+            stock_units: item.stock_units,
+            alert_quantity: item.alert_quantity,
+            qty1_min: item.qty1_min,
+            qty1_max: item.qty1_max,
+            selling_price1: item.selling_price1,
+            qty2_min: item.qty2_min,
+            qty2_max: item.qty2_max,
+            selling_price2: item.selling_price2,
+            qty3_min: item.qty3_min,
+            selling_price3: item.selling_price3,
+          };
+        });
+
+        // Send to backend for bulk import
+        const response = await fetch(`${import.meta.env.VITE_API_URL}/products/bulk`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(importData),
+        });
+
+        if (response.ok) {
+          setSuccessMessage('Products imported successfully');
+          fetchProducts(); // Refresh product list
+        } else {
+          const errorData = await response.json();
+          setErrorMessage(errorData.message || 'Failed to import products');
+        }
+      };
+      reader.readAsArrayBuffer(file);
+    } catch (err) {
+      setErrorMessage(err.message || 'Error processing file');
+    } finally {
+      setLoading(false);
+      event.target.value = null; // Reset file input
+    }
+  };
 
   const formatCurrency = (amount) => {
     return new Intl.NumberFormat("en-KE", {
@@ -199,22 +341,22 @@ export default function ManageItems({ onEditItem, onAddNewItem, refreshItems, on
   }
 
   // Handle loading and error states
-  if (categoriesLoading || loading) {
+  if (categoriesLoading || loading || suppliersLoading) {
     return (
       <Box sx={{ textAlign: "center", py: 4 }}>
         <CircularProgress />
         <Typography variant="body1" color="text.secondary" sx={{ mt: 2 }}>
-          Loading products and categories...
+          Loading products, categories, or suppliers...
         </Typography>
       </Box>
     )
   }
 
-  if (categoriesError || errorMessage) {
+  if (categoriesError || errorMessage || suppliersError) {
     return (
       <Box sx={{ textAlign: "center", py: 4 }}>
         <Typography variant="body1" color="error">
-          {categoriesError || errorMessage}
+          {categoriesError || errorMessage || suppliersError}
         </Typography>
       </Box>
     )
@@ -241,22 +383,55 @@ export default function ManageItems({ onEditItem, onAddNewItem, refreshItems, on
             View, edit, and manage your product inventory
           </Typography>
         </Box>
-        <Button
-          variant="contained"
-          startIcon={<Add />}
-          onClick={onAddNewItem}
-          sx={{
-            bgcolor: "#1976d2",
-            "&:hover": { bgcolor: "#1565c0" },
-            textTransform: "none",
-            fontWeight: 600,
-            px: 3,
-            py: 1.5,
-            borderRadius: 2,
-          }}
-        >
-          Add New Item
-        </Button>
+        <Box sx={{ display: "flex", gap: 2 }}>
+          <Button
+            variant="contained"
+            startIcon={<Add />}
+            onClick={onAddNewItem}
+            sx={{
+              bgcolor: "#1976d2",
+              "&:hover": { bgcolor: "#1565c0" },
+              textTransform: "none",
+              fontWeight: 600,
+              px: 3,
+              py: 1.5,
+              borderRadius: 2,
+            }}
+          >
+            Add New Item
+          </Button>
+          <Button
+            variant="contained"
+            onClick={handleExport}
+            sx={{
+              bgcolor: "#1976d2",
+              "&:hover": { bgcolor: "#1565c0" },
+              textTransform: "none",
+              fontWeight: 600,
+              px: 3,
+              py: 1.5,
+              borderRadius: 2,
+            }}
+          >
+            Export to Excel
+          </Button>
+          <Button
+            variant="contained"
+            component="label"
+            sx={{
+              bgcolor: "#1976d2",
+              "&:hover": { bgcolor: "#1565c0" },
+              textTransform: "none",
+              fontWeight: 600,
+              px: 3,
+              py: 1.5,
+              borderRadius: 2,
+            }}
+          >
+            Import from Excel
+            <input type="file" accept=".xlsx,.xls" hidden onChange={handleImport} />
+          </Button>
+        </Box>
       </Box>
 
       {/* Messages */}
