@@ -222,6 +222,18 @@ export default function ManageItems({ onEditItem, onAddNewItem, refreshItems, on
     setLoading(true);
     setErrorMessage("");
     try {
+      // Create a flat subCategories array from categories context
+      const subCategories = categories.flatMap(parent =>
+        parent.categories.flatMap(category =>
+          (category.subcategories || []).map(sub => ({
+            id: sub.id,
+            name: sub.name,
+            category_id: category.id,
+            parent_category_id: parent.id
+          }))
+        )
+      );
+
       const reader = new FileReader();
       reader.onload = async (e) => {
         const data = new Uint8Array(e.target.result);
@@ -229,47 +241,107 @@ export default function ManageItems({ onEditItem, onAddNewItem, refreshItems, on
         const worksheet = workbook.Sheets[workbook.SheetNames[0]];
         const jsonData = XLSX.utils.sheet_to_json(worksheet);
 
-        // Map names to IDs
-        const importData = jsonData.map(item => {
+        // Map names to IDs with validation
+        const importData = jsonData.map((item, index) => {
+          const errors = [];
+
+          // Validate required fields
+          if (!item.product_name) errors.push(`Row ${index + 2}: Product name is required`);
+          if (!item.product_code || !/^[A-Z]\d{9}$/.test(item.product_code)) {
+            errors.push(`Row ${index + 2}: Product code must be 1 uppercase letter followed by 9 digits`);
+          }
+          if (!item.uom) errors.push(`Row ${index + 2}: Unit of measure is required`);
+          if (!item.stock_units || isNaN(item.stock_units) || item.stock_units < 0) {
+            errors.push(`Row ${index + 2}: Stock units must be a non-negative integer`);
+          }
+          if (!item.qty1_min || isNaN(item.qty1_min) || item.qty1_min < 1) {
+            errors.push(`Row ${index + 2}: Quantity 1 min must be a positive integer`);
+          }
+          if (!item.qty1_max || isNaN(item.qty1_max) || item.qty1_max < item.qty1_min) {
+            errors.push(`Row ${index + 2}: Quantity 1 max must be a positive integer and greater than qty1_min`);
+          }
+          if (!item.selling_price1 || isNaN(item.selling_price1) || item.selling_price1 < 0) {
+            errors.push(`Row ${index + 2}: Selling price 1 must be a non-negative number`);
+          }
+          if (item.cashback_rate === undefined || isNaN(item.cashback_rate) || item.cashback_rate < 0 || item.cashback_rate > 100) {
+            errors.push(`Row ${index + 2}: Cashback rate must be between 0 and 100`);
+          }
+          // Validate optional pricing tiers
+          if (item.selling_price2 && (isNaN(item.selling_price2) || item.selling_price2 < 0)) {
+            errors.push(`Row ${index + 2}: Selling price 2 must be a non-negative number`);
+          }
+          if (item.selling_price3 && (isNaN(item.selling_price3) || item.selling_price3 < 0)) {
+            errors.push(`Row ${index + 2}: Selling price 3 must be a non-negative number`);
+          }
+          if (item.qty2_min && (isNaN(item.qty2_min) || item.qty2_min < 1)) {
+            errors.push(`Row ${index + 2}: Quantity 2 min must be a positive integer`);
+          }
+          if (item.qty2_max && (isNaN(item.qty2_max) || item.qty2_max < item.qty2_min)) {
+            errors.push(`Row ${index + 2}: Quantity 2 max must be a positive integer and greater than qty2_min`);
+          }
+          if (item.qty3_min && (isNaN(item.qty3_min) || item.qty3_min < 1)) {
+            errors.push(`Row ${index + 2}: Quantity 3 min must be a positive integer`);
+          }
+          if (item.alert_quantity && (isNaN(item.alert_quantity) || item.alert_quantity < 0)) {
+            errors.push(`Row ${index + 2}: Alert quantity must be a non-negative integer`);
+          }
+
+          // Find parent category
           const parentCategory = categories.find(cat => cat.name === item.parent_category);
           if (!parentCategory && item.parent_category) {
-            throw new Error(`Parent category "${item.parent_category}" not found`);
+            errors.push(`Row ${index + 2}: Parent category "${item.parent_category}" not found`);
           }
-          const parentCategories = categories.filter(cat => cat.categories && cat.categories.length > 0);
-          const filteredCategories = parentCategory ? parentCategories.find(cat => cat.id === parentCategory.id)?.categories || [] : [];
+
+          // Find category within parent category
+          const filteredCategories = parentCategory ? parentCategory.categories || [] : [];
           const category = filteredCategories.find(cat => cat.name === item.category);
           if (!category && item.category) {
-            throw new Error(`Category "${item.category}" not found`);
+            errors.push(`Row ${index + 2}: Category "${item.category}" not found`);
           }
+
+          // Find subcategory within category
           const subCategory = category ? subCategories.find(sub => sub.name === item.subcategory && sub.category_id === category.id) : null;
           if (!subCategory && item.subcategory) {
-            throw new Error(`Subcategory "${item.subcategory}" not found for category "${item.category}"`);
+            errors.push(`Row ${index + 2}: Subcategory "${item.subcategory}" not found for category "${item.category}"`);
           }
-          const supplier = suppliers.find(s => s.name === item.preferred_vendor);
+
+          // Find supplier
+          const supplier = item.preferred_vendor ? suppliers.find(s => s.name === item.preferred_vendor) : null;
           if (!supplier && item.preferred_vendor) {
-            throw new Error(`Preferred vendor "${item.preferred_vendor}" not found`);
+            errors.push(`Row ${index + 2}: Preferred vendor "${item.preferred_vendor}" not found`);
+          }
+
+          if (errors.length > 0) {
+            throw new Error(errors.join('; '));
           }
 
           return {
-            product_name: item.product_name,
-            product_code: item.product_code,
-            description: item.description,
-            parent_cat_id: parentCategory ? parentCategory.id : null,
-            category_id: category ? category.id : null,
-            subcategory_id: subCategory ? subCategory.id : null,
-            preferred_vendor1: supplier ? supplier.id : null,
+            productName: item.product_name,
+            productCode: item.product_code,
+            description: item.description || "",
+            parentCatId: parentCategory ? parentCategory.id : null,
+            categoryId: category ? category.id : null,
+            subcategoryId: subCategory ? subCategory.id : null,
+            preferredVendor1: supplier ? supplier.id : null,
             uom: item.uom,
-            cashback_rate: item.cashback_rate,
-            stock_units: item.stock_units,
-            alert_quantity: item.alert_quantity,
-            qty1_min: item.qty1_min,
-            qty1_max: item.qty1_max,
-            selling_price1: item.selling_price1,
-            qty2_min: item.qty2_min,
-            qty2_max: item.qty2_max,
-            selling_price2: item.selling_price2,
-            qty3_min: item.qty3_min,
-            selling_price3: item.selling_price3,
+            cashbackRate: parseFloat(item.cashback_rate),
+            stockUnits: parseInt(item.stock_units),
+            alertQuantity: item.alert_quantity ? parseInt(item.alert_quantity) : null,
+            qty1Min: parseInt(item.qty1_min),
+            qty1Max: parseInt(item.qty1_max),
+            sellingPrice1: parseFloat(item.selling_price1),
+            qty2Min: item.qty2_min ? parseInt(item.qty2_min) : null,
+            qty2Max: item.qty2_max ? parseInt(item.qty2_max) : null,
+            sellingPrice2: item.selling_price2 ? parseFloat(item.selling_price2) : null,
+            qty3Min: item.qty3_min ? parseInt(item.qty3_min) : null,
+            sellingPrice3: item.selling_price3 ? parseFloat(item.selling_price3) : null,
+            costPrice: 0, // Default for bulk import
+            vat: 0, // Default for bulk import
+            saCashback1stPurchase: 0, // Default
+            saCashback2ndPurchase: 0, // Default
+            saCashback3rdPurchase: 0, // Default
+            saCashback4thPurchase: 0, // Default
+            reorderActive: false // Default
           };
         });
 
@@ -282,15 +354,18 @@ export default function ManageItems({ onEditItem, onAddNewItem, refreshItems, on
 
         if (response.ok) {
           setSuccessMessage('Products imported successfully');
-          fetchProducts(); // Refresh product list
+          await fetchProducts(); // Refresh product list
+          setTimeout(() => setSuccessMessage(""), 3000);
         } else {
           const errorData = await response.json();
           setErrorMessage(errorData.message || 'Failed to import products');
+          setTimeout(() => setErrorMessage(""), 5000);
         }
       };
       reader.readAsArrayBuffer(file);
     } catch (err) {
       setErrorMessage(err.message || 'Error processing file');
+      setTimeout(() => setErrorMessage(""), 5000);
     } finally {
       setLoading(false);
       event.target.value = null; // Reset file input
@@ -556,151 +631,119 @@ export default function ManageItems({ onEditItem, onAddNewItem, refreshItems, on
                               {item.description ? item.description.substring(0, 30) + "..." : "No description"}
                             </Typography>
                           </Box>
-                          </Box>
-                        </TableCell>
-                        <TableCell>
-                          <Typography
-                            variant="body2"
-                            sx={{ fontWeight: 600, color: "#1976d2", fontSize: "0.95rem" }}
-                          >
-                            {item.itemCode}
-                          </Typography>
-                        </TableCell>
-                        <TableCell>
-                          <Stack spacing={0.5}>
-                            <Chip
-                              label={parentCategory}
-                              size="small"
-                              sx={{
-                                bgcolor: "#e3f2fd",
-                                color: "#1976d2",
-                                fontWeight: 600,
-                                fontSize: "0.85rem",
-                                height: 20,
-                              }}
-                            />
-                            <Typography variant="caption" color="text.secondary" sx={{ fontSize: "0.85rem" }}>
-                              {item.category}
-                              {item.subCategory && ` > ${item.subCategory}`}
-                            </Typography>
-                          </Stack>
-                        </TableCell>
-                        <TableCell>
-                          <Box>
-                            <Typography variant="body2" sx={{ fontWeight: 600, fontSize: "0.95rem" }}>
-                              {validTiers.length > 0
-                                ? `${formatCurrency(lowestPrice)} - ${formatCurrency(highestPrice)}`
-                                : formatCurrency(0)}
-                            </Typography>
-                            <Typography variant="caption" color="text.secondary" sx={{ fontSize: "0.85rem" }}>
-                              {validTiers.length} tier{validTiers.length !== 1 ? "s" : ""}
-                            </Typography>
-                          </Box>
-                        </TableCell>
-                        <TableCell>
+                        </Box>
+                      </TableCell>
+                      <TableCell>
+                        <Typography
+                          variant="body2"
+                          sx={{ fontWeight: 600, color: "#1976d2", fontSize: "0.95rem" }}
+                        >
+                          {item.itemCode}
+                        </Typography>
+                      </TableCell>
+                      <TableCell>
+                        <Stack spacing={0.5}>
                           <Chip
-                            label={`${item.cashbackRate}%`}
+                            label={parentCategory}
                             size="small"
                             sx={{
-                              bgcolor: "#fff3e0",
-                              color: "#f57c00",
+                              bgcolor: "#e3f2fd",
+                              color: "#1976d2",
                               fontWeight: 600,
                               fontSize: "0.85rem",
                               height: 20,
                             }}
                           />
-                        </TableCell>
-                        <TableCell>
-                          <Stack spacing={0.5}>
-                            <Chip
-                              label={stockStatus.label}
-                              size="small"
-                              sx={{
-                                bgcolor: stockStatus.bgcolor,
-                                color: stockStatus.color,
-                                fontWeight: 600,
-                                fontSize: "0.85rem",
-                                height: 20,
-                              }}
-                            />
-                            <Typography variant="caption" color="text.secondary" sx={{ fontSize: "0.85rem" }}>
-                              {item.stockUnits} {item.measurementUnit}
-                            </Typography>
-                          </Stack>
-                        </TableCell>
-                        <TableCell align="center">
-                          <Stack direction="row" spacing={0.5} justifyContent="center">
-                            <IconButton
-                              size="small"
-                              onClick={() => handleViewItem(item)}
-                              title="View"
-                              aria-label={`View ${item.productName}`}
-                              sx={{
-                                color: "#4caf50",
-                                "&:hover": { bgcolor: "#e8f5e8" },
-                                width: 32,
-                                height: 32,
-                              }}
-                            >
-                              <Visibility fontSize="small" />
-                            </IconButton>
-                            <IconButton
-                              size="small"
-                              onClick={() => handleEditItem(item)}
-                              title="Edit"
-                              aria-label={`Edit ${item.productName}`}
-                              sx={{
-                                color: "#ff9800",
-                                "&:hover": { bgcolor: "#fff3e0" },
-                                width: 32,
-                                height: 32,
-                              }}
-                            >
-                              <Edit fontSize="small" />
-                            </IconButton>
-                            <IconButton
-                              size="small"
-                              color="error"
-                              onClick={() => handleDeleteItem(item)}
-                              title="Delete"
-                              aria-label={`Delete ${item.productName}`}
-                              sx={{
-                                "&:hover": { bgcolor: "#ffebee" },
-                                width: 32,
-                                height: 32,
-                              }}
-                            >
-                              <Delete fontSize="small" />
-                            </IconButton>
-                          </Stack>
-                        </TableCell>
-                      </TableRow>
-                    )
-                  })
-                )}
+                          <Typography variant="caption" color="text.secondary" sx={{ fontSize: "0.85rem" }}>
+                            {item.category}
+                            {item.subCategory && ` > ${item.subCategory}`}
+                          </Typography>
+                        </Stack>
+                      </TableCell>
+                      <TableCell>
+                        {validTiers.length > 0 ? (
+                          <Typography variant="body2" sx={{ fontSize: "0.95rem" }}>
+                            {formatCurrency(lowestPrice)}
+                            {lowestPrice !== highestPrice && ` - ${formatCurrency(highestPrice)}`}
+                          </Typography>
+                        ) : (
+                          <Typography variant="body2" color="text.secondary" sx={{ fontSize: "0.95rem" }}>
+                            No pricing
+                          </Typography>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        <Typography variant="body2" sx={{ fontSize: "0.95rem" }}>
+                          {item.cashbackRate ? `${item.cashbackRate}%` : "0%"}
+                        </Typography>
+                      </TableCell>
+                      <TableCell>
+                        <Box
+                          sx={{
+                            display: "inline-flex",
+                            alignItems: "center",
+                            bgcolor: stockStatus.bgcolor,
+                            color: stockStatus.color,
+                            px: 1.5,
+                            py: 0.5,
+                            borderRadius: 1,
+                            fontSize: "0.85rem",
+                            fontWeight: 600,
+                          }}
+                        >
+                          {item.stockUnits} {item.measurementUnit} ({stockStatus.label})
+                        </Box>
+                      </TableCell>
+                      <TableCell align="center">
+                        <Box sx={{ display: "flex", gap: 0.5, justifyContent: "center" }}>
+                          <IconButton
+                            aria-label="View product details"
+                            onClick={() => handleViewItem(item)}
+                            sx={{ color: "#1976d2" }}
+                          >
+                            <Visibility />
+                          </IconButton>
+                          <IconButton
+                            aria-label="Edit product"
+                            onClick={() => handleEditItem(item)}
+                            sx={{ color: "#1976d2" }}
+                          >
+                            <Edit />
+                          </IconButton>
+                          <IconButton
+                            aria-label="Delete product"
+                            onClick={() => handleDeleteItem(item)}
+                            sx={{ color: "#d32f2f" }}
+                          >
+                            <Delete />
+                          </IconButton>
+                        </Box>
+                      </TableCell>
+                    </TableRow>
+                  )
+                })
+              )}
             </TableBody>
           </Table>
         </TableContainer>
       </Paper>
 
       {/* Delete Confirmation Dialog */}
-      <Dialog open={deleteDialog} onClose={() => setDeleteDialog(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>
-          <Typography variant="h6" fontWeight="bold">
-            Confirm Delete
-          </Typography>
-        </DialogTitle>
+      <Dialog
+        open={deleteDialog}
+        onClose={() => setDeleteDialog(false)}
+        aria-labelledby="delete-dialog-title"
+        sx={{ "& .MuiDialog-paper": { borderRadius: 2, p: 2 } }}
+      >
+        <DialogTitle id="delete-dialog-title">Confirm Delete</DialogTitle>
         <DialogContent>
           <Typography>
-            Are you sure you want to delete "{selectedItem?.productName}"? This action cannot be undone.
+            Are you sure you want to delete the product{" "}
+            <strong>{selectedItem?.productName}</strong>?
           </Typography>
         </DialogContent>
-        <DialogActions sx={{ p: 3 }}>
-          <Button
-            onClick={() => setDeleteDialog(false)}
-            sx={{ textTransform: "none", color: "#666" }}
-            aria-label="Cancel delete"
-          >
+        <DialogActions>
+          <Button onClick={() => setDeleteDialog(false)} sx={{ color: "#666" }}>
             Cancel
           </Button>
           <Button
@@ -708,7 +751,6 @@ export default function ManageItems({ onEditItem, onAddNewItem, refreshItems, on
             variant="contained"
             color="error"
             sx={{ textTransform: "none", fontWeight: 600 }}
-            aria-label="Confirm delete"
           >
             Delete
           </Button>
@@ -716,84 +758,60 @@ export default function ManageItems({ onEditItem, onAddNewItem, refreshItems, on
       </Dialog>
 
       {/* View Item Dialog */}
-      <Dialog open={viewDialog} onClose={() => setViewDialog(false)} maxWidth="md" fullWidth>
-        <DialogTitle>
-          <Typography variant="h6" fontWeight="bold">
-            Item Details
-          </Typography>
-        </DialogTitle>
+      <Dialog
+        open={viewDialog}
+        onClose={() => setViewDialog(false)}
+        aria-labelledby="view-dialog-title"
+        sx={{ "& .MuiDialog-paper": { borderRadius: 2, p: 2, maxWidth: 600 } }}
+      >
+        <DialogTitle id="view-dialog-title">{selectedItem?.productName}</DialogTitle>
         <DialogContent>
-          {selectedItem && (
-            <Box sx={{ pt: 2 }}>
-              <Grid container spacing={4}>
-                <Grid item xs={12} md={4}>
-                  <Card sx={{ p: 2, textAlign: "center", borderRadius: 2 }}>
-                    <img
-                      src={selectedItem.image}
-                      alt={selectedItem.productName}
-                      style={{
-                        width: "100%",
-                        maxWidth: "250px",
-                        height: "200px",
-                        objectFit: "cover",
-                        borderRadius: "8px",
-                      }}
-                    />
-                  </Card>
-                </Grid>
-                <Grid item xs={12} md={8}>
-                  <Typography variant="h5" fontWeight="bold" gutterBottom>
-                    {selectedItem.productName}
-                  </Typography>
-                  <Typography variant="body1" color="text.secondary" gutterBottom sx={{ mb: 2 }}>
-                    Item Code: <strong>{selectedItem.itemCode}</strong>
-                  </Typography>
-                  <Typography variant="body1" gutterBottom sx={{ mb: 3 }}>
-                    {selectedItem.description || "No description"}
-                  </Typography>
-
-                  <Box sx={{ mb: 3 }}>
-                    <Typography variant="h6" fontWeight="600" gutterBottom>
-                      Pricing Tiers
-                    </Typography>
-                    <Card sx={{ p: 2, bgcolor: "#f8f9fa", borderRadius: 2 }}>
-                      {formatPricingTiers(selectedItem.tierPricing)}
-                    </Card>
-                  </Box>
-
-                  <Grid container spacing={2}>
-                    <Grid item xs={6}>
-                      <Typography variant="body2" sx={{ mb: 1 }}>
-                        <strong>Parent Category:</strong> {getParentCategory(selectedItem.category_id)}
-                      </Typography>
-                      <Typography variant="body2" sx={{ mb: 1 }}>
-                        <strong>Category:</strong> {selectedItem.category}
-                        {selectedItem.subCategory && ` > ${selectedItem.subCategory}`}
-                      </Typography>
-                      <Typography variant="body2" sx={{ mb: 1 }}>
-                        <strong>Cashback:</strong> {selectedItem.cashbackRate}%
-                      </Typography>
-                    </Grid>
-                    <Grid item xs={6}>
-                      <Typography variant="body2" sx={{ mb: 1 }}>
-                        <strong>Stock:</strong> {selectedItem.stockUnits} {selectedItem.measurementUnit}
-                      </Typography>
-                      <Typography variant="body2">
-                        <strong>Alert Quantity:</strong> {selectedItem.alertQuantity}
-                      </Typography>
-                    </Grid>
-                  </Grid>
-                </Grid>
-              </Grid>
-            </Box>
-          )}
+          <Grid container spacing={2}>
+            <Grid item xs={12} sm={4}>
+              <Avatar
+                src={selectedItem?.image}
+                alt={selectedItem?.productName}
+                sx={{ width: 150, height: 150, borderRadius: 2, mb: 2 }}
+              />
+            </Grid>
+            <Grid item xs={12} sm={8}>
+              <Typography variant="body2" sx={{ mb: 1 }}>
+                <strong>Code:</strong> {selectedItem?.itemCode}
+              </Typography>
+              <Typography variant="body2" sx={{ mb: 1 }}>
+                <strong>Description:</strong>{" "}
+                {selectedItem?.description || "No description"}
+              </Typography>
+              <Typography variant="body2" sx={{ mb: 1 }}>
+                <strong>Category:</strong> {selectedItem?.parent_category} &gt;{" "}
+                {selectedItem?.category}
+                {selectedItem?.subCategory && ` > ${selectedItem.subCategory}`}
+              </Typography>
+              <Typography variant="body2" sx={{ mb: 1 }}>
+                <strong>Supplier:</strong>{" "}
+                {selectedItem?.preferred_vendor || "No supplier"}
+              </Typography>
+              <Typography variant="body2" sx={{ mb: 1 }}>
+                <strong>Unit:</strong> {selectedItem?.measurementUnit}
+              </Typography>
+              <Typography variant="body2" sx={{ mb: 1 }}>
+                <strong>Cashback:</strong>{" "}
+                {selectedItem?.cashbackRate ? `${selectedItem.cashbackRate}%` : "0%"}
+              </Typography>
+              <Typography variant="body2" sx={{ mb: 1 }}>
+                <strong>Stock:</strong> {selectedItem?.stockUnits}{" "}
+                {selectedItem?.measurementUnit} (
+                {getStockStatus(selectedItem?.stockUnits, selectedItem?.alertQuantity).label})
+              </Typography>
+              <Typography variant="body2" sx={{ mb: 1 }}>
+                <strong>Pricing Tiers:</strong>
+              </Typography>
+              {selectedItem?.tierPricing && formatPricingTiers(selectedItem.tierPricing)}
+            </Grid>
+          </Grid>
         </DialogContent>
-        <DialogActions sx={{ p: 3 }}>
-          <Button
-            onClick={() => setViewDialog(false)}
-            sx={{ textTransform: "none", color: "#666" }}
-            aria-label="Close view dialog"
-          >
+        <DialogActions>
+          <Button onClick={() => setViewDialog(false)} sx={{ color: "#666" }}>
             Close
           </Button>
           <Button
@@ -802,15 +820,9 @@ export default function ManageItems({ onEditItem, onAddNewItem, refreshItems, on
               handleEditItem(selectedItem)
             }}
             variant="contained"
-            sx={{
-              bgcolor: "#1976d2",
-              "&:hover": { bgcolor: "#1565c0" },
-              textTransform: "none",
-              fontWeight: 600,
-            }}
-            aria-label={`Edit ${selectedItem?.productName}`}
+            sx={{ textTransform: "none", fontWeight: 600 }}
           >
-            Edit Item
+            Edit
           </Button>
         </DialogActions>
       </Dialog>
