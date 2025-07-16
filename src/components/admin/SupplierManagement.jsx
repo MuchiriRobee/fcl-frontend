@@ -49,6 +49,7 @@ const SupplierManagement = ({ onSuppliersChange }) => {
     street_name: "",
     city: "",
     postal_address: "",
+    kra_number: "",
   })
   const [formErrors, setFormErrors] = useState({})
   const [isFormOpen, setIsFormOpen] = useState(false)
@@ -115,6 +116,8 @@ const SupplierManagement = ({ onSuppliersChange }) => {
     if (!formData.street_name.trim()) errors.street_name = "Street name is required"
     if (!formData.city.trim()) errors.city = "City is required"
     if (!formData.postal_address.trim()) errors.postal_address = "Postal address/code is required"
+    if (!formData.kra_number.trim()) errors.kra_number = "KRA Number is required"
+    else if (!/^[A-Za-z0-9]+$/.test(formData.kra_number)) errors.kra_number = "KRA Number must be alphanumeric"
 
     setFormErrors(errors)
     return Object.keys(errors).length === 0
@@ -147,7 +150,7 @@ const SupplierManagement = ({ onSuppliersChange }) => {
         message: formData.id ? "Supplier updated successfully!" : "Supplier added successfully!",
         severity: "success",
       })
-      if (onSuppliersChange) onSuppliersChange(suppliers)
+      if (onSuppliersChange) onSuppliersChange([...suppliers])
       resetForm()
     } catch (error) {
       setNotification({ open: true, message: `Error: ${error.message}`, severity: "error" })
@@ -171,9 +174,10 @@ const SupplierManagement = ({ onSuppliersChange }) => {
         headers: { "Content-Type": "application/json" },
       })
       if (!response.ok) throw new Error("Failed to delete supplier")
-      setSuppliers((prev) => prev.filter((s) => s.id !== id))
+      const updatedSuppliers = suppliers.filter((s) => s.id !== id)
+      setSuppliers(updatedSuppliers)
       setNotification({ open: true, message: "Supplier deleted successfully!", severity: "success" })
-      if (onSuppliersChange) onSuppliersChange(suppliers)
+      if (onSuppliersChange) onSuppliersChange(updatedSuppliers)
     } catch (error) {
       setNotification({ open: true, message: `Error: ${error.message}`, severity: "error" })
     } finally {
@@ -197,6 +201,7 @@ const SupplierManagement = ({ onSuppliersChange }) => {
       street_name: "",
       city: "",
       postal_address: "",
+      kra_number: "",
     })
     setFormErrors({})
     setIsFormOpen(false)
@@ -209,7 +214,7 @@ const SupplierManagement = ({ onSuppliersChange }) => {
 
   // Handle sort change
   const handleSortChange = (event) => {
-    setSortOrder(event.target.value)
+    setSortOrder( event.target.value)
   }
 
   // Handle search change
@@ -320,7 +325,7 @@ const SupplierManagement = ({ onSuppliersChange }) => {
                 size="small"
               />
               <TextField
-                label="Office"
+                label="Office Number"
                 value={formData.office}
                 onChange={(e) => setFormData({ ...formData, office: e.target.value })}
                 error={!!formErrors.office}
@@ -330,7 +335,7 @@ const SupplierManagement = ({ onSuppliersChange }) => {
                 required
               />
               <TextField
-                label="Floor"
+                label="Floor Number"
                 value={formData.floor}
                 onChange={(e) => setFormData({ ...formData, floor: e.target.value })}
                 error={!!formErrors.floor}
@@ -377,6 +382,16 @@ const SupplierManagement = ({ onSuppliersChange }) => {
                 size="small"
                 required
               />
+              <TextField
+                label="KRA Number (e.g., A123456789B)"
+                value={formData.kra_number}
+                onChange={(e) => setFormData({ ...formData, kra_number: e.target.value })}
+                error={!!formErrors.kra_number}
+                helperText={formErrors.kra_number}
+                fullWidth
+                size="small"
+                required
+              />
               <Box sx={{ gridColumn: { sm: "1 / 3" }, display: "flex", gap: 1 }}>
                 <Button
                   type="submit"
@@ -406,6 +421,7 @@ const SupplierManagement = ({ onSuppliersChange }) => {
             <TableRow>
               <TableCell sx={{ fontFamily: "'Poppins', sans-serif", fontWeight: 600 }}>Name</TableCell>
               <TableCell sx={{ fontFamily: "'Poppins', sans-serif", fontWeight: 600 }}>Code</TableCell>
+              <TableCell sx={{ fontFamily: "'Poppins', sans-serif", fontWeight: 600 }}>KRA Number</TableCell>
               <TableCell sx={{ fontFamily: "'Poppins', sans-serif", fontWeight: 600 }}>Email</TableCell>
               <TableCell sx={{ fontFamily: "'Poppins', sans-serif", fontWeight: 600 }}>Primary Telephone</TableCell>
               <TableCell sx={{ fontFamily: "'Poppins', sans-serif", fontWeight: 600 }}>Primary Contact</TableCell>
@@ -416,13 +432,13 @@ const SupplierManagement = ({ onSuppliersChange }) => {
           <TableBody>
             {loading ? (
               <TableRow>
-                <TableCell colSpan={7} align="center">
+                <TableCell colSpan={8} align="center">
                   <CircularProgress />
                 </TableCell>
               </TableRow>
             ) : filteredSuppliers.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={7} align="center">
+                <TableCell colSpan={8} align="center">
                   <Typography sx={{ fontFamily: "'Poppins', sans-serif" }}>No suppliers found</Typography>
                 </TableCell>
               </TableRow>
@@ -431,6 +447,7 @@ const SupplierManagement = ({ onSuppliersChange }) => {
                 <StyledTableRow key={supplier.id} index={index}>
                   <TableCell sx={{ fontFamily: "'Poppins', sans-serif" }}>{supplier.name}</TableCell>
                   <TableCell sx={{ fontFamily: "'Poppins', sans-serif" }}>{supplier.code}</TableCell>
+                  <TableCell sx={{ fontFamily: "'Poppins', sans-serif" }}>{supplier.kra_number}</TableCell>
                   <TableCell sx={{ fontFamily: "'Poppins', sans-serif" }}>
                     <a href={`mailto:${supplier.email}`} style={{ color: 'inherit', textDecoration: 'none' }}>
                       {supplier.email}

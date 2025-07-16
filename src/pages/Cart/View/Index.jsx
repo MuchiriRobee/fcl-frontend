@@ -21,18 +21,13 @@ import {
   Chip,
 } from "@mui/material"
 import { KeyboardArrowDown, ArrowBack, KeyboardArrowUp, DeleteOutline } from "@mui/icons-material"
-import softChairsImage from "../../../assets/images/1.png"
-import sofaChairImage from "../../../assets/images/2.png"
-import kitchenDishesImage from "../../../assets/images/11.png"
-import smartWatchesImage from "../../../assets/images/8.png"
-import kitchenMixerImage from "../../../assets/images/9.png"
-import homeApplianceImage from "../../../assets/images/10.png"
-import coffeeMakerImage from "../../../assets/images/13.png"
-import NewsletterSubscription from "../../../components/NewsLetter"
 
-// Helper function to format numbers with commas
+// Helper function to format numbers with commas and two decimal places
 const formatNumberWithCommas = (number) => {
-  return number.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",")
+  if (isNaN(number) || number === null || number === undefined) return "0.00"
+  const [integerPart, decimalPart = ""] = Number(number).toFixed(2).split(".")
+  const formattedInteger = integerPart.replace(/\B(?=(\d{3})+(?!\d))/g, ",")
+  return `${formattedInteger}.${decimalPart.padEnd(2, "0")}`
 }
 
 export default function Cart() {
@@ -46,9 +41,10 @@ export default function Cart() {
       // Ensure all items have cashbackPercent and tier_pricing properties
       const updatedItems = storedCartItems.map((item) => ({
         ...item,
-        cashbackPercent: item.cashbackPercent || (item.cashback ? Math.round((item.cashback / item.price) * 100) : 5),
+        cashbackPercent: Number(item.cashbackPercent || (item.cashback ? (item.cashback / item.price) * 100 : 5)).toFixed(2),
         tier_pricing: item.tier_pricing || [], // Ensure tier_pricing is present
         quantity: item.quantity || 1, // Ensure quantity is set
+        price: Number(item.price || 0).toFixed(2), // Ensure price has 2 decimal places
       }))
       setCartItems(updatedItems)
     }
@@ -93,7 +89,7 @@ export default function Cart() {
   // Function to get the adjusted price based on quantity
   const getAdjustedPrice = (item, quantity) => {
     const tier = getPriceTier(item, quantity)
-    return Math.round(parseFloat(tier.price) || item.price)
+    return Number(parseFloat(tier.price) || item.price).toFixed(2)
   }
 
   // Function to get the tier label
@@ -135,29 +131,29 @@ export default function Cart() {
   // Calculate order summary with adjusted prices
   const subtotalExclVAT = cartItems.reduce((sum, item) => {
     const quantity = quantities[item.id] || 1
-    const adjustedPrice = getAdjustedPrice(item, quantity)
-    const priceExclVAT = Math.round(adjustedPrice / (1 + VAT_RATE))
-    return sum + priceExclVAT * quantity
-  }, 0)
+    const adjustedPrice = Number(getAdjustedPrice(item, quantity))
+    const priceExclVAT = Number((adjustedPrice / (1 + VAT_RATE)).toFixed(2))
+    return Number(sum) + Number((priceExclVAT * quantity).toFixed(2))
+  }, 0).toFixed(2)
 
   // Calculate VAT amount
-  const vatAmount = Math.round(subtotalExclVAT * VAT_RATE)
+  const vatAmount = Number((subtotalExclVAT * VAT_RATE).toFixed(2))
 
   // Calculate total (subtotal + VAT)
-  const total = subtotalExclVAT + vatAmount
+  const total = Number(subtotalExclVAT) + Number(vatAmount)
 
   // Calculate cashback based on percentage (excluding VAT)
   const calculateCashback = (item, quantity) => {
-    const cashbackPercent = parseFloat(item.cashbackPercent) || 0
-    const adjustedPrice = getAdjustedPrice(item, quantity)
-    const priceExclVAT = Math.round(adjustedPrice / (1 + VAT_RATE))
-    return Math.round((priceExclVAT * quantity * cashbackPercent) / 100)
+    const cashbackPercent = Number(item.cashbackPercent) || 0
+    const adjustedPrice = Number(getAdjustedPrice(item, quantity))
+    const priceExclVAT = Number((adjustedPrice / (1 + VAT_RATE)).toFixed(2))
+    return Number(((priceExclVAT * quantity * cashbackPercent) / 100).toFixed(2))
   }
 
   const totalCashback = cartItems.reduce((sum, item) => {
     const quantity = quantities[item.id] || 1
-    return sum + calculateCashback(item, quantity)
-  }, 0)
+    return Number(sum) + Number(calculateCashback(item, quantity))
+  }, 0).toFixed(2)
 
   // Clear cart function
   const clearCart = () => {
@@ -248,6 +244,9 @@ export default function Cart() {
                           <Typography variant="body2" color="text.secondary">
                             Tier: {tierLabel}
                           </Typography>
+                          <Typography variant="body2" color="text.secondary">
+                            Cashback: {Number(item.cashbackPercent).toFixed(2)}%
+                          </Typography>
                           <Typography variant="body1" fontWeight="medium" gutterBottom sx={{ fontSize: "1rem" }}>
                             {item.description}
                           </Typography>
@@ -304,7 +303,7 @@ export default function Cart() {
 
                         <Grid item xs={6}>
                           <Typography variant="body1" fontWeight="bold" align="right" sx={{ fontSize: "1.1rem" }}>
-                            {formatNumberWithCommas(adjustedPrice)}/=
+                            {formatNumberWithCommas(adjustedPrice)}
                           </Typography>
                           <Typography variant="body2" color="text.secondary" align="right">
                             per item
@@ -313,13 +312,13 @@ export default function Cart() {
 
                         <Grid item xs={6}>
                           <Typography variant="body2" color="success.main" sx={{ fontSize: "0.95rem" }}>
-                            Cashback: {formatNumberWithCommas(calculateCashback(item, quantity))}/=
+                            Cashback: {formatNumberWithCommas(calculateCashback(item, quantity))}
                           </Typography>
                         </Grid>
 
                         <Grid item xs={6}>
                           <Typography variant="body1" fontWeight="bold" align="right" sx={{ fontSize: "1.1rem" }}>
-                            Total: {formatNumberWithCommas(adjustedPrice * quantity)}/=
+                            Total (Excludes V): {formatNumberWithCommas((adjustedPrice * quantity).toFixed(2))}
                           </Typography>
                         </Grid>
 
@@ -402,6 +401,9 @@ export default function Cart() {
                             <Typography variant="body2" color="text.secondary">
                               Tier: {tierLabel}
                             </Typography>
+                            <Typography variant="body2" color="text.secondary">
+                              Cashback: {Number(item.cashbackPercent).toFixed(2)}%
+                            </Typography>
                             <Typography variant="body1" fontWeight="medium" gutterBottom sx={{ fontSize: "1rem" }}>
                               {item.description}
                             </Typography>
@@ -443,13 +445,13 @@ export default function Cart() {
                             </Box>
                           </TableCell>
                           <TableCell align="right" sx={{ fontSize: "1rem" }}>
-                            {formatNumberWithCommas(adjustedPrice)}/=
+                            {formatNumberWithCommas(adjustedPrice)}
                           </TableCell>
                           <TableCell align="right" sx={{ fontWeight: "bold", fontSize: "1rem" }}>
-                            {formatNumberWithCommas(adjustedPrice * quantity)}/=
+                            {formatNumberWithCommas((adjustedPrice * quantity).toFixed(2))}
                           </TableCell>
                           <TableCell align="right" sx={{ color: "success.main", fontSize: "1rem" }}>
-                            {formatNumberWithCommas(calculateCashback(item, quantity))}/=
+                            {formatNumberWithCommas(calculateCashback(item, quantity))}
                           </TableCell>
                           <TableCell align="center">
                             <Stack direction="row" spacing={1} justifyContent="center">
@@ -538,11 +540,11 @@ export default function Cart() {
                 Total Cashback Earned:
               </Typography>
               <Typography variant="body1" color="success.main" fontWeight="bold" sx={{ fontSize: "1.05rem" }}>
-                {formatNumberWithCommas(totalCashback)}/=
+                {formatNumberWithCommas(totalCashback)}
               </Typography>
             </Box>
             <Typography variant="body2" color="text.secondary" sx={{ fontSize: "0.95rem" }}>
-              Cashback is calculated on the price excluding VAT and will be added to your e-wallet after purchase
+              Cashback is added to your e-wallet after purchase
               completion.
             </Typography>
           </Paper>
@@ -567,7 +569,7 @@ export default function Cart() {
                   Subtotal (Excl. VAT):
                 </Typography>
                 <Typography variant="body1" sx={{ fontSize: "1.05rem" }}>
-                  {formatNumberWithCommas(subtotalExclVAT)}/=
+                  {formatNumberWithCommas(subtotalExclVAT)}
                 </Typography>
               </Box>
 
@@ -576,7 +578,7 @@ export default function Cart() {
                   VAT (16%):
                 </Typography>
                 <Typography variant="body1" color="primary" sx={{ fontSize: "1.05rem" }}>
-                  + {formatNumberWithCommas(vatAmount)}/=
+                  + {formatNumberWithCommas(vatAmount)}
                 </Typography>
               </Box>
 
@@ -587,7 +589,7 @@ export default function Cart() {
                   Total:
                 </Typography>
                 <Typography variant="h6" fontWeight="bold">
-                  {formatNumberWithCommas(total)}/=
+                  {formatNumberWithCommas(total.toFixed(2))}
                 </Typography>
               </Box>
             </Stack>
@@ -613,7 +615,6 @@ export default function Cart() {
           </Paper>
         </Grid>
       </Grid>
-      <NewsletterSubscription />
     </Box>
   )
 }

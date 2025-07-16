@@ -891,63 +891,6 @@ export default function NewItemForm({ onSubmit, editItem = null }) {
 
           <Accordion defaultExpanded sx={{ mb: 3, borderRadius: 2, boxShadow: "0 2px 8px rgba(0,0,0,0.1)" }}>
             <AccordionSummary expandIcon={<ExpandMore />} sx={{ bgcolor: "#f8f9fa" }}>
-              <Typography variant="h6" fontWeight="600" color="#1976d2">🏢 Vendor Information</Typography>
-            </AccordionSummary>
-            <AccordionDetails sx={{ p: 3 }}>
-              <Grid container spacing={3}>
-                <Grid item xs={12} sm={6}>
-                  <FormControl fullWidth error={!!suppliersError}>
-                    <InputLabel id="vendor-label">Preferred Vendor</InputLabel>
-                    <Select
-                      labelId="vendor-label"
-                      name="preferredVendor1"
-                      value={formData.preferredVendor1}
-                      onChange={handleChange}
-                      label="Preferred Vendor"
-                      disabled={suppliersLoading || suppliersError || suppliers.length === 0}
-                      renderValue={(selected) => {
-                        const supplier = suppliers.find(s => s.id === parseInt(selected))
-                        return supplier ? `${supplier.name} (${supplier.code || 'N/A'})` : "Select Preferred Vendor"
-                      }}
-                      sx={{ height: 56 }}
-                    >
-                      <MenuItem value="" disabled>Select Preferred Vendor</MenuItem>
-                      {suppliersLoading && <MenuItem disabled>Loading suppliers...</MenuItem>}
-                      {suppliersError && <MenuItem disabled>Error: {suppliersError}</MenuItem>}
-                      {suppliers.length === 0 && !suppliersLoading && !suppliersError && (
-                        <MenuItem disabled>No suppliers available</MenuItem>
-                      )}
-                      {suppliers.map(vendor => (
-                        <MenuItem key={vendor.id} value={vendor.id}>
-                          {vendor.name} ({vendor.code || 'N/A'})
-                        </MenuItem>
-                      ))}
-                    </Select>
-                    {suppliersError && <FormHelperText error>{suppliersError}</FormHelperText>}
-                    {!suppliersError && suppliers.length === 0 && !suppliersLoading && (
-                      <FormHelperText error>No suppliers available. Please add suppliers first.</FormHelperText>
-                    )}
-                  </FormControl>
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <TextField
-                    fullWidth
-                    label="Vendor Item Code"
-                    name="vendorItemCode"
-                    value={formData.vendorItemCode}
-                    onChange={handleChange}
-                    disabled={!!formData.preferredVendor1}
-                    helperText={formData.preferredVendor1 ? "Autofilled from selected vendor" : "Enter vendor item code"}
-                    inputProps={{ maxLength: 50 }}
-                    sx={{ '& .MuiInputBase-root': { height: 56 } }}
-                  />
-                </Grid>
-              </Grid>
-            </AccordionDetails>
-          </Accordion>
-
-          <Accordion defaultExpanded sx={{ mb: 3, borderRadius: 2, boxShadow: "0 2px 8px rgba(0,0,0,0.1)" }}>
-            <AccordionSummary expandIcon={<ExpandMore />} sx={{ bgcolor: "#f8f9fa" }}>
               <Typography variant="h6" fontWeight="600" color="#1976d2">🎯 Sales Agent Incentives</Typography>
             </AccordionSummary>
             <AccordionDetails sx={{ p: 3 }}>
@@ -1003,7 +946,64 @@ export default function NewItemForm({ onSubmit, editItem = null }) {
               </Grid>
             </AccordionDetails>
           </Accordion>
-
+          
+          <Accordion defaultExpanded sx={{ mb: 3, borderRadius: 2, boxShadow: "0 2px 8px rgba(0,0,0,0.1)" }}>
+            <AccordionSummary expandIcon={<ExpandMore />} sx={{ bgcolor: "#f8f9fa" }}>
+              <Typography variant="h6" fontWeight="600" color="#1976d2">🏢 Vendor Information</Typography>
+            </AccordionSummary>
+            <AccordionDetails sx={{ p: 3 }}>
+              <Grid container spacing={3}>
+                <Grid item xs={12} sm={6}>
+                  <FormControl fullWidth error={!!suppliersError}>
+                    <InputLabel id="vendor-label">Preferred Vendor</InputLabel>
+                    <Select
+                      labelId="vendor-label"
+                      name="preferredVendor1"
+                      value={formData.preferredVendor1}
+                      onChange={handleChange}
+                      label="Preferred Vendor"
+                      disabled={suppliersLoading || suppliersError || suppliers.length === 0}
+                      renderValue={(selected) => {
+                        const supplier = suppliers.find(s => s.id === parseInt(selected))
+                        return supplier ? `${supplier.name} (${supplier.code || 'N/A'})` : "Select Preferred Vendor"
+                      }}
+                      sx={{ height: 56 }}
+                    >
+                      <MenuItem value="" disabled>Select Preferred Vendor</MenuItem>
+                      {suppliersLoading && <MenuItem disabled>Loading suppliers...</MenuItem>}
+                      {suppliersError && <MenuItem disabled>Error: {suppliersError}</MenuItem>}
+                      {suppliers.length === 0 && !suppliersLoading && !suppliersError && (
+                        <MenuItem disabled>No suppliers available</MenuItem>
+                      )}
+                      {suppliers.map(vendor => (
+                        <MenuItem key={vendor.id} value={vendor.id}>
+                          {vendor.name} ({vendor.code || 'N/A'})
+                        </MenuItem>
+                      ))}
+                    </Select>
+                    {suppliersError && <FormHelperText error>{suppliersError}</FormHelperText>}
+                    {!suppliersError && suppliers.length === 0 && !suppliersLoading && (
+                      <FormHelperText error>No suppliers available. Please add suppliers first.</FormHelperText>
+                    )}
+                  </FormControl>
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    fullWidth
+                    label="Vendor Item Code"
+                    name="vendorItemCode"
+                    value={formData.vendorItemCode}
+                    onChange={handleChange}
+                    disabled={!!formData.preferredVendor1}
+                    helperText={formData.preferredVendor1 ? "Autofilled from selected vendor" : "Enter vendor item code"}
+                    inputProps={{ maxLength: 50 }}
+                    sx={{ '& .MuiInputBase-root': { height: 56 } }}
+                  />
+                </Grid>
+              </Grid>
+            </AccordionDetails>
+          </Accordion>
+          
           <Accordion defaultExpanded sx={{ mb: 3, borderRadius: 2, boxShadow: "0 2px 8px rgba(0,0,0,0.1)" }}>
             <AccordionSummary expandIcon={<ExpandMore />} sx={{ bgcolor: "#f8f9fa" }}>
               <Typography variant="h6" fontWeight="600" color="#1976d2">📦 Inventory & Additional Information</Typography>
