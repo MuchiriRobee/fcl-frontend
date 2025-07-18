@@ -17,7 +17,7 @@ const formatCurrency = (value) => {
 }
 
 export default function ProductsPage() {
-  const { parentCatId, categoryId, subcategoryId } = useParams()
+  const { subcategoryId } = useParams()
   const navigate = useNavigate()
   const [products, setProducts] = useState([])
   const [loading, setLoading] = useState(true)
@@ -29,66 +29,66 @@ export default function ProductsPage() {
   // Use VITE_BASE_URL for static assets, VITE_API_URL for API calls
   const baseUrl = import.meta.env.VITE_BASE_URL || 'https://fcl-back.onrender.com'
 
-useEffect(() => {
-  const fetchProducts = async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const queryParams = new URLSearchParams();
-      if (parentCatId && !isNaN(parseInt(parentCatId))) queryParams.append("parentCatId", parentCatId);
-      if (categoryId && !isNaN(parseInt(categoryId))) queryParams.append("categoryId", categoryId);
-      if (subcategoryId && !isNaN(parseInt(subcategoryId))) queryParams.append("subcategoryId", subcategoryId);
-      const url = `${import.meta.env.VITE_API_URL}/products${queryParams.toString() ? `?${queryParams}` : ''}`;
-      const response = await fetch(url);
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || "Failed to fetch products");
+  useEffect(() => {
+    const fetchProducts = async () => {
+      setLoading(true)
+      setError(null)
+      try {
+        if (!subcategoryId || isNaN(parseInt(subcategoryId))) {
+          throw new Error("Invalid subcategory ID")
+        }
+        const url = `${import.meta.env.VITE_API_URL}/products/subcategory/${subcategoryId}`
+        console.log("Fetching products from:", url)
+        const response = await fetch(url)
+        if (!response.ok) {
+          const errorText = await response.text()
+          console.error("Response status:", response.status, "Response text:", errorText)
+          let errorMessage = "Failed to fetch products"
+          try {
+            const errorData = JSON.parse(errorText)
+            errorMessage = errorData.message || errorMessage
+          } catch {
+            errorMessage = "Server returned an unexpected response"
+          }
+          throw new Error(errorMessage)
+        }
+        const data = await response.json()
+        if (data.length === 0) {
+          setError("No products available in this subcategory")
+        }
+        // Transform API response to include tier_pricing array
+        const transformedData = data.map(product => ({
+          id: product.id,
+          product_name: product.product_name,
+          product_code: product.product_code,
+          description: product.description,
+          image_url: product.image_url,
+          uom: product.uom || "PC",
+          cashback_rate: product.cashback_rate || 0,
+          tier_pricing: [
+            { min_quantity: product.qty1_min || 1, max_quantity: product.qty1_max || null, price: parseFloat(product.selling_price1) || 0 },
+            ...(product.selling_price2 && product.qty2_min
+              ? [{ min_quantity: product.qty2_min, max_quantity: product.qty2_max || null, price: parseFloat(product.selling_price2) }]
+              : []),
+            ...(product.selling_price3 && product.qty3_min
+              ? [{ min_quantity: product.qty3_min, max_quantity: null, price: parseFloat(product.selling_price3) }]
+              : []),
+          ]
+        }))
+        setProducts(transformedData)
+      } catch (err) {
+        console.error("Fetch error:", err)
+        setError(err.message)
+      } finally {
+        setLoading(false)
       }
-      const data = await response.json();
-      if (data.length === 0 && subcategoryId) {
-        setError(`No products at the moment`);
-      }
-      // Transform API response to include tier_pricing array
-      const transformedData = data.map(product => ({
-        id: product.id,
-        product_name: product.product_name,
-        product_code: product.product_code,
-        description: product.description || "No description available",
-        image_url: product.image_url,
-        uom: product.uom || "PC",
-        cashback_rate: product.cashback_rate || 0,
-        tier_pricing: [
-          { min_quantity: product.qty1_min || 1, max_quantity: product.qty1_max || null, price: parseFloat(product.selling_price1) || 0 },
-          ...(product.selling_price2 && product.qty2_min
-            ? [{ min_quantity: product.qty2_min, max_quantity: product.qty2_max || null, price: parseFloat(product.selling_price2) }]
-            : []),
-          ...(product.selling_price3 && product.qty3_min
-            ? [{ min_quantity: product.qty3_min, max_quantity: null, price: parseFloat(product.selling_price3) }]
-            : []),
-        ]
-      }));
-      setProducts(transformedData);
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
     }
-  };
 
-  if (
-    (parentCatId && isNaN(parseInt(parentCatId))) ||
-    (categoryId && isNaN(parseInt(categoryId))) ||
-    (subcategoryId && isNaN(parseInt(subcategoryId)))
-  ) {
-    setError("Invalid category IDs");
-    setLoading(false);
-    return;
-  }
-  fetchProducts();
-}, [parentCatId, categoryId, subcategoryId]);
+    fetchProducts()
+  }, [subcategoryId])
 
   const addToCart = (product) => {
-    const quantity = 1 // Default quantity
+    const quantity = 1 // Default quantity for new items
     const selectedTier = product.tier_pricing.find(tier => 
       quantity >= tier.min_quantity && (!tier.max_quantity || quantity <= tier.max_quantity)
     ) || product.tier_pricing[0] // Fallback to first tier
@@ -108,10 +108,27 @@ useEffect(() => {
     }
 
     const existingCartItems = JSON.parse(localStorage.getItem("cartItems")) || []
-    const updatedCart = [...existingCartItems, cartItem]
-    localStorage.setItem("cartItems", JSON.stringify(updatedCart))
+    const existingItemIndex = existingCartItems.findIndex(item => item.id === cartItem.id)
 
-    setSnackbarMessage(`${product.product_name} added to cart! You'll earn ${cashbackPercent}% cashback.`)
+    let updatedCart
+    if (existingItemIndex >= 0) {
+      // Product exists in cart, increase quantity
+      updatedCart = [...existingCartItems]
+      updatedCart[existingItemIndex].quantity += 1
+      // Update price based on new quantity
+      const newQuantity = updatedCart[existingItemIndex].quantity
+      const newTier = product.tier_pricing.find(tier => 
+        newQuantity >= tier.min_quantity && (!tier.max_quantity || newQuantity <= tier.max_quantity)
+      ) || product.tier_pricing[0]
+      updatedCart[existingItemIndex].price = parseFloat(newTier.price)
+      setSnackbarMessage(`${product.product_name} quantity updated in cart! You'll earn ${cashbackPercent}% cashback.`)
+    } else {
+      // Product not in cart, add it
+      updatedCart = [...existingCartItems, cartItem]
+      setSnackbarMessage(`${product.product_name} added to cart! You'll earn ${cashbackPercent}% cashback.`)
+    }
+
+    localStorage.setItem("cartItems", JSON.stringify(updatedCart))
     setSnackbarOpen(true)
   }
 
@@ -208,7 +225,7 @@ useEffect(() => {
             overflowWrap: "break-word",
           }}
         >
-          {product.product_name} - {product.description}
+          {product.product_name} 
         </Typography>
 
         <Box

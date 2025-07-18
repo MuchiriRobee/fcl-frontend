@@ -191,7 +191,7 @@ function App() {
                   <Route path="/reset-password" element={<ResetPasswordPage />} />
                   <Route path="/checkout" element={<CheckoutPage />} />
                   <Route path="/admin/*" element={<AdminPage />} />
-                  <Route path="/products/:parentCatId/:categoryId/:subcategoryId" element={<ProductsPage />} />
+                  <Route path="/products/subcategory/:subcategoryId" element={<ProductsPage />} />
                 </Routes>
               </main>
               <Footer />          

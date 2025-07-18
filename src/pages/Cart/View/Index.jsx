@@ -139,8 +139,8 @@ export default function Cart() {
   // Calculate VAT amount
   const vatAmount = Number((subtotalExclVAT * VAT_RATE).toFixed(2))
 
-  // Calculate total (subtotal + VAT)
-  const total = Number(subtotalExclVAT) + Number(vatAmount)
+  // Calculate total (subtotal + VAT) and round to whole number
+const total = Math.round(Number(subtotalExclVAT) + Number(vatAmount))
 
   // Calculate cashback based on percentage (excluding VAT)
   const calculateCashback = (item, quantity) => {
@@ -247,9 +247,7 @@ export default function Cart() {
                           <Typography variant="body2" color="text.secondary">
                             Cashback: {Number(item.cashbackPercent).toFixed(2)}%
                           </Typography>
-                          <Typography variant="body1" fontWeight="medium" gutterBottom sx={{ fontSize: "1rem" }}>
-                            {item.description}
-                          </Typography>
+                          
                         </Grid>
 
                         <Grid item xs={6}>
@@ -404,9 +402,7 @@ export default function Cart() {
                             <Typography variant="body2" color="text.secondary">
                               Cashback: {Number(item.cashbackPercent).toFixed(2)}%
                             </Typography>
-                            <Typography variant="body1" fontWeight="medium" gutterBottom sx={{ fontSize: "1rem" }}>
-                              {item.description}
-                            </Typography>
+                            
                           </TableCell>
                           <TableCell align="center">
                             <Box
@@ -589,7 +585,7 @@ export default function Cart() {
                   Total:
                 </Typography>
                 <Typography variant="h6" fontWeight="bold">
-                  {formatNumberWithCommas(total.toFixed(2))}
+                  {formatNumberWithCommas(total)}
                 </Typography>
               </Box>
             </Stack>

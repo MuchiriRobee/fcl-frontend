@@ -265,14 +265,10 @@ const NavigationBar = ({ isLoggedIn, currentUser, onLogout, isAdminPage }) => {
 
   const handleDropdownItemClick = (parentCategoryId, categoryId = null, subcategoryId = null) => {
     if (subcategoryId) {
-      navigate(`/products/${parentCategoryId}/${categoryId}/${subcategoryId}`)
-    } else if (categoryId) {
-      navigate(`/products/${parentCategoryId}/${categoryId}`)
-    } else {
-      navigate(`/products/${parentCategoryId}`)
+      navigate(`/products/subcategory/${subcategoryId}`)
+      if (drawerOpen) toggleDrawer()
     }
-    handleDropdownClose()
-    if (drawerOpen) toggleDrawer()
+    // No navigation for parentCategoryId or categoryId, just keep dropdown open
   }
 
   const setMenuRef = (menuName, element) => {
@@ -566,7 +562,7 @@ const NavigationBar = ({ isLoggedIn, currentUser, onLogout, isAdminPage }) => {
                       categories.map((parentCategory) => (
                         <Box
                           key={parentCategory.id}
-                          ref={(el) => setMenuRef(parentCategory.id, el)} // Use ID for unique ref
+                          ref={(el) => setMenuRef(parentCategory.id, el)}
                           sx={{ position: "relative" }}
                           onMouseEnter={() => handleDropdownOpen(parentCategory.id)}
                           onMouseLeave={handleDropdownClose}
@@ -577,7 +573,8 @@ const NavigationBar = ({ isLoggedIn, currentUser, onLogout, isAdminPage }) => {
                             }
                             aria-haspopup="true"
                             aria-expanded={activeDropdown === parentCategory.id ? "true" : "false"}
-                            onClick={() => handleDropdownItemClick(parentCategory.id)}
+                            // Only open dropdown, no navigation
+                            onClick={() => handleDropdownOpen(parentCategory.id)}
                           >
                             {parentCategory.name || 'N/A'}
                           </NavButton>
@@ -927,12 +924,7 @@ const NavigationBar = ({ isLoggedIn, currentUser, onLogout, isAdminPage }) => {
                   <React.Fragment key={parentCategory.id}>
                     <ListItem disablePadding>
                       <ListItemButton
-                        onClick={() => {
-                          toggleSubmenu(`parent-${parentCategory.id}`)
-                          if (!parentCategory.categories?.length) {
-                            handleDropdownItemClick(parentCategory.id)
-                          }
-                        }}
+                        onClick={() => toggleSubmenu(`parent-${parentCategory.id}`)}
                       >
                         <ListItemText primary={parentCategory.name || 'N/A'} />
                         {(parentCategory.categories || []).length > 0 ? (
@@ -947,12 +939,7 @@ const NavigationBar = ({ isLoggedIn, currentUser, onLogout, isAdminPage }) => {
                             <React.Fragment key={category.id}>
                               <ListItemButton
                                 sx={{ pl: 4 }}
-                                onClick={() => {
-                                  toggleSubmenu(`category-${parentCategory.id}-${category.id}`)
-                                  if (!category.subcategories?.length) {
-                                    handleDropdownItemClick(parentCategory.id, category.id)
-                                  }
-                                }}
+                                onClick={() => toggleSubmenu(`category-${parentCategory.id}-${category.id}`)}
                               >
                                 <ListItemText primary={category.name || 'N/A'} />
                                 {(category.subcategories || []).length > 0 ? (

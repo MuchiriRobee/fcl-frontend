@@ -1,6 +1,7 @@
 "use client"
 
-import { useState, useRef, useCallback } from "react"
+import { useState, useRef, useCallback, useEffect } from "react"
+import axios from "axios"
 import {
   AppBar,
   Toolbar,
@@ -121,20 +122,23 @@ const AdminNavigation = ({
   const isMobile = useMediaQuery(theme.breakpoints.down("md"))
 
   // State management for dropdowns and menus
-  const [anchorEl, setAnchorEl] = useState(null)
-  const [dropdownStates, setDropdownStates] = useState({
-    sales: false,
-    grn: false,
-    agents: false,
-  })
+const [anchorEl, setAnchorEl] = useState(null)
+const [dropdownStates, setDropdownStates] = useState({
+  sales: false,
+  grn: false,
+  agents: false,
+  categories: false,
+})
+const [categoryData, setCategoryData] = useState([])
+const [categoryLoading, setCategoryLoading] = useState(false)
 
-  // Refs for dropdown positioning
-  const dropdownRefs = {
-    sales: useRef(null),
-    grn: useRef(null),
-    agents: useRef(null),
-  }
-
+// Refs for dropdown positioning
+const dropdownRefs = {
+  sales: useRef(null),
+  grn: useRef(null),
+  agents: useRef(null),
+  categories: useRef(null),
+}
   const isMenuOpen = Boolean(anchorEl)
 
   // Enhanced dropdown handlers
@@ -261,6 +265,157 @@ const AdminNavigation = ({
     </Popper>
   )
 
+  // Fetch categories data
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000/api"
+
+const fetchCategories = useCallback(async () => {
+  setCategoryLoading(true)
+  try {
+    console.log(`[FETCH] GET ${API_URL}/categories`)
+    const response = await axios.get(`${API_URL}/categories`, {
+      headers: { 'Content-Type': 'application/json' }
+    })
+    console.log('[FETCH] Categories response:', response.data)
+    setCategoryData(response.data || [])
+  } catch (err) {
+    console.error('[FETCH] Failed to fetch categories:', err)
+  } finally {
+    setCategoryLoading(false)
+  }
+}, [])
+
+// Load categories on component mount and when Categories tab is active
+useEffect(() => {
+  if (activeTab === 2 || activeComponent === "CategoryManagement") {
+    fetchCategories()
+  }
+}, [activeTab, activeComponent, fetchCategories])
+
+// Nested dropdown component for categories
+const NestedMenuItem = ({ label, icon, children, onClick }) => {
+  const [open, setOpen] = useState(false)
+  const anchorRef = useRef(null)
+
+  return (
+    <Box
+      sx={{ position: 'relative' }}
+      ref={anchorRef}
+      onClick={() => {
+        setOpen((prev) => !prev)
+        if (onClick) onClick()
+      }}
+      onMouseEnter={children ? () => setOpen(true) : undefined}
+      onMouseLeave={children ? () => setOpen(false) : undefined}
+    >
+      <StyledMenuItem>
+        <ListItemIcon>{icon}</ListItemIcon>
+        <ListItemText primary={label} />
+        {children && <KeyboardArrowDown sx={{ fontSize: 16, ml: 1 }} />}
+      </StyledMenuItem>
+      {children && open && (
+        <Popper
+          open={open}
+          anchorEl={anchorRef.current}
+          placement="right-start"
+          transition
+          sx={{ zIndex: 100000 }}
+          modifiers={[{ name: 'offset', options: { offset: [0, 0] } }]}
+        >
+          {({ TransitionProps }) => (
+            <Grow {...TransitionProps} timeout={200}>
+              <StyledDropdownPaper elevation={4}>
+                <ClickAwayListener onClickAway={() => setOpen(false)}>
+                  <MenuList sx={{ py: 0.5, maxHeight: '200px', overflowY: 'auto' }}>
+                    {children}
+                  </MenuList>
+                </ClickAwayListener>
+              </StyledDropdownPaper>
+            </Grow>
+          )}
+        </Popper>
+      )}
+    </Box>
+  )
+}
+
+// Render category dropdown with nested structure
+const renderCategoryDropdown = (section, isOpen, anchorRef) => (
+  <Popper
+    open={isOpen}
+    anchorEl={anchorRef.current}
+    placement="bottom-start"
+    transition
+    disablePortal={false}
+    sx={{ zIndex: 99999 }}
+    modifiers={[{ name: 'offset', options: { offset: [0, 4] } }]}
+  >
+    {({ TransitionProps }) => (
+      <Grow {...TransitionProps} timeout={200}>
+        <StyledDropdownPaper elevation={4}>
+          <ClickAwayListener onClickAway={() => handleDropdownClose(section)}>
+            <MenuList autoFocusItem={isOpen} id={`${section}-menu`} sx={{ py: 0.5, maxHeight: '200px', overflowY: 'auto' }}>
+              {categoryLoading ? (
+                <StyledMenuItem disabled>
+                  <ListItemText primary="Loading categories..." />
+                </StyledMenuItem>
+              ) : categoryData.length === 0 ? (
+                <StyledMenuItem disabled>
+                  <ListItemText primary="No parent categories found" />
+                </StyledMenuItem>
+              ) : (
+                categoryData.map((parentCategory) => (
+                  <NestedMenuItem
+                    key={parentCategory.id}
+                    label={parentCategory.name}
+                    icon={<CategoryIcon sx={{ color: '#1976d2', fontSize: 18 }} />}
+                    onClick={() => handleDirectComponentNavigation("CategoryManagement", 2, "categories", { type: "category", parentCategoryId: parentCategory.id })}
+                  >
+                    {parentCategory.categories?.map((category) => (
+                      <NestedMenuItem
+                        key={category.id}
+                        label={category.name}
+                        icon={<ListIcon sx={{ color: '#2196f3', fontSize: 18 }} />}
+                        onClick={() => handleDirectComponentNavigation("CategoryManagement", 2, "categories", { type: "category", categoryId: category.id })}
+                      >
+                        {category.subcategories?.map((subCategory) => (
+                          <NestedMenuItem
+                            key={subCategory.id}
+                            label={subCategory.name}
+                            icon={<ListAltIcon sx={{ color: '#4caf50', fontSize: 18 }} />}
+                            onClick={() => handleDirectComponentNavigation("ManageItems", 1, "itemMaster", { type: "item", subCategoryId: subCategory.id })}
+                          >
+                            {subCategory.products?.length > 0 ? (
+                              subCategory.products.map((product) => (
+                                <StyledMenuItem
+                                  key={product.id}
+                                  onClick={() => handleDirectComponentNavigation("ManageItems", 1, "itemMaster", { productId: product.id })}
+                                  sx={{ pl: 4 }}
+                                >
+                                  <ListItemIcon>
+                                    <ShoppingCart sx={{ color: '#ff9800', fontSize: 18 }} />
+                                  </ListItemIcon>
+                                  <ListItemText primary={product.product_name} />
+                                </StyledMenuItem>
+                              ))
+                            ) : (
+                              <StyledMenuItem disabled sx={{ pl: 4 }}>
+                                <ListItemText primary="No products" />
+                              </StyledMenuItem>
+                            )}
+                          </NestedMenuItem>
+                        ))}
+                      </NestedMenuItem>
+                    ))}
+                  </NestedMenuItem>
+                ))
+              )}
+            </MenuList>
+          </ClickAwayListener>
+        </StyledDropdownPaper>
+      </Grow>
+    )}
+  </Popper>
+)
   // Profile menu renderer
   const menuId = "primary-search-account-menu"
   const renderMenu = (
@@ -351,14 +506,22 @@ const AdminNavigation = ({
             Suppliers
           </AdminNavButton>
 
-           {/* Categories - Direct to CategoryManagement */}
-          <AdminNavButton
-            startIcon={<CategoryIcon sx={{ fontSize: 18 }} />}
-            active={isTabActive(2) || activeComponent === "CategoryManagement"}
-            onClick={() => handleDirectComponentNavigation("CategoryManagement", 2, "categories", { type: "category" })}
+          <Box
+            ref={dropdownRefs.categories}
+            onMouseEnter={() => handleDropdownToggle("categories", true)}
+            onMouseLeave={() => handleDropdownToggle("categories", false)}
+            sx={{ position: "relative" }}
           >
-            Categories
-          </AdminNavButton>
+            <AdminNavButton
+              startIcon={<CategoryIcon sx={{ fontSize: 18 }} />}
+              endIcon={<KeyboardArrowDown sx={{ fontSize: 16 }} />}
+              active={isTabActive(2) || activeComponent === "CategoryManagement"}
+              onClick={() => handleDirectComponentNavigation("CategoryManagement", 2, "categories", { type: "category" })}
+            >
+              Parent Categories
+            </AdminNavButton>
+            {renderCategoryDropdown("categories", dropdownStates.categories, dropdownRefs.categories)}
+          </Box>
 
           {/* Item Master - Direct to ManageItems */}
           <AdminNavButton

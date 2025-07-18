@@ -22,6 +22,12 @@ import {
   CircularProgress,
   useMediaQuery,
   useTheme,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
 } from "@mui/material"
 import { ArrowBack, ArrowForward, CheckCircle, LocalShipping, Payment, Receipt } from "@mui/icons-material"
 import axios from "axios"
@@ -57,26 +63,23 @@ export default function CheckoutPage() {
   const [orderComplete, setOrderComplete] = useState(false)
   const [orderNumber, setOrderNumber] = useState("")
   const [orderId, setOrderId] = useState(null)
-  const [paymentStatus, setPaymentStatus] = useState(null) // null, 'initiated', 'completed', 'failed'
   const [isAuthenticated, setIsAuthenticated] = useState(false)
   const [user, setUser] = useState(null)
   const [error, setError] = useState("")
   const [loading, setLoading] = useState(false)
+  const [mpesaPhone, setMpesaPhone] = useState("")
 
   // Form states
   const [shippingInfo, setShippingInfo] = useState({
-    firstName: "",
-    lastName: "",
+    username: "",
     email: "",
     phone: "",
     address: "",
     city: "",
-    postalCode: "",
     country: "Uganda",
   })
 
   const [paymentMethod, setPaymentMethod] = useState("mpesa")
-  const [mpesaPhone, setMpesaPhone] = useState("")
   const [termsAccepted, setTermsAccepted] = useState(false)
 
   // Check authentication and fetch user details
@@ -97,33 +100,29 @@ export default function CheckoutPage() {
                 headers: { Authorization: `Bearer ${token}` },
               })
               const userDetails = response.data
-              // Normalize phone number to start with '0'
-              const phone = userDetails.cashback_phone_number || userDetails.phone_number || ""
-              const normalizedPhone = phone.startsWith("0") ? phone : `0${phone.replace(/^\+?256/, "")}`
+              const userPhone = userDetails.phone_number || ""
+              const formattedPhone = userPhone.length === 9 && /^\d{9}$/.test(userPhone) 
+                ? `0${userPhone}` 
+                : userPhone
               setShippingInfo({
-                firstName: userDetails.name?.split(" ")[0] || userData.username?.split(" ")[0] || "",
-                lastName: userDetails.name?.split(" ")[1] || userData.username?.split(" ")[1] || "",
+                username: userDetails.name || userData.username || "",
                 email: userDetails.email || userData.email || "",
-                phone: userDetails.phone_number || "",
+                phone: formattedPhone,
                 address: userDetails.street_name || "",
                 city: userDetails.city || "",
-                postalCode: "",
                 country: userDetails.country || "Uganda",
               })
-              setMpesaPhone(normalizedPhone)
+              setMpesaPhone(formattedPhone)
             } catch (err) {
               console.error("Fetch user details error:", err)
               setShippingInfo({
-                firstName: userData.username?.split(" ")[0] || "",
-                lastName: userData.username?.split(" ")[1] || "",
+                username: userData.username || "",
                 email: userData.email || "",
                 phone: "",
                 address: "",
                 city: "",
-                postalCode: "",
                 country: "Uganda",
               })
-              setMpesaPhone("")
             } finally {
               setLoading(false)
             }
@@ -184,36 +183,10 @@ export default function CheckoutPage() {
   const total = subtotalExclVAT + vatAmount
   const shippingCost = 299 // Fixed shipping cost
 
-  const totalCashback = cartItems.reduce((sum, item) => {
-    const quantity = item.quantity || 1
-    const adjustedPrice = getAdjustedPrice(item, quantity)
-    const cashbackPercent = parseFloat(item.cashbackPercent) || 5
-    const vatRate = parseFloat(item.vat) || 0.16
-    const priceExclVAT = Math.round(adjustedPrice / (1 + vatRate))
-    return sum + Math.round((priceExclVAT * quantity * cashbackPercent) / 100)
-  }, 0)
-
-  // Validate M-Pesa phone number
-  const validateMpesaPhone = (phone) => {
-    const phoneRegex = /^0[0-9]{9}$/
-    return phoneRegex.test(phone)
-  }
-
-  const handleMpesaPhoneChange = (e) => {
-    let value = e.target.value.replace(/[^0-9]/g, "") // Allow only digits
-    if (!value.startsWith("0")) {
-      value = `0${value}`
-    }
-    if (value.length > 10) {
-      value = value.slice(0, 10) // Limit to 10 digits
-    }
-    setMpesaPhone(value)
-  }
-
   const handleNext = () => {
     if (activeStep === 0) {
       // Validate shipping information
-      const requiredFields = ["firstName", "lastName", "email", "phone", "address", "city"]
+      const requiredFields = ["username", "email", "phone", "address", "city"]
       const isValid = requiredFields.every((field) => shippingInfo[field].trim() !== "")
       if (!isValid) {
         setError("Please fill in all required fields")
@@ -226,13 +199,13 @@ export default function CheckoutPage() {
     }
 
     if (activeStep === 1) {
-      // Validate payment method
-      if (paymentMethod === "mpesa" && !validateMpesaPhone(mpesaPhone)) {
-        setError("Please enter a valid M-Pesa phone number (e.g., 0712345678)")
-        return
-      }
+      // Validate payment method and M-Pesa phone
       if (!termsAccepted) {
         setError("Please accept the terms and conditions")
+        return
+      }
+      if (paymentMethod === "mpesa" && (!/^(0)\d{9}$/.test(mpesaPhone))) {
+        setError("Please enter a valid M-Pesa phone number (0 followed by 9 digits)")
         return
       }
     }
@@ -245,98 +218,25 @@ export default function CheckoutPage() {
     setActiveStep((prevActiveStep) => prevActiveStep - 1)
   }
 
-  // Poll order status
-  const pollOrderStatus = async (orderId, maxAttempts = 30, interval = 2000) => {
-    let attempts = 0
-    while (attempts < maxAttempts) {
-      try {
-        const token = localStorage.getItem("authToken")
-        const response = await axios.get(`${import.meta.env.VITE_API_URL}/orders/${orderId}`, {
-          headers: { Authorization: `Bearer ${token}` },
-        })
-        const { status } = response.data
-        if (status === "completed") {
-          setPaymentStatus("completed")
-          setOrderComplete(true)
-          localStorage.removeItem("cartItems")
-          const currentWallet = JSON.parse(localStorage.getItem("walletBalance")) || 0
-          localStorage.setItem("walletBalance", JSON.stringify(currentWallet + totalCashback))
-          return
-        } else if (status === "failed") {
-          setPaymentStatus("failed")
-          setError("Payment failed. Please try again.")
-          return
-        }
-        // Continue polling if status is 'pending' or 'initiated'
-      } catch (err) {
-        console.error("Error polling order status:", err)
-        setError("Failed to verify payment status. Please try again.")
-        return
-      }
-      await new Promise((resolve) => setTimeout(resolve, interval))
-      attempts++
-    }
-    setPaymentStatus("failed")
-    setError("Payment timed out. Please try again.")
-  }
-
+  // Dummy place order handler
   const handlePlaceOrder = async () => {
     try {
-      const token = localStorage.getItem("authToken")
+      setLoading(true)
+      // Simulate API call with a delay
+      await new Promise((resolve) => setTimeout(resolve, 1500))
       const orderNum = `FCL${Date.now().toString().slice(-6)}`
-      setPaymentStatus("initiated")
-      const response = await axios.post(
-        `${import.meta.env.VITE_API_URL}/orders`,
-        {
-          cartItems,
-          shippingInfo,
-          paymentMethod,
-          mpesaPhone: paymentMethod === "mpesa" ? mpesaPhone : null,
-          orderNumber: orderNum,
-          total,
-          shippingCost,
-          vatAmount,
-          totalCashback,
-        },
-        { headers: { Authorization: `Bearer ${token}` } }
-      )
       setOrderNumber(orderNum)
-      setOrderId(response.data.orderId)
-      if (paymentMethod === "mpesa" && response.data.transactionStatus === "Initiated") {
-        // Start polling for order status
-        pollOrderStatus(response.data.orderId)
-      } else {
-        // Non-M-Pesa orders or immediate success
-        setPaymentStatus("completed")
-        setOrderComplete(true)
-        localStorage.removeItem("cartItems")
-        const currentWallet = JSON.parse(localStorage.getItem("walletBalance")) || 0
-        localStorage.setItem("walletBalance", JSON.stringify(currentWallet + totalCashback))
-      }
+      setOrderId(Date.now()) // Dummy order ID
+      setOrderComplete(true)
+      localStorage.removeItem("cartItems")
     } catch (err) {
-      setPaymentStatus(null)
-      setError(err.response?.data?.message || "Failed to place order. Please try again.")
+      setError("Failed to place order. Please try again.")
+    } finally {
+      setLoading(false)
     }
   }
 
   if (loading) return <CircularProgress sx={{ display: "block", mx: "auto", mt: 4 }} />
-
-  if (paymentStatus === "initiated") {
-    return (
-      <Box sx={{ px: { xs: 2, md: 3 }, py: { xs: 3, md: 4 }, textAlign: "center" }}>
-        <CircularProgress sx={{ mb: 2 }} />
-        <Typography variant="h5" fontWeight="bold" gutterBottom>
-          Processing Payment
-        </Typography>
-        <Typography variant="body1" sx={{ mb: 3 }}>
-          Please check your phone ({mpesaPhone}) and complete the M-Pesa payment prompt.
-        </Typography>
-        <Typography variant="body2" color="text.secondary">
-          Order Number: {orderNumber}
-        </Typography>
-      </Box>
-    )
-  }
 
   if (orderComplete) {
     return (
@@ -351,9 +251,6 @@ export default function CheckoutPage() {
         <Typography variant="body1" sx={{ mb: 3 }}>
           Thank you for your purchase! Your order has been successfully placed.
         </Typography>
-        <Typography variant="body2" color="success.main" sx={{ mb: 4 }}>
-          Cashback of {formatNumberWithCommas(totalCashback)}/= has been added to your wallet.
-        </Typography>
         <Button variant="contained" color="primary" onClick={() => navigate("/")} sx={{ mr: 2, textTransform: "none" }}>
           Continue Shopping
         </Button>
@@ -365,17 +262,17 @@ export default function CheckoutPage() {
   }
 
   return (
-    <Box sx={{ px: { xs: 2, md: 3 }, py: { xs: 3, md: 4 } }}>
+    <Box sx={{ px: { xs: 2, md: 4 }, py: { xs: 3, md: 5 } }}>
       {error && (
-        <Alert severity="error" sx={{ mb: 2 }}>
+        <Alert severity="error" sx={{ mb: 3, fontSize: "1.1rem" }}>
           {error}
         </Alert>
       )}
-      <Typography variant="h5" fontWeight="bold" gutterBottom>
+      <Typography variant="h4" fontWeight="bold" gutterBottom>
         Checkout
       </Typography>
       {user && (
-        <Typography variant="body1" sx={{ mb: 2 }}>
+        <Typography variant="h6" sx={{ mb: 3 }}>
           Welcome, {user.username}!
         </Typography>
       )}
@@ -390,41 +287,35 @@ export default function CheckoutPage() {
                   <Icon
                     sx={{
                       color: completed ? "success.main" : active ? "primary.main" : "text.disabled",
+                      fontSize: 32,
                     }}
                   />
                 )
               }}
             >
-              {!isMobile && label}
+              {!isMobile && <Typography variant="h6">{label}</Typography>}
             </StepLabel>
           </Step>
         ))}
       </Stepper>
 
-      <Grid container spacing={3}>
-        <Grid item xs={12} md={8}>
+      <Grid container spacing={4}>
+        <Grid item xs={12} md={7}>
           {activeStep === 0 && (
-            <Paper sx={{ p: 3 }}>
-              <Typography variant="h6" gutterBottom>
+            <Paper sx={{ p: 4, borderRadius: 2 }}>
+              <Typography variant="h5" fontWeight="bold" gutterBottom>
                 Shipping Information
               </Typography>
-              <Grid container spacing={2}>
-                <Grid item xs={12} sm={6}>
+              <Grid container spacing={3}>
+                <Grid item xs={12}>
                   <TextField
                     fullWidth
-                    label="First Name *"
-                    value={shippingInfo.firstName}
-                    onChange={(e) => setShippingInfo({ ...shippingInfo, firstName: e.target.value })}
+                    label="Username *"
+                    value={shippingInfo.username}
+                    onChange={(e) => setShippingInfo({ ...shippingInfo, username: e.target.value })}
                     required
-                  />
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <TextField
-                    fullWidth
-                    label="Last Name *"
-                    value={shippingInfo.lastName}
-                    onChange={(e) => setShippingInfo({ ...shippingInfo, lastName: e.target.value })}
-                    required
+                    variant="outlined"
+                    size="medium"
                   />
                 </Grid>
                 <Grid item xs={12} sm={6}>
@@ -435,6 +326,8 @@ export default function CheckoutPage() {
                     value={shippingInfo.email}
                     onChange={(e) => setShippingInfo({ ...shippingInfo, email: e.target.value })}
                     required
+                    variant="outlined"
+                    size="medium"
                   />
                 </Grid>
                 <Grid item xs={12} sm={6}>
@@ -444,6 +337,8 @@ export default function CheckoutPage() {
                     value={shippingInfo.phone}
                     onChange={(e) => setShippingInfo({ ...shippingInfo, phone: e.target.value })}
                     required
+                    variant="outlined"
+                    size="medium"
                   />
                 </Grid>
                 <Grid item xs={12}>
@@ -453,6 +348,8 @@ export default function CheckoutPage() {
                     value={shippingInfo.address}
                     onChange={(e) => setShippingInfo({ ...shippingInfo, address: e.target.value })}
                     required
+                    variant="outlined"
+                    size="medium"
                   />
                 </Grid>
                 <Grid item xs={12} sm={6}>
@@ -462,14 +359,8 @@ export default function CheckoutPage() {
                     value={shippingInfo.city}
                     onChange={(e) => setShippingInfo({ ...shippingInfo, city: e.target.value })}
                     required
-                  />
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <TextField
-                    fullWidth
-                    label="Postal Code"
-                    value={shippingInfo.postalCode}
-                    onChange={(e) => setShippingInfo({ ...shippingInfo, postalCode: e.target.value })}
+                    variant="outlined"
+                    size="medium"
                   />
                 </Grid>
               </Grid>
@@ -477,120 +368,109 @@ export default function CheckoutPage() {
           )}
 
           {activeStep === 1 && (
-            <Paper sx={{ p: 3 }}>
-              <Typography variant="h6" gutterBottom>
+            <Paper sx={{ p: 4, borderRadius: 2 }}>
+              <Typography variant="h5" fontWeight="bold" gutterBottom>
                 Payment Method
               </Typography>
-              <FormControl component="fieldset">
+              <FormControl component="fieldset" sx={{ mb: 3 }}>
                 <RadioGroup value={paymentMethod} onChange={(e) => setPaymentMethod(e.target.value)}>
-                  <FormControlLabel value="mpesa" control={<Radio />} label="M-Pesa Mobile Money" />
-                  <FormControlLabel value="card" control={<Radio />} label="Credit/Debit Card" disabled />
-                  <FormControlLabel value="bank" control={<Radio />} label="Bank Transfer" disabled />
+                  <FormControlLabel
+                    value="mpesa"
+                    control={<Radio size="medium" />}
+                    label={<Typography variant="h6">M-Pesa Mobile Money</Typography>}
+                  />
+                  <FormControlLabel
+                    value="card"
+                    control={<Radio size="medium" />}
+                    label={<Typography variant="h6">Credit/Debit Card</Typography>}
+                    disabled
+                  />
+                  <FormControlLabel
+                    value="bank"
+                    control={<Radio size="medium" />}
+                    label={<Typography variant="h6">Bank Transfer</Typography>}
+                    disabled
+                  />
                 </RadioGroup>
               </FormControl>
-
               {paymentMethod === "mpesa" && (
-                <Box sx={{ mt: 2 }}>
-                  <TextField
-                    fullWidth
-                    label="M-Pesa Phone Number"
-                    placeholder="0712345678"
-                    value={mpesaPhone}
-                    onChange={handleMpesaPhoneChange}
-                    error={!validateMpesaPhone(mpesaPhone) && mpesaPhone !== ""}
-                    helperText={
-                      !validateMpesaPhone(mpesaPhone) && mpesaPhone !== ""
-                        ? "Phone number must be 10 digits starting with 0 (e.g., 0712345678)"
-                        : ""
+                <TextField
+                  fullWidth
+                  label="M-Pesa Phone Number *"
+                  value={mpesaPhone}
+                  onChange={(e) => {
+                    const value = e.target.value
+                    // Only allow digits and ensure it starts with 0
+                    if (/^\d*$/.test(value) && value.length <= 10) {
+                      setMpesaPhone(value)
                     }
-                    inputProps={{ maxLength: 10 }}
-                    sx={{ mb: 2 }}
-                  />
-                  <Alert severity="info">
-                    You will receive an M-Pesa prompt on your phone to complete the payment.
-                  </Alert>
-                </Box>
+                  }}
+                  required
+                  variant="outlined"
+                  size="medium"
+                  sx={{ mb: 3 }}
+                  inputProps={{ pattern: "^(0)\\d{9}$", maxLength: 10 }}
+                  helperText="Enter a valid phone number starting with 0 (10 digits)"
+                />
               )}
-
-              <Box sx={{ mt: 3 }}>
+              <Box>
                 <FormControlLabel
                   control={<Checkbox checked={termsAccepted} onChange={(e) => setTermsAccepted(e.target.checked)} />}
-                  label="I accept the terms and conditions and privacy policy"
+                  label={<Typography variant="h6">I accept the terms and conditions and privacy policy</Typography>}
                 />
               </Box>
             </Paper>
           )}
 
           {activeStep === 2 && (
-            <Paper sx={{ p: 3 }}>
-              <Typography variant="h6" gutterBottom>
+            <Paper sx={{ p: 4, borderRadius: 2 }}>
+              <Typography variant="h5" fontWeight="bold" gutterBottom>
                 Order Confirmation
               </Typography>
-              <Typography variant="body2" color="text.secondary" gutterBottom>
+              <Typography variant="body1" color="text.secondary" gutterBottom sx={{ mb: 3 }}>
                 Please review your order details before placing the order.
               </Typography>
-
-              <Box sx={{ mt: 2 }}>
-                <Typography variant="subtitle1" fontWeight="bold">
+              <Box sx={{ mb: 4 }}>
+                <Typography variant="h6" fontWeight="bold" sx={{ mb: 2 }}>
                   Shipping Information:
                 </Typography>
-                <Typography variant="body2">
-                  {shippingInfo.firstName} {shippingInfo.lastName}
-                </Typography>
-                <Typography variant="body2">{shippingInfo.email}</Typography>
-                <Typography variant="body2">{shippingInfo.phone}</Typography>
-                <Typography variant="body2">
-                  {shippingInfo.address}, {shippingInfo.city}
+                <Typography variant="h6" sx={{ mb: 1 }}>{shippingInfo.username}</Typography>
+                <Typography variant="h6" sx={{ mb: 1 }}>{shippingInfo.email}</Typography>
+                <Typography variant="h6" sx={{ mb: 1 }}>{shippingInfo.phone}</Typography>
+                <Typography variant="h6" sx={{ mb: 1 }}>
+                  {shippingInfo.address}, {shippingInfo.city}, {shippingInfo.country}
                 </Typography>
               </Box>
-
-              <Box sx={{ mt: 2 }}>
-                <Typography variant="subtitle1" fontWeight="bold">
+              <Box>
+                <Typography variant="h6" fontWeight="bold" sx={{ mb: 2 }}>
                   Payment Method:
                 </Typography>
-                <Typography variant="body2">
-                  {paymentMethod === "mpesa" && validateMpesaPhone(mpesaPhone)
-                    ? `M-Pesa (${mpesaPhone})`
-                    : paymentMethod}
+                <Typography variant="h6" sx={{ mb: 1 }}>
+                  {paymentMethod === "mpesa" ? "M-Pesa Mobile Money" : paymentMethod}
                 </Typography>
-              </Box>
-
-              <Box sx={{ mt: 2 }}>
-                <Typography variant="subtitle1" fontWeight="bold">
-                  Order Items:
-                </Typography>
-                {cartItems.map((item) => (
-                  <Box key={item.id} sx={{ display: "flex", mb: 2 }}>
-                    <Box
-                      component="img"
-                      src={item.image}
-                      alt={item.name}
-                      sx={{ width: 50, height: 50, objectFit: "contain", mr: 2 }}
-                    />
-                    <Box sx={{ flex: 1 }}>
-                      <Typography variant="body2" fontWeight="medium">
-                        {item.name}
-                      </Typography>
-                      <Typography variant="body2" color="text.secondary">
-                        Qty: {item.quantity || 1}
-                      </Typography>
-                    </Box>
-                    <Typography variant="body2" fontWeight="bold">
-                      {formatNumberWithCommas(getAdjustedPrice(item, item.quantity || 1) * (item.quantity || 1))}/=
-                    </Typography>
-                  </Box>
-                ))}
+                {paymentMethod === "mpesa" && (
+                  <Typography variant="h6" sx={{ mb: 1 }}>
+                    M-Pesa Phone: {mpesaPhone}
+                  </Typography>
+                )}
               </Box>
             </Paper>
           )}
 
-          <Box sx={{ display: "flex", justifyContent: "space-between", mt: 3 }}>
-            <Button onClick={() => navigate("/cart")} startIcon={<ArrowBack />} sx={{ textTransform: "none" }}>
+          <Box sx={{ display: "flex", justifyContent: "space-between", mt: 4 }}>
+            <Button
+              onClick={() => navigate("/cart")}
+              startIcon={<ArrowBack />}
+              sx={{ textTransform: "none", fontSize: "1.1rem" }}
+            >
               Back to Cart
             </Button>
             <Box>
               {activeStep > 0 && (
-                <Button onClick={handleBack} sx={{ mr: 1, textTransform: "none" }}>
+                <Button
+                  onClick={handleBack}
+                  sx={{ mr: 2, textTransform: "none", fontSize: "1.1rem" }}
+                >
                   Back
                 </Button>
               )}
@@ -599,73 +479,81 @@ export default function CheckoutPage() {
                   variant="contained"
                   onClick={handleNext}
                   endIcon={<ArrowForward />}
-                  sx={{ textTransform: "none" }}
+                  sx={{ textTransform: "none", fontSize: "1.1rem", px: 4 }}
                 >
                   Next
                 </Button>
               ) : (
-                <Button variant="contained" color="success" onClick={handlePlaceOrder} sx={{ textTransform: "none" }}>
-                  Place Order
+                <Button
+                  variant="contained"
+                  color="success"
+                  onClick={handlePlaceOrder}
+                  disabled={loading}
+                  sx={{ textTransform: "none", fontSize: "1.1rem", px: 4 }}
+                >
+                  {loading ? <CircularProgress size={24} /> : "Place Order"}
                 </Button>
               )}
             </Box>
           </Box>
         </Grid>
 
-        <Grid item xs={12} md={4}>
-          <Paper sx={{ p: 3, position: "sticky", top: 20 }}>
-            <Typography variant="h6" fontWeight="bold" gutterBottom>
+        <Grid item xs={12} md={5}>
+          <Paper sx={{ p: 4, position: "sticky", top: 20, borderRadius: 2 }}>
+            <Typography variant="h5" fontWeight="bold" gutterBottom>
               Order Summary
             </Typography>
-
-            {cartItems.map((item) => (
-              <Box key={item.id} sx={{ display: "flex", mb: 2 }}>
-                <Box
-                  component="img"
-                  src={item.image}
-                  alt={item.name}
-                  sx={{ width: 50, height: 50, objectFit: "contain", mr: 2 }}
-                />
-                <Box sx={{ flex: 1 }}>
-                  <Typography variant="body2" fontWeight="medium">
-                    {item.name}
-                  </Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    Qty: {item.quantity || 1}
-                  </Typography>
-                </Box>
-                <Typography variant="body2" fontWeight="bold">
-                  {formatNumberWithCommas(getAdjustedPrice(item, item.quantity || 1) * (item.quantity || 1))}/=
-                </Typography>
-              </Box>
-            ))}
-
-            <Divider sx={{ my: 2 }} />
-
-            <Box sx={{ display: "flex", justifyContent: "space-between", mb: 1 }}>
-              <Typography>Subtotal (Excl. VAT):</Typography>
-              <Typography>{formatNumberWithCommas(subtotalExclVAT)}/=</Typography>
+            <TableContainer sx={{ mb: 3 }}>
+              <Table size="medium">
+                <TableHead>
+                  <TableRow>
+                    <TableCell sx={{ fontSize: "1.1rem", fontWeight: "bold" }}>Item</TableCell>
+                    <TableCell align="right" sx={{ fontSize: "1.1rem", fontWeight: "bold" }}>Qty</TableCell>
+                    <TableCell align="right" sx={{ fontSize: "1.1rem", fontWeight: "bold" }}>Price</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {cartItems.map((item) => (
+                    <TableRow key={item.id}>
+                      <TableCell sx={{ fontSize: "1rem" }}>
+                        <Box sx={{ display: "flex", alignItems: "center" }}>
+                          <Box
+                            component="img"
+                            src={item.image}
+                            alt={item.name}
+                            sx={{ width: 60, height: 60, objectFit: "contain", mr: 2 }}
+                          />
+                          <Typography variant="body1">{item.name}</Typography>
+                        </Box>
+                      </TableCell>
+                      <TableCell align="right" sx={{ fontSize: "1rem" }}>{item.quantity || 1}</TableCell>
+                      <TableCell align="right" sx={{ fontSize: "1rem" }}>
+                        {formatNumberWithCommas(getAdjustedPrice(item, item.quantity || 1) * (item.quantity || 1))}/=
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </TableContainer>
+            <Divider sx={{ my: 3 }} />
+            <Box sx={{ display: "flex", justifyContent: "space-between", mb: 2 }}>
+              <Typography variant="h6">Subtotal (Excl. VAT):</Typography>
+              <Typography variant="h6">{formatNumberWithCommas(subtotalExclVAT)}/=</Typography>
             </Box>
-            <Box sx={{ display: "flex", justifyContent: "space-between", mb: 1 }}>
-              <Typography>Shipping:</Typography>
-              <Typography>{formatNumberWithCommas(shippingCost)}/=</Typography>
+            <Box sx={{ display: "flex", justifyContent: "space-between", mb: 2 }}>
+              <Typography variant="h6">Shipping:</Typography>
+              <Typography variant="h6">{formatNumberWithCommas(shippingCost)}/=</Typography>
             </Box>
-            <Box sx={{ display: "flex", justifyContent: "space-between", mb: 1 }}>
-              <Typography>VAT:</Typography>
-              <Typography>{formatNumberWithCommas(vatAmount)}/=</Typography>
+            <Box sx={{ display: "flex", justifyContent: "space-between", mb: 2 }}>
+              <Typography variant="h6">VAT:</Typography>
+              <Typography variant="h6">{formatNumberWithCommas(vatAmount)}/=</Typography>
             </Box>
-            <Box sx={{ display: "flex", justifyContent: "space-between", mb: 1 }}>
-              <Typography color="success.main">Cashback:</Typography>
-              <Typography color="success.main">-{formatNumberWithCommas(totalCashback)}/=</Typography>
-            </Box>
-
-            <Divider sx={{ my: 2 }} />
-
+            <Divider sx={{ my: 3 }} />
             <Box sx={{ display: "flex", justifyContent: "space-between" }}>
-              <Typography variant="h6" fontWeight="bold">
+              <Typography variant="h5" fontWeight="bold">
                 Total:
               </Typography>
-              <Typography variant="h6" fontWeight="bold">
+              <Typography variant="h5" fontWeight="bold">
                 {formatNumberWithCommas(total + shippingCost)}/=
               </Typography>
             </Box>
