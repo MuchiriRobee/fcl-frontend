@@ -103,7 +103,6 @@ function LoginPage({ onLogin }) {
 
         if (response.status === 200 && token && user) {
           // Store JWT token and user data
-          localStorage.setItem("authToken", token)
           localStorage.setItem("currentUser", JSON.stringify({
             id: user.id,
             email: user.email,

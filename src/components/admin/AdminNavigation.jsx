@@ -21,6 +21,14 @@ import {
   MenuList,
   ListItemIcon,
   ListItemText,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  TextField,
+  CircularProgress,
+  Snackbar,
+  Alert,
 } from "@mui/material"
 import { styled } from "@mui/material/styles"
 import {
@@ -40,6 +48,7 @@ import {
   Store as StoreIcon,
   ListAlt as ListAltIcon,
   Receipt as GRNIcon,
+  Add as AddIcon,
 } from "@mui/icons-material"
 import { useNavigate } from "react-router-dom"
 
@@ -121,25 +130,46 @@ const AdminNavigation = ({
   const theme = useTheme()
   const isMobile = useMediaQuery(theme.breakpoints.down("md"))
 
-  // State management for dropdowns and menus
-const [anchorEl, setAnchorEl] = useState(null)
-const [dropdownStates, setDropdownStates] = useState({
-  sales: false,
-  grn: false,
-  agents: false,
-  categories: false,
-})
-const [categoryData, setCategoryData] = useState([])
-const [categoryLoading, setCategoryLoading] = useState(false)
-
-// Refs for dropdown positioning
-const dropdownRefs = {
-  sales: useRef(null),
-  grn: useRef(null),
-  agents: useRef(null),
-  categories: useRef(null),
-}
+  // State management for dropdowns, menus, and modal
+  const [anchorEl, setAnchorEl] = useState(null)
+  const [dropdownStates, setDropdownStates] = useState({
+    sales: false,
+    grn: false,
+    categories: false,
+    suppliers: false,
+  })
+  const [categoryData, setCategoryData] = useState([])
+  const [categoryLoading, setCategoryLoading] = useState(false)
+  const [supplierData, setSupplierData] = useState([])
+  const [supplierLoading, setSupplierLoading] = useState(false)
+  const [isAddSupplierModalOpen, setIsAddSupplierModalOpen] = useState(false)
+  const [formData, setFormData] = useState({
+    name: "",
+    email: "",
+    telephone: "",
+    telephone2: "",
+    contact_name: "",
+    contact_name2: "",
+    office: "",
+    floor: "",
+    building_name: "",
+    street_name: "",
+    city: "",
+    postal_address: "",
+    kra_number: "",
+  })
+  const [formErrors, setFormErrors] = useState({})
+  const [formLoading, setFormLoading] = useState(false)
+  const [notification, setNotification] = useState({ open: false, message: "", severity: "success" })
   const isMenuOpen = Boolean(anchorEl)
+
+  // Refs for dropdown positioning
+  const dropdownRefs = {
+    sales: useRef(null),
+    grn: useRef(null),
+    categories: useRef(null),
+    suppliers: useRef(null),
+  }
 
   // Enhanced dropdown handlers
   const handleDropdownToggle = useCallback((section, isOpen) => {
@@ -161,7 +191,8 @@ const dropdownRefs = {
     setDropdownStates({
       sales: false,
       grn: false,
-      agents: false,
+      categories: false,
+      suppliers: false,
     })
   }, [])
 
@@ -169,20 +200,13 @@ const dropdownRefs = {
   const handleDirectComponentNavigation = useCallback(
     (componentName, tabIndex, section, data = null) => {
       console.log(`🎯 Direct navigation to: ${componentName} in tab ${tabIndex}`)
-
-      // Close all dropdowns immediately
       handleAllDropdownsClose()
-
-      // Use direct navigation if available
       if (onDirectNavigation) {
         onDirectNavigation(componentName, tabIndex)
       }
-
-      // Also call CRUD operation handler for backward compatibility
       if (onCRUDOperation) {
         onCRUDOperation("read", section, data)
       }
-
       console.log(`✅ Navigation completed for ${componentName}`)
     },
     [onDirectNavigation, onCRUDOperation, handleAllDropdownsClose],
@@ -266,156 +290,497 @@ const dropdownRefs = {
   )
 
   // Fetch categories data
-const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000/api"
+  const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000/api"
 
-const fetchCategories = useCallback(async () => {
-  setCategoryLoading(true)
-  try {
-    console.log(`[FETCH] GET ${API_URL}/categories`)
-    const response = await axios.get(`${API_URL}/categories`, {
-      headers: { 'Content-Type': 'application/json' }
+  const fetchCategories = useCallback(async () => {
+    setCategoryLoading(true)
+    try {
+      console.log(`[FETCH] GET ${API_URL}/categories`)
+      const response = await axios.get(`${API_URL}/categories`, {
+        headers: { 'Content-Type': 'application/json' }
+      })
+      console.log('[FETCH] Categories response:', response.data)
+      setCategoryData(response.data || [])
+    } catch (err) {
+      console.error('[FETCH] Failed to fetch categories:', err)
+    } finally {
+      setCategoryLoading(false)
+    }
+  }, [])
+
+  // Fetch suppliers data
+  const fetchSuppliers = useCallback(async () => {
+    setSupplierLoading(true)
+    try {
+      console.log(`[FETCH] GET ${API_URL}/suppliers`)
+      const response = await axios.get(`${API_URL}/suppliers`, {
+        headers: { 'Content-Type': 'application/json' }
+      })
+      console.log('[FETCH] Suppliers response:', response.data)
+      setSupplierData(response.data || [])
+    } catch (err) {
+      console.error('[FETCH] Failed to fetch suppliers:', err)
+    } finally {
+      setSupplierLoading(false)
+    }
+  }, [])
+
+  // Validate supplier form
+  const validateForm = () => {
+    const errors = {}
+    if (!formData.name.trim()) errors.name = "Supplier name is required"
+    if (!formData.email.trim()) errors.email = "Email is required"
+    else if (!/^\S+@\S+\.\S+$/.test(formData.email)) errors.email = "Invalid email format (e.g., user@domain.com)"
+    if (!formData.telephone.trim()) errors.telephone = "Primary telephone is required"
+    else if (!/^07\d{8}$/.test(formData.telephone)) errors.telephone = "Telephone must be 10 digits starting with 07 (e.g., 0712345678)"
+    if (formData.telephone2 && !/^07\d{8}$/.test(formData.telephone2)) errors.telephone2 = "Secondary telephone must be 10 digits starting with 07 (e.g., 0712345678)"
+    if (!formData.contact_name.trim()) errors.contact_name = "Primary contact name is required"
+    if (!formData.office.trim()) errors.office = "Office is required"
+    if (!formData.street_name.trim()) errors.street_name = "Street name is required"
+    if (!formData.city.trim()) errors.city = "City is required"
+    if (!formData.postal_address.trim()) errors.postal_address = "Postal address/code is required"
+    if (!formData.kra_number.trim()) errors.kra_number = "KRA Number is required"
+    else if (!/^[A-Za-z0-9]+$/.test(formData.kra_number)) errors.kra_number = "KRA Number must be alphanumeric"
+
+    setFormErrors(errors)
+    return Object.keys(errors).length === 0
+  }
+
+  // Handle form submission
+  const handleFormSubmit = async (e) => {
+    e.preventDefault()
+    if (!validateForm()) return
+
+    setFormLoading(true)
+    try {
+      const response = await axios.post(`${API_URL}/suppliers`, formData, {
+        headers: { "Content-Type": "application/json" },
+      })
+      setSupplierData((prev) => [...prev, response.data])
+      setNotification({
+        open: true,
+        message: "Supplier added successfully!",
+        severity: "success",
+      })
+      resetForm()
+      setIsAddSupplierModalOpen(false)
+    } catch (error) {
+      setNotification({
+        open: true,
+        message: `Error: ${error.response?.data?.message || error.message}`,
+        severity: "error",
+      })
+    } finally {
+      setFormLoading(false)
+    }
+  }
+
+  // Reset form
+  const resetForm = () => {
+    setFormData({
+      name: "",
+      email: "",
+      telephone: "",
+      telephone2: "",
+      contact_name: "",
+      contact_name2: "",
+      office: "",
+      floor: "",
+      building_name: "",
+      street_name: "",
+      city: "",
+      postal_address: "",
+      kra_number: "",
     })
-    console.log('[FETCH] Categories response:', response.data)
-    setCategoryData(response.data || [])
-  } catch (err) {
-    console.error('[FETCH] Failed to fetch categories:', err)
-  } finally {
-    setCategoryLoading(false)
+    setFormErrors({})
   }
-}, [])
 
-// Load categories on component mount and when Categories tab is active
-useEffect(() => {
-  if (activeTab === 2 || activeComponent === "CategoryManagement") {
-    fetchCategories()
+  // Handle notification close
+  const handleCloseNotification = () => {
+    setNotification({ ...notification, open: false })
   }
-}, [activeTab, activeComponent, fetchCategories])
 
-// Nested dropdown component for categories
-const NestedMenuItem = ({ label, icon, children, onClick }) => {
-  const [open, setOpen] = useState(false)
-  const anchorRef = useRef(null)
+  // Load categories and suppliers on component mount and when respective tabs are active
+  useEffect(() => {
+    if (activeTab === 2 || activeComponent === "CategoryManagement") {
+      fetchCategories()
+    }
+    if (activeTab === 5 || activeComponent === "SupplierManagement") {
+      fetchSuppliers()
+    }
+  }, [activeTab, activeComponent, fetchCategories, fetchSuppliers])
 
-  return (
-    <Box
-      sx={{ position: 'relative' }}
-      ref={anchorRef}
-      onClick={() => {
-        setOpen((prev) => !prev)
-        if (onClick) onClick()
-      }}
-      onMouseEnter={children ? () => setOpen(true) : undefined}
-      onMouseLeave={children ? () => setOpen(false) : undefined}
+  // Nested dropdown component for categories
+  const NestedMenuItem = ({ label, icon, children, onClick }) => {
+    const [open, setOpen] = useState(false)
+    const anchorRef = useRef(null)
+
+    return (
+      <Box
+        sx={{ position: 'relative' }}
+        ref={anchorRef}
+        onClick={() => {
+          setOpen((prev) => !prev)
+          if (onClick) onClick()
+        }}
+        onMouseEnter={children ? () => setOpen(true) : undefined}
+        onMouseLeave={children ? () => setOpen(false) : undefined}
+      >
+        <StyledMenuItem>
+          <ListItemIcon>{icon}</ListItemIcon>
+          <ListItemText primary={label} />
+          {children && <KeyboardArrowDown sx={{ fontSize: 16, ml: 1 }} />}
+        </StyledMenuItem>
+        {children && open && (
+          <Popper
+            open={open}
+            anchorEl={anchorRef.current}
+            placement="right-start"
+            transition
+            sx={{ zIndex: 100000 }}
+            modifiers={[{ name: 'offset', options: { offset: [0, 0] } }]}
+          >
+            {({ TransitionProps }) => (
+              <Grow {...TransitionProps} timeout={200}>
+                <StyledDropdownPaper elevation={4}>
+                  <ClickAwayListener onClickAway={() => setOpen(false)}>
+                    <MenuList sx={{ py: 0.5, maxHeight: '200px', overflowY: 'auto' }}>
+                      {children}
+                    </MenuList>
+                  </ClickAwayListener>
+                </StyledDropdownPaper>
+              </Grow>
+            )}
+          </Popper>
+        )}
+      </Box>
+    )
+  }
+
+  // Render category dropdown with nested structure
+  const renderCategoryDropdown = (section, isOpen, anchorRef) => (
+    <Popper
+      open={isOpen}
+      anchorEl={anchorRef.current}
+      placement="bottom-start"
+      transition
+      disablePortal={false}
+      sx={{ zIndex: 99999 }}
+      modifiers={[{ name: 'offset', options: { offset: [0, 4] } }]}
     >
-      <StyledMenuItem>
-        <ListItemIcon>{icon}</ListItemIcon>
-        <ListItemText primary={label} />
-        {children && <KeyboardArrowDown sx={{ fontSize: 16, ml: 1 }} />}
-      </StyledMenuItem>
-      {children && open && (
-        <Popper
-          open={open}
-          anchorEl={anchorRef.current}
-          placement="right-start"
-          transition
-          sx={{ zIndex: 100000 }}
-          modifiers={[{ name: 'offset', options: { offset: [0, 0] } }]}
-        >
-          {({ TransitionProps }) => (
-            <Grow {...TransitionProps} timeout={200}>
-              <StyledDropdownPaper elevation={4}>
-                <ClickAwayListener onClickAway={() => setOpen(false)}>
-                  <MenuList sx={{ py: 0.5, maxHeight: '200px', overflowY: 'auto' }}>
-                    {children}
-                  </MenuList>
-                </ClickAwayListener>
-              </StyledDropdownPaper>
-            </Grow>
-          )}
-        </Popper>
-      )}
-    </Box>
-  )
-}
-
-// Render category dropdown with nested structure
-const renderCategoryDropdown = (section, isOpen, anchorRef) => (
-  <Popper
-    open={isOpen}
-    anchorEl={anchorRef.current}
-    placement="bottom-start"
-    transition
-    disablePortal={false}
-    sx={{ zIndex: 99999 }}
-    modifiers={[{ name: 'offset', options: { offset: [0, 4] } }]}
-  >
-    {({ TransitionProps }) => (
-      <Grow {...TransitionProps} timeout={200}>
-        <StyledDropdownPaper elevation={4}>
-          <ClickAwayListener onClickAway={() => handleDropdownClose(section)}>
-            <MenuList autoFocusItem={isOpen} id={`${section}-menu`} sx={{ py: 0.5, maxHeight: '200px', overflowY: 'auto' }}>
-              {categoryLoading ? (
-                <StyledMenuItem disabled>
-                  <ListItemText primary="Loading categories..." />
-                </StyledMenuItem>
-              ) : categoryData.length === 0 ? (
-                <StyledMenuItem disabled>
-                  <ListItemText primary="No parent categories found" />
-                </StyledMenuItem>
-              ) : (
-                categoryData.map((parentCategory) => (
-                  <NestedMenuItem
-                    key={parentCategory.id}
-                    label={parentCategory.name}
-                    icon={<CategoryIcon sx={{ color: '#1976d2', fontSize: 18 }} />}
-                    onClick={() => handleDirectComponentNavigation("CategoryManagement", 2, "categories", { type: "category", parentCategoryId: parentCategory.id })}
-                  >
-                    {parentCategory.categories?.map((category) => (
-                      <NestedMenuItem
-                        key={category.id}
-                        label={category.name}
-                        icon={<ListIcon sx={{ color: '#2196f3', fontSize: 18 }} />}
-                        onClick={() => handleDirectComponentNavigation("CategoryManagement", 2, "categories", { type: "category", categoryId: category.id })}
-                      >
-                        {category.subcategories?.map((subCategory) => (
-                          <NestedMenuItem
-                            key={subCategory.id}
-                            label={subCategory.name}
-                            icon={<ListAltIcon sx={{ color: '#4caf50', fontSize: 18 }} />}
-                            onClick={() => handleDirectComponentNavigation("ManageItems", 1, "itemMaster", { type: "item", subCategoryId: subCategory.id })}
-                          >
-                            {subCategory.products?.length > 0 ? (
-                              subCategory.products.map((product) => (
-                                <StyledMenuItem
-                                  key={product.id}
-                                  onClick={() => handleDirectComponentNavigation("ManageItems", 1, "itemMaster", { productId: product.id })}
-                                  sx={{ pl: 4 }}
-                                >
-                                  <ListItemIcon>
-                                    <ShoppingCart sx={{ color: '#ff9800', fontSize: 18 }} />
-                                  </ListItemIcon>
-                                  <ListItemText primary={product.product_name} />
+      {({ TransitionProps }) => (
+        <Grow {...TransitionProps} timeout={200}>
+          <StyledDropdownPaper elevation={4}>
+            <ClickAwayListener onClickAway={() => handleDropdownClose(section)}>
+              <MenuList autoFocusItem={isOpen} id={`${section}-menu`} sx={{ py: 0.5, maxHeight: '200px', overflowY: 'auto' }}>
+                {categoryLoading ? (
+                  <StyledMenuItem disabled>
+                    <ListItemText primary="Loading categories..." />
+                  </StyledMenuItem>
+                ) : categoryData.length === 0 ? (
+                  <StyledMenuItem disabled>
+                    <ListItemText primary="No parent categories found" />
+                  </StyledMenuItem>
+                ) : (
+                  categoryData.map((parentCategory) => (
+                    <NestedMenuItem
+                      key={parentCategory.id}
+                      label={parentCategory.name}
+                      icon={<CategoryIcon sx={{ color: '#1976d2', fontSize: 18 }} />}
+                      onClick={() => handleDirectComponentNavigation("CategoryManagement", 2, "categories", { type: "category", parentCategoryId: parentCategory.id })}
+                    >
+                      {parentCategory.categories?.map((category) => (
+                        <NestedMenuItem
+                          key={category.id}
+                          label={category.name}
+                          icon={<ListIcon sx={{ color: '#2196f3', fontSize: 18 }} />}
+                          onClick={() => handleDirectComponentNavigation("CategoryManagement", 2, "categories", { type: "category", categoryId: category.id })}
+                        >
+                          {category.subcategories?.map((subCategory) => (
+                            <NestedMenuItem
+                              key={subCategory.id}
+                              label={subCategory.name}
+                              icon={<ListAltIcon sx={{ color: '#4caf50', fontSize: 18 }} />}
+                              onClick={() => handleDirectComponentNavigation("ManageItems", 1, "itemMaster", { type: "item", subCategoryId: subCategory.id })}
+                            >
+                              {subCategory.products?.length > 0 ? (
+                                subCategory.products.map((product) => (
+                                  <StyledMenuItem
+                                    key={product.id}
+                                    onClick={() => handleDirectComponentNavigation("ManageItems", 1, "itemMaster", { productId: product.id })}
+                                    sx={{ pl: 4 }}
+                                  >
+                                    <ListItemIcon>
+                                      <ShoppingCart sx={{ color: '#ff9800', fontSize: 18 }} />
+                                    </ListItemIcon>
+                                    <ListItemText primary={product.product_name} />
+                                  </StyledMenuItem>
+                                ))
+                              ) : (
+                                <StyledMenuItem disabled sx={{ pl: 4 }}>
+                                  <ListItemText primary="No products" />
                                 </StyledMenuItem>
-                              ))
-                            ) : (
-                              <StyledMenuItem disabled sx={{ pl: 4 }}>
-                                <ListItemText primary="No products" />
-                              </StyledMenuItem>
-                            )}
-                          </NestedMenuItem>
-                        ))}
-                      </NestedMenuItem>
-                    ))}
-                  </NestedMenuItem>
-                ))
-              )}
-            </MenuList>
-          </ClickAwayListener>
-        </StyledDropdownPaper>
-      </Grow>
-    )}
-  </Popper>
-)
+                              )}
+                            </NestedMenuItem>
+                          ))}
+                        </NestedMenuItem>
+                      ))}
+                    </NestedMenuItem>
+                  ))
+                )}
+              </MenuList>
+            </ClickAwayListener>
+          </StyledDropdownPaper>
+        </Grow>
+      )}
+    </Popper>
+  )
+
+  // Render supplier dropdown
+  const renderSupplierDropdown = (section, isOpen, anchorRef) => (
+    <Popper
+      open={isOpen}
+      anchorEl={anchorRef.current}
+      placement="bottom-start"
+      transition
+      disablePortal={false}
+      sx={{ zIndex: 99999 }}
+      modifiers={[{ name: 'offset', options: { offset: [0, 4] } }]}
+    >
+      {({ TransitionProps }) => (
+        <Grow {...TransitionProps} timeout={200}>
+          <StyledDropdownPaper elevation={4}>
+            <ClickAwayListener onClickAway={() => handleDropdownClose(section)}>
+              <MenuList autoFocusItem={isOpen} id={`${section}-menu`} sx={{ py: 0.5, maxHeight: '200px', overflowY: 'auto' }}>
+                <StyledMenuItem
+                  onClick={() => {
+                    handleDropdownClose(section)
+                    setIsAddSupplierModalOpen(true)
+                  }}
+                >
+                  <ListItemIcon>
+                    <AddIcon sx={{ color: '#1976d2', fontSize: 18 }} />
+                  </ListItemIcon>
+                  <ListItemText primary="Add Supplier" />
+                </StyledMenuItem>
+                {supplierLoading ? (
+                  <StyledMenuItem disabled>
+                    <ListItemText primary="Loading suppliers..." />
+                  </StyledMenuItem>
+                ) : supplierData.length === 0 ? (
+                  <StyledMenuItem disabled>
+                    <ListItemText primary="No suppliers found" />
+                  </StyledMenuItem>
+                ) : (
+                  supplierData.map((supplier) => (
+                    <StyledMenuItem
+                      key={supplier.id}
+                      onClick={() => handleDirectComponentNavigation("SupplierManagement", 5, "suppliers", { type: "supplier", id: supplier.id })}
+                    >
+                      <ListItemIcon>
+                        <SuppliersIcon sx={{ color: '#2196f3', fontSize: 18 }} />
+                      </ListItemIcon>
+                      <ListItemText
+                        primary={supplier.name}
+                        secondary={`Code: ${ supplier.code }`}
+                      />
+                    </StyledMenuItem>
+                  ))
+                )}
+              </MenuList>
+            </ClickAwayListener>
+          </StyledDropdownPaper>
+        </Grow>
+      )}
+    </Popper>
+  )
+
+  // Add Supplier Modal
+  const renderAddSupplierModal = (
+    <Dialog
+      open={isAddSupplierModalOpen}
+      onClose={() => {
+        resetForm()
+        setIsAddSupplierModalOpen(false)
+      }}
+      maxWidth="md"
+      fullWidth
+      sx={{ '& .MuiDialog-paper': { borderRadius: 2 } }}
+    >
+      <DialogTitle sx={{ fontFamily: "'Poppins', sans-serif", fontWeight: 600 }}>
+        Add New Supplier
+      </DialogTitle>
+      <DialogContent>
+        <Box component="form" onSubmit={handleFormSubmit} sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr" }, gap: 2, mt: 2 }}>
+          <TextField
+            label="Supplier Name"
+            value={formData.name}
+            onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+            error={!!formErrors.name}
+            helperText={formErrors.name}
+            fullWidth
+            size="small"
+            required
+          />
+          <TextField
+            label="Email"
+            value={formData.email}
+            onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+            error={!!formErrors.email}
+            helperText={formErrors.email}
+            fullWidth
+            size="small"
+            required
+          />
+          <TextField
+            label="Primary Telephone (e.g., 0712345678)"
+            value={formData.telephone}
+            onChange={(e) => setFormData({ ...formData, telephone: e.target.value })}
+            error={!!formErrors.telephone}
+            helperText={formErrors.telephone}
+            fullWidth
+            size="small"
+            required
+          />
+          <TextField
+            label="Secondary Telephone (e.g., 0712345678)"
+            value={formData.telephone2}
+            onChange={(e) => setFormData({ ...formData, telephone2: e.target.value })}
+            error={!!formErrors.telephone2}
+            helperText={formErrors.telephone2}
+            fullWidth
+            size="small"
+          />
+          <TextField
+            label="Primary Contact Name"
+            value={formData.contact_name}
+            onChange={(e) => setFormData({ ...formData, contact_name: e.target.value })}
+            error={!!formErrors.contact_name}
+            helperText={formErrors.contact_name}
+            fullWidth
+            size="small"
+            required
+          />
+          <TextField
+            label="Secondary Contact Name"
+            value={formData.contact_name2}
+            onChange={(e) => setFormData({ ...formData, contact_name2: e.target.value })}
+            error={!!formErrors.contact_name2}
+            helperText={formErrors.contact_name2}
+            fullWidth
+            size="small"
+          />
+          <TextField
+            label="Office Number"
+            value={formData.office}
+            onChange={(e) => setFormData({ ...formData, office: e.target.value })}
+            error={!!formErrors.office}
+            helperText={formErrors.office}
+            fullWidth
+            size="small"
+            required
+          />
+          <TextField
+            label="Floor Number"
+            value={formData.floor}
+            onChange={(e) => setFormData({ ...formData, floor: e.target.value })}
+            error={!!formErrors.floor}
+            helperText={formErrors.floor}
+            fullWidth
+            size="small"
+          />
+          <TextField
+            label="Building Name"
+            value={formData.building_name}
+            onChange={(e) => setFormData({ ...formData, building_name: e.target.value })}
+            error={!!formErrors.building_name}
+            helperText={formErrors.building_name}
+            fullWidth
+            size="small"
+          />
+          <TextField
+            label="Street Name"
+            value={formData.street_name}
+            onChange={(e) => setFormData({ ...formData, street_name: e.target.value })}
+            error={!!formErrors.street_name}
+            helperText={formErrors.street_name}
+            fullWidth
+            size="small"
+            required
+          />
+          <TextField
+            label="City"
+            value={formData.city}
+            onChange={(e) => setFormData({ ...formData, city: e.target.value })}
+            error={!!formErrors.city}
+            helperText={formErrors.city}
+            fullWidth
+            size="small"
+            required
+          />
+          <TextField
+            label="Postal Address/Code"
+            value={formData.postal_address}
+            onChange={(e) => setFormData({ ...formData, postal_address: e.target.value })}
+            error={!!formErrors.postal_address}
+            helperText={formErrors.postal_address}
+            fullWidth
+            size="small"
+            required
+          />
+          <TextField
+            label="KRA Number (e.g., A123456789B)"
+            value={formData.kra_number}
+            onChange={(e) => setFormData({ ...formData, kra_number: e.target.value })}
+            error={!!formErrors.kra_number}
+            helperText={formErrors.kra_number}
+            fullWidth
+            size="small"
+            required
+          />
+        </Box>
+      </DialogContent>
+      <DialogActions>
+        <Button
+          onClick={() => {
+            resetForm()
+            setIsAddSupplierModalOpen(false)
+          }}
+          sx={{ fontFamily: "'Poppins', sans-serif" }}
+        >
+          Cancel
+        </Button>
+        <Button
+          type="submit"
+          variant="contained"
+          disabled={formLoading}
+          onClick={handleFormSubmit}
+          sx={{ fontFamily: "'Poppins', sans-serif" }}
+        >
+          {formLoading ? <CircularProgress size={24} /> : "Add Supplier"}
+        </Button>
+      </DialogActions>
+    </Dialog>
+  )
+
+  // Notification
+  const renderNotification = (
+    <Snackbar
+      open={notification.open}
+      autoHideDuration={4000}
+      onClose={handleCloseNotification}
+      anchorOrigin={{ vertical: "top", horizontal: "right" }}
+    >
+      <Alert
+        onClose={handleCloseNotification}
+        severity={notification.severity}
+        sx={{ fontFamily: "'Poppins', sans-serif" }}
+      >
+        {notification.message}
+      </Alert>
+    </Snackbar>
+  )
+
   // Profile menu renderer
   const menuId = "primary-search-account-menu"
   const renderMenu = (
@@ -462,7 +827,7 @@ const renderCategoryDropdown = (section, isOpen, anchorRef) => (
       position="static"
       elevation={0}
       sx={{
-        bgcolor: "#1976d2",
+        bgcolor: "#2b044bff",
         borderBottom: "1px solid rgba(255,255,255,0.1)",
         boxShadow: "0 1px 3px rgba(0,0,0,0.12)",
       }}
@@ -497,14 +862,23 @@ const renderCategoryDropdown = (section, isOpen, anchorRef) => (
             Dashboard
           </AdminNavButton>
 
-          {/* Suppliers - Direct to SupplierManagement */}
-          <AdminNavButton
-            startIcon={<SuppliersIcon sx={{ fontSize: 18 }} />}
-            active={isTabActive(5) || activeComponent === "SupplierManagement"}
-            onClick={() => handleDirectComponentNavigation("SupplierManagement", 5, "suppliers", { type: "supplier" })}
+          {/* Suppliers Dropdown */}
+          <Box
+            ref={dropdownRefs.suppliers}
+            onMouseEnter={() => handleDropdownToggle("suppliers", true)}
+            onMouseLeave={() => handleDropdownToggle("suppliers", false)}
+            sx={{ position: "relative" }}
           >
-            Suppliers
-          </AdminNavButton>
+            <AdminNavButton
+              startIcon={<SuppliersIcon sx={{ fontSize: 18 }} />}
+              endIcon={<KeyboardArrowDown sx={{ fontSize: 16 }} />}
+              active={isTabActive(5) || activeComponent === "SupplierManagement"}
+              onClick={() => handleDirectComponentNavigation("SupplierManagement", 5, "suppliers", { type: "supplier" })}
+            >
+              Suppliers
+            </AdminNavButton>
+            {renderSupplierDropdown("suppliers", dropdownStates.suppliers, dropdownRefs.suppliers)}
+          </Box>
 
           <Box
             ref={dropdownRefs.categories}
@@ -532,32 +906,14 @@ const renderCategoryDropdown = (section, isOpen, anchorRef) => (
             Item Master
           </AdminNavButton>
 
-          {/* Sales Agents Dropdown */}
-          <Box
-            ref={dropdownRefs.agents}
-            onMouseEnter={() => handleDropdownToggle("agents", true)}
-            onMouseLeave={() => handleDropdownToggle("agents", false)}
-            sx={{ position: "relative" }}
+          {/* Sales Agents Button */}
+          <AdminNavButton
+            startIcon={<People sx={{ fontSize: 18 }} />}
+            active={isTabActive(6) || activeComponent === "SalesAgentManagement"}
+            onClick={() => handleDirectComponentNavigation("SalesAgentManagement", 6, "agents", { type: "agent" })}
           >
-            <AdminNavButton
-              startIcon={<People sx={{ fontSize: 18 }} />}
-              endIcon={<KeyboardArrowDown sx={{ fontSize: 16 }} />}
-              active={isTabActive(6) || activeComponent === "SalesAgentAdminPanel"}
-            >
-              Sales Agents
-            </AdminNavButton>
-
-            {renderCRUDDropdown("agents", dropdownStates.agents, dropdownRefs.agents, [
-              {
-                label: "Manage Agents",
-                description: "View and manage sales agents",
-                icon: <ViewIcon sx={{ color: "#4caf50", fontSize: 18 }} />,
-                componentName: "SalesAgentAdminPanel",
-                tabIndex: 6,
-                data: { type: "agent" },
-              },
-            ])}
-          </Box>
+            Sales Agents
+          </AdminNavButton>
 
           {/* Customers Button */}
           <AdminNavButton
@@ -567,7 +923,7 @@ const renderCategoryDropdown = (section, isOpen, anchorRef) => (
           >
             Customers
           </AdminNavButton>
-          
+
           {/* Sales Dropdown */}
           <Box
             ref={dropdownRefs.sales}
@@ -584,7 +940,6 @@ const renderCategoryDropdown = (section, isOpen, anchorRef) => (
             >
               Sales
             </AdminNavButton>
-
             {renderCRUDDropdown("sales", dropdownStates.sales, dropdownRefs.sales, [
               {
                 label: "Orders",
@@ -623,7 +978,6 @@ const renderCategoryDropdown = (section, isOpen, anchorRef) => (
             >
               GRN
             </AdminNavButton>
-
             {renderCRUDDropdown("grn", dropdownStates.grn, dropdownRefs.grn, [
               {
                 label: "Purchase Orders",
@@ -643,14 +997,10 @@ const renderCategoryDropdown = (section, isOpen, anchorRef) => (
               },
             ])}
           </Box>
-
-          
-          
         </Box>
 
         {/* Right side icons - Store and Profile only */}
         <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
-          {/* Store view icon */}
           <IconButton
             size="small"
             color="inherit"
@@ -665,8 +1015,6 @@ const renderCategoryDropdown = (section, isOpen, anchorRef) => (
           >
             <StoreIcon fontSize="small" />
           </IconButton>
-
-          {/* Profile */}
           <IconButton
             size="small"
             edge="end"
@@ -703,6 +1051,10 @@ const renderCategoryDropdown = (section, isOpen, anchorRef) => (
 
       {/* Profile Menu */}
       {renderMenu}
+      {/* Add Supplier Modal */}
+      {renderAddSupplierModal}
+      {/* Notification */}
+      {renderNotification}
     </AppBar>
   )
 }

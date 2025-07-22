@@ -72,6 +72,15 @@ const SupplierManagement = ({ onSuppliersChange }) => {
         const data = await response.json()
         setSuppliers(data || [])
         setFilteredSuppliers(data || [])
+        
+        // Check if a specific supplier ID is passed (from dropdown)
+        if (data && onSuppliersChange?.data?.id) {
+          const supplier = data.find(s => s.id === onSuppliersChange.data.id)
+          if (supplier) {
+            setFormData(supplier)
+            setIsFormOpen(true)
+          }
+        }
       } catch (error) {
         setNotification({ open: true, message: `Error: ${error.message}`, severity: "error" })
       } finally {
@@ -79,7 +88,7 @@ const SupplierManagement = ({ onSuppliersChange }) => {
       }
     }
     fetchSuppliers()
-  }, [API_URL])
+  }, [API_URL, onSuppliersChange])
 
   // Handle sorting and searching
   useEffect(() => {
@@ -214,7 +223,7 @@ const SupplierManagement = ({ onSuppliersChange }) => {
 
   // Handle sort change
   const handleSortChange = (event) => {
-    setSortOrder( event.target.value)
+    setSortOrder(event.target.value)
   }
 
   // Handle search change

@@ -124,6 +124,13 @@ const AdminPage = () => {
     }
   }, [navigate])
 
+  // Direct navigation handler
+  const handleDirectNavigation = useCallback((componentName, tabIndex) => {
+    console.log(`🎯 Navigating to component: ${componentName} in tab ${tabIndex}`)
+    setTabValue(tabIndex)
+    setSubTabValue(0) // Reset sub-tab for consistency
+  }, [])
+
   // CRUD Operations Handler
   const handleCRUDOperation = (action, section, data) => {
     console.log(`CRUD Operation: ${action} on ${section}`, data)
@@ -152,6 +159,13 @@ const AdminPage = () => {
             message: "Opening Supplier creation form...",
             severity: "info",
           })
+        } else if (section === "agents") {
+          setTabValue(6)
+          setCrudNotification({
+            open: true,
+            message: "Opening Sales Agent creation form...",
+            severity: "info",
+          })
         }
         break
 
@@ -178,15 +192,48 @@ const AdminPage = () => {
             message: "Loading suppliers...",
             severity: "info",
           })
+        } else if (section === "agents") {
+          setTabValue(6)
+          setCrudNotification({
+            open: true,
+            message: "Loading sales agents...",
+            severity: "info",
+          })
         }
         break
 
       case "update":
-        setCrudNotification({
-          open: true,
-          message: `Opening edit form for ${section}...`,
-          severity: "warning",
-        })
+        if (section === "itemMaster") {
+          setTabValue(1)
+          setSubTabValue(0) // New Item form for editing
+          setEditingItem(data)
+          setCrudNotification({
+            open: true,
+            message: `Editing item: ${data?.productName || 'item'}`,
+            severity: "info",
+          })
+        } else if (section === "categories") {
+          setTabValue(2)
+          setCrudNotification({
+            open: true,
+            message: "Opening edit form for category...",
+            severity: "warning",
+          })
+        } else if (section === "suppliers") {
+          setTabValue(5)
+          setCrudNotification({
+            open: true,
+            message: "Opening edit form for supplier...",
+            severity: "warning",
+          })
+        } else if (section === "agents") {
+          setTabValue(6)
+          setCrudNotification({
+            open: true,
+            message: "Opening edit form for sales agent...",
+            severity: "warning",
+          })
+        }
         break
 
       case "delete":
@@ -324,8 +371,17 @@ const AdminPage = () => {
         onLogout={handleLogout}
         activeTab={tabValue}
         onTabChange={handleTabChange}
-        onItemMasterSubTabChange={handleSubTabChange}
+        onDirectNavigation={handleDirectNavigation}
         onCRUDOperation={handleCRUDOperation}
+        activeComponent={tabValue === 0 ? "EnhancedDashboard" :
+                         tabValue === 1 && subTabValue === 0 ? "NewItemForm" :
+                         tabValue === 1 && subTabValue === 1 ? "ManageItems" :
+                         tabValue === 2 ? "CategoryManagement" :
+                         tabValue === 3 ? "SalesManagement" :
+                         tabValue === 4 ? "InventoryManagement" :
+                         tabValue === 5 ? "SupplierManagement" :
+                         tabValue === 6 ? "SalesAgentManagement" :
+                         tabValue === 7 ? "CustomerManagement" : null}
       />
 
       {/* E-commerce Success Messages */}
@@ -372,10 +428,6 @@ const AdminPage = () => {
 
         {/* Item Master - E-commerce Product Management with CRUD */}
         <TabPanel value={tabValue} index={1}>
-          {/* Clean sub-navigation without redundant headers */}
-          
-
-          {/* E-commerce product forms with CRUD operations */}
           {subTabValue === 0 && (
             <NewItemForm onSubmit={handleNewItemSubmit} editItem={editingItem} items={items} />
           )}
@@ -422,7 +474,21 @@ const AdminPage = () => {
 
         {/* Sales Agents - E-commerce Team Management with CRUD */}
         <TabPanel value={tabValue} index={6}>
-          <SalesAgentManagement />
+          <ErrorBoundary>
+            <SalesAgentManagement />
+          </ErrorBoundary>
+        </TabPanel>
+
+        {/* Customers - E-commerce Customer Management with CRUD */}
+        <TabPanel value={tabValue} index={7}>
+          <Paper sx={{ p: 4, textAlign: "center", borderRadius: 2 }}>
+            <Typography variant="h6" color="text.secondary" gutterBottom sx={{ fontFamily: "'Poppins', sans-serif" }}>
+              E-commerce Customer Management with CRUD Operations
+            </Typography>
+            <Typography variant="body1" color="text.secondary" sx={{ fontFamily: "'Poppins', sans-serif" }}>
+              Manage customer information and interactions.
+            </Typography>
+          </Paper>
         </TabPanel>
       </Box>
     </Box>

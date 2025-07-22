@@ -251,45 +251,45 @@ export default function ManageItems() {
       }
 
       return {
-        parentCatId: parentCat?.name || '',
-        categoryId: category?.name || '',
-        subcategoryId: subCategory?.name || '',
-        productName: product.product_name || '',
-        productCode: product.product_code || '',
-        uom: product.uom || '',
-        packSize: product.pack_size || '',
-        longerDescription: product.longer_description || '',
-        productBarcode: product.product_barcode || '',
-        etimsRefCode: product.etims_ref_code || '',
-        costPrice: parseFloat(product.cost_price).toFixed(2),
-        sellingPrice1: parseFloat(product.selling_price1).toFixed(2),
-        sellingPrice2: product.selling_price2 ? parseFloat(product.selling_price2).toFixed(2) : '',
-        sellingPrice3: product.selling_price3 ? parseFloat(product.selling_price3).toFixed(2) : '',
-        qty1Min: product.qty1_min?.toString() || '1',
-        qty1Max: product.qty1_max?.toString() || '3',
-        qty2Min: product.qty2_min?.toString() || '',
-        qty2Max: product.qty2_max?.toString() || '',
-        qty3Min: product.qty3_min?.toString() || '',
-        vat: parseFloat(product.vat).toFixed(2),
-        cashbackRate: parseFloat(product.cashback_rate).toFixed(2),
+        parentCat: parentCat?.name || '',
+        category: category?.name || '',
+        subCat: subCategory?.name || '',
+        itemName: product.product_name || '',
+        itemCode: product.product_code || '',
         preferredVendor1: supplier?.name || '',
         vendorItemCode: product.vendor_item_code || '',
-        saCashback1stPurchase: parseFloat(product.sa_cashback_1st).toFixed(2),
-        saCashback2ndPurchase: parseFloat(product.sa_cashback_2nd).toFixed(2),
-        saCashback3rdPurchase: parseFloat(product.sa_cashback_3rd).toFixed(2),
-        saCashback4thPurchase: parseFloat(product.sa_cashback_4th).toFixed(2),
-        stockUnits: product.stock_units?.toString() || '0',
+        itemBarcode: product.product_barcode || '',
+        vat: parseFloat(product.vat).toFixed(2),
+        uom: product.uom || '',
+        packSize: product.pack_size || '',
         reorderLevel: product.reorder_level?.toString() || '',
         orderLevel: product.order_level?.toString() || '',
         reorderActive: product.reorder_active ? 'TRUE' : 'FALSE',
+        currentStock: product.stock_units?.toString() || '0',
+        costPrice: parseFloat(product.cost_price).toFixed(2),
+        GP1: calculateProfit(product.selling_price1).gp,
+        NP1: calculateProfit(product.selling_price1).np,                   
+        sp1: parseFloat(product.selling_price1).toFixed(2),
+        qty1Min: product.qty1_min?.toString() || '1',
+        qty1Max: product.qty1_max?.toString() || '3',
+        GP2: product.selling_price2 ? calculateProfit(product.selling_price2).gp : '',
+        NP2: product.selling_price2 ? calculateProfit(product.selling_price2).np : '',
+        sp2: product.selling_price2 ? parseFloat(product.selling_price2).toFixed(2) : '',
+        qty2Min: product.qty2_min?.toString() || '',
+        qty2Max: product.qty2_max?.toString() || '',
+        GP3: product.selling_price3 ? calculateProfit(product.selling_price3).gp : '',
+        NP3: product.selling_price3 ? calculateProfit(product.selling_price3).np : '',
+        sp3: product.selling_price3 ? parseFloat(product.selling_price3).toFixed(2) : '',        
+        qty3Min: product.qty3_min?.toString() || '',        
+        clientCashBack: parseFloat(product.cashback_rate).toFixed(2),        
+        saCashback1: parseFloat(product.sa_cashback_1st).toFixed(2),
+        saCashback2: parseFloat(product.sa_cashback_2nd).toFixed(2),
+        saCashback3: parseFloat(product.sa_cashback_3rd).toFixed(2),
+        saCashback4: parseFloat(product.sa_cashback_4th).toFixed(2),
         active: product.active ? 'TRUE' : 'FALSE',
-        hasImage: product.image_url ? 'TRUE' : 'FALSE',
-        gp1: calculateProfit(product.selling_price1).gp,
-        np1: calculateProfit(product.selling_price1).np,
-        gp2: product.selling_price2 ? calculateProfit(product.selling_price2).gp : '',
-        np2: product.selling_price2 ? calculateProfit(product.selling_price2).np : '',
-        gp3: product.selling_price3 ? calculateProfit(product.selling_price3).gp : '',
-        np3: product.selling_price3 ? calculateProfit(product.selling_price3).np : ''
+        image: product.image_url ? 'TRUE' : 'FALSE',        
+        longerDescription: product.longer_description || '',        
+        etimsRef: product.etims_ref_code || ''                
       }
     })
 
@@ -334,12 +334,12 @@ const handleImport = async (event) => {
         const rowErrors = {}
 
         // Validate required fields
-        if (!row['parentCatId']) rowErrors.parentCatId = 'Parent category is required'
-        if (!row['categoryId']) rowErrors.categoryId = 'Category is required'
-        if (!row['subcategoryId']) rowErrors.subcategoryId = 'Subcategory is required'
-        if (!row['productName']) rowErrors.productName = 'Product name is required'
+        if (!row['parentCatId']) rowErrors.parentCat = 'Parent category is required'
+        if (!row['categoryId']) rowErrors.category = 'Category is required'
+        if (!row['subcategoryId']) rowErrors.subCat = 'Subcategory is required'
+        if (!row['productName']) rowErrors.itemName = 'Product name is required'
         if (!row['productCode'] || !/^[A-Z]\d{9}$/.test(row['productCode'])) {
-          rowErrors.productCode = 'Product code must be 1 letter followed by 9 digits'
+          rowErrors.itemCode = 'Product code must be 1 letter followed by 9 digits'
         }
         if (!row['uom'] || !['PC', 'PKT', 'BOX', 'SET', 'KG', 'LITERS', 'METERS', 'REAMS', 'PACKS'].includes(row['uom'])) {
           rowErrors.uom = 'Unit of measure must be one of PC, PKT, BOX, SET, KG, LITERS, METERS, REAMS, PACKS'
@@ -348,7 +348,7 @@ const handleImport = async (event) => {
           rowErrors.costPrice = 'Cost price must be between 0.01 and 9,999,999,999,999.99'
         }
         if (!row['sellingPrice1'] || isNaN(row['sellingPrice1']) || row['sellingPrice1'] <= 0 || row['sellingPrice1'] > 9999999999999.99) {
-          rowErrors.sellingPrice1 = 'Selling price 1 must be between 0.01 and 9,999,999,999,999.99'
+          rowErrors.sp1 = 'Selling price 1 must be between 0.01 and 9,999,999,999,999.99'
         }
         if (!row['qty1Min'] || isNaN(row['qty1Min']) || row['qty1Min'] < 1) {
           rowErrors.qty1Min = 'Quantity 1 min must be at least 1'
@@ -360,22 +360,22 @@ const handleImport = async (event) => {
           rowErrors.vat = 'VAT must be between 0 and 100'
         }
         if (row['cashbackRate'] == null || isNaN(row['cashbackRate']) || row['cashbackRate'] < 0 || row['cashbackRate'] > 100) {
-          rowErrors.cashbackRate = 'Cashback rate must be between 0 and 100'
+          rowErrors.clientCashBack = 'Cashback rate must be between 0 and 100'
         }
         if (row['saCashback1stPurchase'] == null || isNaN(row['saCashback1stPurchase']) || row['saCashback1stPurchase'] < 0 || row['saCashback1stPurchase'] > 100) {
-          rowErrors.saCashback1stPurchase = '1st purchase cashback must be between 0 and 100'
+          rowErrors.saCashback1 = '1st purchase cashback must be between 0 and 100'
         }
         if (row['saCashback2ndPurchase'] == null || isNaN(row['saCashback2ndPurchase']) || row['saCashback2ndPurchase'] < 0 || row['saCashback2ndPurchase'] > 100) {
-          rowErrors.saCashback2ndPurchase = '2nd purchase cashback must be between 0 and 100'
+          rowErrors.saCashback2 = '2nd purchase cashback must be between 0 and 100'
         }
         if (row['saCashback3rdPurchase'] == null || isNaN(row['saCashback3rdPurchase']) || row['saCashback3rdPurchase'] < 0 || row['saCashback3rdPurchase'] > 100) {
-          rowErrors.saCashback3rdPurchase = '3rd purchase cashback must be between 0 and 100'
+          rowErrors.saCashback3 = '3rd purchase cashback must be between 0 and 100'
         }
         if (row['saCashback4thPurchase'] == null || isNaN(row['saCashback4thPurchase']) || row['saCashback4thPurchase'] < 0 || row['saCashback4thPurchase'] > 100) {
-          rowErrors.saCashback4thPurchase = '4th purchase cashback must be between 0 and 100'
+          rowErrors.saCashback4 = '4th purchase cashback must be between 0 and 100'
         }
         if (row['stockUnits'] == null || isNaN(row['stockUnits']) || row['stockUnits'] < 0) {
-          rowErrors.stockUnits = 'Stock units must be non-negative'
+          rowErrors.currentStock = 'Stock units must be non-negative'
         }
         if (typeof row['reorderActive'] !== 'string' || !['TRUE', 'FALSE'].includes(row['reorderActive'])) {
           rowErrors.reorderActive = 'Reorder active must be TRUE or FALSE'
@@ -384,15 +384,15 @@ const handleImport = async (event) => {
           rowErrors.active = 'Active status must be TRUE or FALSE'
         }
         if (typeof row['hasImage'] !== 'string' || !['TRUE', 'FALSE'].includes(row['hasImage'])) {
-          rowErrors.hasImage = 'Image status must be TRUE or FALSE'
+          rowErrors.image = 'Image status must be TRUE or FALSE'
         }
 
         // Validate optional fields
         if (row['sellingPrice2'] && (isNaN(row['sellingPrice2']) || row['sellingPrice2'] <= 0 || row['sellingPrice2'] > 9999999999999.99)) {
-          rowErrors.sellingPrice2 = 'Selling price 2 must be between 0.01 and 9,999,999,999,999.99'
+          rowErrors.sp2 = 'Selling price 2 must be between 0.01 and 9,999,999,999,999.99'
         }
         if (row['sellingPrice3'] && (isNaN(row['sellingPrice3']) || row['sellingPrice3'] <= 0 || row['sellingPrice3'] > 9999999999999.99)) {
-          rowErrors.sellingPrice3 = 'Selling price 3 must be between 0.01 and 9,999,999,999,999.99'
+          rowErrors.sp3 = 'Selling price 3 must be between 0.01 and 9,999,999,999,999.99'
         }
         if (row['qty2Min'] && (isNaN(row['qty2Min']) || row['qty2Min'] < 1)) {
           rowErrors.qty2Min = 'Quantity 2 min must be at least 1'
@@ -407,10 +407,10 @@ const handleImport = async (event) => {
           rowErrors.longerDescription = 'Detailed description must be less than 2000 characters'
         }
         if (row['productBarcode'] && row['productBarcode'].length > 50) {
-          rowErrors.productBarcode = 'Product barcode must be less than 50 characters'
+          rowErrors.itemBarcode = 'Product barcode must be less than 50 characters'
         }
         if (row['etimsRefCode'] && row['etimsRefCode'].length > 50) {
-          rowErrors.etimsRefCode = 'eTIMS ref code must be less than 50 characters'
+          rowErrors.etimsRef = 'eTIMS ref code must be less than 50 characters'
         }
         if (row['packSize'] && row['packSize'].length > 50) {
           rowErrors.packSize = 'Pack size must be less than 50 characters'
@@ -452,17 +452,17 @@ const handleImport = async (event) => {
         // Map category names to IDs
         const parentCat = categories.find(cat => cat.name.toLowerCase() === row['parentCatId'].toLowerCase())
         if (!parentCat) {
-          errors.push({ row: i + 2, errors: { parentCatId: `Parent category ${row['parentCatId']} not found` } })
+          errors.push({ row: i + 2, errors: { parentCat: `Parent category ${row['parentCatId']} not found` } })
           continue
         }
         const category = parentCat.categories.find(cat => cat.name.toLowerCase() === row['categoryId'].toLowerCase())
         if (!category) {
-          errors.push({ row: i + 2, errors: { categoryId: `Category ${row['categoryId']} not found` } })
+          errors.push({ row: i + 2, errors: { category: `Category ${row['categoryId']} not found` } })
           continue
         }
         const subCategory = subcategories[category.id]?.find(sub => sub.name.toLowerCase() === row['subcategoryId'].toLowerCase())
         if (!subCategory) {
-          errors.push({ row: i + 2, errors: { subcategoryId: `Subcategory ${row['subcategoryId']} not found` } })
+          errors.push({ row: i + 2, errors: { subCat: `Subcategory ${row['subcategoryId']} not found` } })
           continue
         }
 
@@ -488,39 +488,45 @@ const handleImport = async (event) => {
         }
 
         validProducts.push({
-          parentCatId: parentCat.id.toString(),
-          categoryId: category.id.toString(),
-          subcategoryId: subCategory.id.toString(),
-          productName: row['productName'],
-          productCode: row['productCode'],
-          uom: row['uom'],
-          packSize: row['packSize'] || '',
-          longerDescription: row['longerDescription'] || '',
-          productBarcode: row['productBarcode'] || '',
-          etimsRefCode: row['etimsRefCode'] || '',
-          costPrice: parseFloat(row['costPrice']).toFixed(2),
-          sellingPrice1: parseFloat(row['sellingPrice1']).toFixed(2),
-          sellingPrice2: row['sellingPrice2'] ? parseFloat(row['sellingPrice2']).toFixed(2) : '',
-          sellingPrice3: row['sellingPrice3'] ? parseFloat(row['sellingPrice3']).toFixed(2) : '',
-          qty1Min: parseInt(row['qty1Min']) || 1,
-          qty1Max: parseInt(row['qty1Max']) || 3,
-          qty2Min: row['qty2Min'] ? parseInt(row['qty2Min']) : '',
-          qty2Max: row['qty2Max'] ? parseInt(row['qty2Max']) : '',
-          qty3Min: row['qty3Min'] ? parseInt(row['qty3Min']) : '',
-          vat: parseFloat(row['vat']).toFixed(2),
-          cashbackRate: parseFloat(row['cashbackRate']).toFixed(2),
+          parentCat: parentCat.id.toString(),
+          category: category.id.toString(),
+          subCat: subCategory.id.toString(),
+          itemName: row['productName'],
+          itemCode: row['productCode'],
           preferredVendor1: supplierId ? supplierId.toString() : '',
           vendorItemCode: vendorItemCode || '',
-          saCashback1stPurchase: parseFloat(row['saCashback1stPurchase']).toFixed(2),
-          saCashback2ndPurchase: parseFloat(row['saCashback2ndPurchase']).toFixed(2),
-          saCashback3rdPurchase: parseFloat(row['saCashback3rdPurchase']).toFixed(2),
-          saCashback4thPurchase: parseFloat(row['saCashback4thPurchase']).toFixed(2),
-          stockUnits: parseInt(row['stockUnits']) || 0,
+          itemBarcode: row['productBarcode'] || '',
+          vat: parseFloat(row['vat']).toFixed(2),
+          uom: row['uom'],
+          packSize: row['packSize'] || '',
           reorderLevel: row['reorderLevel'] ? parseInt(row['reorderLevel']) : '',
           orderLevel: row['orderLevel'] ? parseInt(row['orderLevel']) : '',
           reorderActive: row['reorderActive'] === 'TRUE',
-          active: row['active'] === 'TRUE',
-          hasImage: row['hasImage'] === 'TRUE'
+          currentStock: parseInt(row['stockUnits']) || 0,          
+          costPrice: parseFloat(product.cost_price).toFixed(2),
+          GP1: calculateProfit(product.selling_price1).gp,
+          NP1: calculateProfit(product.selling_price1).np,
+          sp1: parseFloat(product.selling_price1).toFixed(2),
+          qty1Min: product.qty1_min?.toString() || '1',
+          qty1Max: product.qty1_max?.toString() || '3',
+          GP2: product.selling_price2 ? calculateProfit(product.selling_price2).gp : '',
+          NP2: product.selling_price2 ? calculateProfit(product.selling_price2).np : '',
+          sp2: product.selling_price2 ? parseFloat(product.selling_price2).toFixed(2) : '',
+          qty2Min: product.qty2_min?.toString() || '',
+          qty2Max: product.qty2_max?.toString() || '',
+          GP3: product.selling_price3 ? calculateProfit(product.selling_price3).gp : '',
+          NP3: product.selling_price3 ? calculateProfit(product.selling_price3).np : '',
+          sp3: product.selling_price3 ? parseFloat(product.selling_price3).toFixed(2) : '',
+          qty3Min: product.qty3_min?.toString() || '',
+          clientCashBack: parseFloat(product.cashback_rate).toFixed(2),
+          saCashback1: parseFloat(product.sa_cashback_1st).toFixed(2),
+          saCashback2: parseFloat(product.sa_cashback_2nd).toFixed(2),
+          saCashback3: parseFloat(product.sa_cashback_3rd).toFixed(2),
+          saCashback4: parseFloat(product.sa_cashback_4th).toFixed(2),
+          active: product.active ? 'TRUE' : 'FALSE',
+          image: product.image_url ? 'TRUE' : 'FALSE',
+          longerDescription: product.longer_description || '',
+          etimsRef: product.etims_ref_code || ''
         })
       }
 
@@ -562,45 +568,45 @@ const handleImport = async (event) => {
 
 const handleDownloadTemplate = () => {
   const templateData = [{
-    parentCatId: '',
-    categoryId: '',
-    subcategoryId: '',
-    productName: '',
-    productCode: '',
-    uom: '',
-    packSize: '',
-    longerDescription: '',
-    productBarcode: '',
-    etimsRefCode: '',
-    costPrice: '',
-    sellingPrice1: '',
-    sellingPrice2: '',
-    sellingPrice3: '',
-    qty1Min: '',
-    qty1Max: '',
-    qty2Min: '',
-    qty2Max: '',
-    qty3Min: '',
-    vat: '',
-    cashbackRate: '',
+    parentCat: '',
+    category: '',
+    subCat: '',
+    itemName: '',
+    itemCode: '',
     preferredVendor1: '',
     vendorItemCode: '',
-    saCashback1stPurchase: '',
-    saCashback2ndPurchase: '',
-    saCashback3rdPurchase: '',
-    saCashback4thPurchase: '',
-    stockUnits: '',
+    itemBarcode: '',
+    vat: '',
+    uom: '',
+    packSize: '',    
     reorderLevel: '',
     orderLevel: '',
     reorderActive: 'TRUE',
+    currentStock: '',
+    costPrice: '',
+    GP1: '',
+    NP1: '',
+    sp1: '',
+    qty1Min: '',
+    qty1Max: '',
+    GP2: '',
+    NP2: '',
+    sp2: '',
+    qty2Min: '',
+    qty2Max: '',
+    GP3: '',
+    NP3: '',
+    sp3: '',        
+    qty3Min: '',    
+    clientCashBack: '',    
+    saCashback1: '',
+    saCashback2: '',
+    saCashback3: '',
+    saCashback4: '',        
     active: 'TRUE',
-    hasImage: 'FALSE',
-    gp1: '',
-    np1: '',
-    gp2: '',
-    np2: '',
-    gp3: '',
-    np3: ''
+    image: 'FALSE',
+    longerDescription: '',
+    etimsRef: ''            
   }]
   const ws = XLSX.utils.json_to_sheet(templateData)
   const wb = XLSX.utils.book_new()
@@ -660,6 +666,14 @@ const handleDownloadTemplate = () => {
           </Button>
           <Button
             variant="outlined"
+            startIcon={<Download />}
+            onClick={handleExport}
+            sx={{ borderColor: "#1976d2", color: "#1976d2" }}
+          >
+            Export
+          </Button>
+          <Button
+            variant="outlined"
             startIcon={<Upload />}
             component="label"
             sx={{ borderColor: "#1976d2", color: "#1976d2" }}
@@ -667,14 +681,7 @@ const handleDownloadTemplate = () => {
             Import
             <input type="file" hidden accept=".xlsx,.xls" onChange={handleImport} />
           </Button>
-          <Button
-            variant="outlined"
-            startIcon={<Download />}
-            onClick={handleExport}
-            sx={{ borderColor: "#1976d2", color: "#1976d2" }}
-          >
-            Export
-          </Button>
+          
           <Button
             variant="outlined"
             startIcon={<Download />}

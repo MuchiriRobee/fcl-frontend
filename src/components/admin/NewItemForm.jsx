@@ -179,24 +179,25 @@ export default function NewItemForm({ onSubmit, editItem = null }) {
   }, [formData.parentCatId, formData.categoryId, formData.subcategoryId, isEditMode])
 
   // Fetch product code when parent category, category, and subcategory are selected
-useEffect(() => {
-  if (formData.parentCatId && formData.categoryId && formData.subcategoryId) {
-    const fetchProductCode = async () => {
-      try {
-const response = await axios.post(`${import.meta.env.VITE_API_URL}/products/generate-code`, {          parentCatId: parseInt(formData.parentCatId),
-          categoryId: parseInt(formData.categoryId),
-          subcategoryId: parseInt(formData.subcategoryId),
-        });
-        setFormData((prev) => ({ ...prev, productCode: response.data.productCode }));
-      } catch (error) {
-        console.error('Error fetching product code:', error);
+  useEffect(() => {
+    if (formData.parentCatId && formData.categoryId && formData.subcategoryId) {
+      const fetchProductCode = async () => {
+        try {
+          const response = await axios.post(`${import.meta.env.VITE_API_URL}/products/generate-code`, {
+            parentCatId: parseInt(formData.parentCatId),
+            categoryId: parseInt(formData.categoryId),
+            subcategoryId: parseInt(formData.subcategoryId),
+          })
+          setFormData((prev) => ({ ...prev, productCode: response.data.productCode }))
+        } catch (error) {
+          console.error('Error fetching product code:', error)
+        }
       }
-    };
-    fetchProductCode();
-  } else {
-    setFormData((prev) => ({ ...prev, productCode: '' }));
-  }
-}, [formData.parentCatId, formData.categoryId, formData.subcategoryId]);
+      fetchProductCode()
+    } else {
+      setFormData((prev) => ({ ...prev, productCode: '' }))
+    }
+  }, [formData.parentCatId, formData.categoryId, formData.subcategoryId])
 
   // Load edit item data
   useEffect(() => {
@@ -513,7 +514,7 @@ const response = await axios.post(`${import.meta.env.VITE_API_URL}/products/gene
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
         <CircularProgress />
-        <Typography variant="h6" sx={{ ml: 2 }}>Loading categories...</Typography>
+        <Typography variant="h6" sx={{ ml: 2, color: '#1976d2' }}>Loading categories...</Typography>
       </Box>
     )
   }
@@ -538,7 +539,7 @@ const response = await axios.post(`${import.meta.env.VITE_API_URL}/products/gene
 
   return (
     <Box sx={{ maxWidth: 1200, mx: "auto", p: { xs: 2, md: 4 } }}>
-      <Paper sx={{ p: 4, mb: 4, borderRadius: 3, boxShadow: "0 8px 32px rgba(0, 0, 0, 0.1)" }}>
+      <Paper sx={{ p: 4, mb: 4, borderRadius: 3, boxShadow: "0 8px 32px rgba(0, 0, 0, 0.1)", bgcolor: '#ffffff' }}>
         <Box sx={{ mb: 4, textAlign: "center" }}>
           <Typography variant="h4" fontWeight="bold" color="#1976d2" gutterBottom>
             {isEditMode ? "Edit Product" : "Add New Product"}
@@ -554,9 +555,9 @@ const response = await axios.post(`${import.meta.env.VITE_API_URL}/products/gene
         </Box>
 
         <form onSubmit={handleSubmit} aria-label={isEditMode ? "Edit product form" : "Add product form"}>
-          <Accordion defaultExpanded sx={{ mb: 3, borderRadius: 2, boxShadow: "0 2px 8px rgba(0,0,0,0.1)" }}>
-            <AccordionSummary expandIcon={<ExpandMore />} sx={{ bgcolor: "#f8f9fa" }}>
-              <Typography variant="h6" fontWeight="600" color="#1976d2">📋 Basic Information</Typography>
+          <Accordion defaultExpanded sx={{ mb: 3, borderRadius: 2, boxShadow: "0 2px 8px rgba(0,0,0,0.1)", bgcolor: '#e3f2fd' }}>
+            <AccordionSummary expandIcon={<ExpandMore />} sx={{ bgcolor: "#bbdefb" }}>
+              <Typography variant="h6" fontWeight="600" color="#1565c0">📋 Basic Information</Typography>
             </AccordionSummary>
             <AccordionDetails sx={{ p: 3 }}>
               <Grid container spacing={3}>
@@ -571,7 +572,11 @@ const response = await axios.post(`${import.meta.env.VITE_API_URL}/products/gene
                     error={!!errors.productName}
                     helperText={errors.productName}
                     inputProps={{ "aria-required": true, maxLength: 255 }}
-                    sx={{ '& .MuiInputBase-root': { height: 56 } }}
+                    sx={{
+                      '& .MuiInputBase-root': { height: 56, bgcolor: '#fafafa' },
+                      '& .MuiInputBase-root:hover': { bgcolor: '#f5f5f5' },
+                      '& .Mui-focused': { bgcolor: '#ffffff' },
+                    }}
                   />
                 </Grid>
                 <Grid item xs={12} sm={6}>
@@ -588,7 +593,12 @@ const response = await axios.post(`${import.meta.env.VITE_API_URL}/products/gene
                         return parent ? `${parent.name} (${parent.category_code})` : "Select Parent Category"
                       }}
                       aria-required="true"
-                      sx={{ height: 56 }}
+                      sx={{
+                        height: 56,
+                        bgcolor: '#fafafa',
+                        '&:hover': { bgcolor: '#f5f5f5' },
+                        '&.Mui-focused': { bgcolor: '#ffffff' },
+                      }}
                     >
                       <MenuItem value="" disabled>Select Parent Category</MenuItem>
                       {parentCategories.map(parent => (
@@ -613,7 +623,12 @@ const response = await axios.post(`${import.meta.env.VITE_API_URL}/products/gene
                         return category ? `${category.name} (${category.category_code})` : "Select Category"
                       }}
                       aria-required="true"
-                      sx={{ height: 56 }}
+                      sx={{
+                        height: 56,
+                        bgcolor: '#fafafa',
+                        '&:hover': { bgcolor: '#f5f5f5' },
+                        '&.Mui-focused': { bgcolor: '#ffffff' },
+                      }}
                     >
                       <MenuItem value="" disabled>Select Category</MenuItem>
                       {filteredCategories.map(category => (
@@ -638,7 +653,12 @@ const response = await axios.post(`${import.meta.env.VITE_API_URL}/products/gene
                         return subCat ? `${subCat.name} (${subCat.subcategory_code})` : (formData.categoryId ? "Select Subcategory" : "Select Category First")
                       }}
                       aria-required="true"
-                      sx={{ height: 56 }}
+                      sx={{
+                        height: 56,
+                        bgcolor: '#fafafa',
+                        '&:hover': { bgcolor: '#f5f5f5' },
+                        '&.Mui-focused': { bgcolor: '#ffffff' },
+                      }}
                     >
                       <MenuItem value="" disabled>Select Subcategory</MenuItem>
                       {subCategoriesLoading && <MenuItem disabled>Loading...</MenuItem>}
@@ -664,7 +684,11 @@ const response = await axios.post(`${import.meta.env.VITE_API_URL}/products/gene
                     error={!!errors.productCode}
                     helperText={errors.productCode || "Auto-generated (e.g., B010101001)"}
                     inputProps={{ "aria-required": true }}
-                    sx={{ '& .MuiInputBase-root': { height: 56 } }}
+                    sx={{
+                      '& .MuiInputBase-root': { height: 56, bgcolor: '#fafafa' },
+                      '& .MuiInputBase-root:hover': { bgcolor: '#f5f5f5' },
+                      '& .Mui-focused': { bgcolor: '#ffffff' },
+                    }}
                   />
                 </Grid>
                 <Grid item xs={12} sm={6}>
@@ -677,7 +701,11 @@ const response = await axios.post(`${import.meta.env.VITE_API_URL}/products/gene
                     error={!!errors.packSize}
                     helperText={errors.packSize}
                     inputProps={{ maxLength: 50 }}
-                    sx={{ '& .MuiInputBase-root': { height: 56 } }}
+                    sx={{
+                      '& .MuiInputBase-root': { height: 56, bgcolor: '#fafafa' },
+                      '& .MuiInputBase-root:hover': { bgcolor: '#f5f5f5' },
+                      '& .Mui-focused': { bgcolor: '#ffffff' },
+                    }}
                   />
                 </Grid>
                 <Grid item xs={12} sm={6}>
@@ -690,7 +718,12 @@ const response = await axios.post(`${import.meta.env.VITE_API_URL}/products/gene
                       onChange={handleChange}
                       label="Unit of Measure"
                       aria-required="true"
-                      sx={{ height: 56 }}
+                      sx={{
+                        height: 56,
+                        bgcolor: '#fafafa',
+                        '&:hover': { bgcolor: '#f5f5f5' },
+                        '&.Mui-focused': { bgcolor: '#ffffff' },
+                      }}
                     >
                       {uomOptions.map(uom => (
                         <MenuItem key={uom} value={uom}>{uom}</MenuItem>
@@ -711,6 +744,11 @@ const response = await axios.post(`${import.meta.env.VITE_API_URL}/products/gene
                     error={!!errors.longerDescription}
                     helperText={errors.longerDescription || `${formData.longerDescription.length}/2000 characters`}
                     inputProps={{ maxLength: 2000 }}
+                    sx={{
+                      '& .MuiInputBase-root': { bgcolor: '#fafafa' },
+                      '& .MuiInputBase-root:hover': { bgcolor: '#f5f5f5' },
+                      '& .Mui-focused': { bgcolor: '#ffffff' },
+                    }}
                   />
                 </Grid>
                 <Grid item xs={12} sm={6}>
@@ -726,13 +764,17 @@ const response = await axios.post(`${import.meta.env.VITE_API_URL}/products/gene
                     InputProps={{
                       endAdornment: (
                         <InputAdornment position="end">
-                          <Button onClick={generateBarcode} startIcon={<QrCode />}>
+                          <Button onClick={generateBarcode} startIcon={<QrCode />} sx={{ color: '#1976d2' }}>
                             Generate
                           </Button>
                         </InputAdornment>
                       ),
                     }}
-                    sx={{ '& .MuiInputBase-root': { height: 56 } }}
+                    sx={{
+                      '& .MuiInputBase-root': { height: 56, bgcolor: '#fafafa' },
+                      '& .MuiInputBase-root:hover': { bgcolor: '#f5f5f5' },
+                      '& .Mui-focused': { bgcolor: '#ffffff' },
+                    }}
                   />
                 </Grid>
                 <Grid item xs={12} sm={6}>
@@ -745,7 +787,11 @@ const response = await axios.post(`${import.meta.env.VITE_API_URL}/products/gene
                     error={!!errors.etimsRefCode}
                     helperText={errors.etimsRefCode}
                     inputProps={{ maxLength: 50 }}
-                    sx={{ '& .MuiInputBase-root': { height: 56 } }}
+                    sx={{
+                      '& .MuiInputBase-root': { height: 56, bgcolor: '#fafafa' },
+                      '& .MuiInputBase-root:hover': { bgcolor: '#f5f5f5' },
+                      '& .Mui-focused': { bgcolor: '#ffffff' },
+                    }}
                   />
                 </Grid>
                 <Grid item xs={12}>
@@ -754,7 +800,12 @@ const response = await axios.post(`${import.meta.env.VITE_API_URL}/products/gene
                       variant="outlined"
                       component="label"
                       startIcon={<Upload />}
-                      sx={{ height: 56 }}
+                      sx={{
+                        height: 56,
+                        borderColor: '#1976d2',
+                        color: '#1976d2',
+                        '&:hover': { borderColor: '#1565c0', bgcolor: '#e3f2fd' },
+                      }}
                     >
                       Upload Image
                       <input
@@ -791,226 +842,224 @@ const response = await axios.post(`${import.meta.env.VITE_API_URL}/products/gene
             </AccordionDetails>
           </Accordion>
 
-          <Accordion defaultExpanded sx={{ mb: 3, borderRadius: 2, boxShadow: "0 2px 8px rgba(0,0,0,0.1)" }}>
-            <AccordionSummary expandIcon={<ExpandMore />} sx={{ bgcolor: "#f8f9fa" }}>
-              <Typography variant="h6" fontWeight="600" color="#1976d2">💰 Pricing and Inventory</Typography>
+          <Accordion defaultExpanded sx={{ mb: 3, borderRadius: 2, boxShadow: "0 2px 8px rgba(0,0,0,0.1)", bgcolor: '#e8f5e9' }}>
+            <AccordionSummary expandIcon={<ExpandMore />} sx={{ bgcolor: "#c8e6c9" }}>
+              <Typography variant="h6" fontWeight="600" color="#2e7d32">💰 Pricing and Inventory</Typography>
             </AccordionSummary>
             <AccordionDetails sx={{ p: 3 }}>
               <Grid container spacing={3}>
-                <Grid item xs={12} sm={6}>
-                  <PriceFormat
-                    fullWidth
-                    required
-                    label="Cost Price (Excl. VAT)"
-                    name="costPrice"
-                    value={formData.costPrice}
-                    onChange={handleChange}
-                    error={!!errors.costPrice}
-                    helperText={errors.costPrice}
-                    InputProps={{
-                      startAdornment: <InputAdornment position="start">KES</InputAdornment>,
-                    }}
-                    inputProps={{ "aria-required": true }}
-                    sx={{ '& .MuiInputBase-root': { height: 56 } }}
-                  />
+                <Grid item xs={12} md={4}>
+                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+                    <PriceFormat
+                      fullWidth
+                      required
+                      label="Cost Price (Excl. VAT)"
+                      name="costPrice"
+                      value={formData.costPrice}
+                      onChange={handleChange}
+                      error={!!errors.costPrice}
+                      helperText={errors.costPrice}
+                      InputProps={{
+                        startAdornment: <InputAdornment position="start">KES</InputAdornment>,
+                      }}
+                      inputProps={{ "aria-required": true }}
+                      sx={{
+                        '& .MuiInputBase-root': { height: 56, bgcolor: '#fafafa' },
+                        '& .MuiInputBase-root:hover': { bgcolor: '#f5f5f5' },
+                        '& .Mui-focused': { bgcolor: '#ffffff' },
+                      }}
+                    />
+                    <PercentageFormat
+                      fullWidth
+                      required
+                      label="VAT Rate"
+                      name="vat"
+                      value={formData.vat}
+                      onChange={handleChange}
+                      error={!!errors.vat}
+                      helperText={errors.vat}
+                      InputProps={{
+                        endAdornment: <InputAdornment position="end">%</InputAdornment>,
+                      }}
+                      inputProps={{ "aria-required": true }}
+                      sx={{
+                        '& .MuiInputBase-root': { height: 56, bgcolor: '#fafafa' },
+                        '& .MuiInputBase-root:hover': { bgcolor: '#f5f5f5' },
+                        '& .Mui-focused': { bgcolor: '#ffffff' },
+                      }}
+                    />
+                  </Box>
                 </Grid>
-                <Grid item xs={12} sm={6}>
-                  <PriceFormat
-                    fullWidth
-                    required
-                    label="Selling Price 1 (Incl. VAT)"
-                    name="sellingPrice1"
-                    value={formData.sellingPrice1}
-                    onChange={handleChange}
-                    error={!!errors.sellingPrice1}
-                    helperText={errors.sellingPrice1}
-                    InputProps={{
-                      startAdornment: <InputAdornment position="start">KES</InputAdornment>,
-                    }}
-                    inputProps={{ "aria-required": true }}
-                    sx={{ '& .MuiInputBase-root': { height: 56 } }}
-                  />
+                <Grid item xs={12} md={8}>
+                  <Grid container spacing={3}>
+                    <Grid item xs={12} sm={4}>
+                      <PriceFormat
+                        fullWidth
+                        required
+                        label="Selling Price 1 (Incl. VAT)"
+                        name="sellingPrice1"
+                        value={formData.sellingPrice1}
+                        onChange={handleChange}
+                        error={!!errors.sellingPrice1}
+                        helperText={errors.sellingPrice1}
+                        InputProps={{
+                          startAdornment: <InputAdornment position="start">KES</InputAdornment>,
+                        }}
+                        inputProps={{ "aria-required": true }}
+                        sx={{
+                          '& .MuiInputBase-root': { height: 56, bgcolor: '#fafafa' },
+                          '& .MuiInputBase-root:hover': { bgcolor: '#f5f5f5' },
+                          '& .Mui-focused': { bgcolor: '#ffffff' },
+                        }}
+                      />
+                    </Grid>
+                    <Grid item xs={12} sm={4}>
+                      <PriceFormat
+                        fullWidth
+                        label="Selling Price 2 (Incl. VAT)"
+                        name="sellingPrice2"
+                        value={formData.sellingPrice2}
+                        onChange={handleChange}
+                        error={!!errors.sellingPrice2}
+                        helperText={errors.sellingPrice2}
+                        InputProps={{
+                          startAdornment: <InputAdornment position="start">KES</InputAdornment>,
+                        }}
+                        sx={{
+                          '& .MuiInputBase-root': { height: 56, bgcolor: '#fafafa' },
+                          '& .MuiInputBase-root:hover': { bgcolor: '#f5f5f5' },
+                          '& .Mui-focused': { bgcolor: '#ffffff' },
+                        }}
+                      />
+                    </Grid>
+                    <Grid item xs={12} sm={4}>
+                      <PriceFormat
+                        fullWidth
+                        label="Selling Price 3 (Incl. VAT)"
+                        name="sellingPrice3"
+                        value={formData.sellingPrice3}
+                        onChange={handleChange}
+                        error={!!errors.sellingPrice3}
+                        helperText={errors.sellingPrice3}
+                        InputProps={{
+                          startAdornment: <InputAdornment position="start">KES</InputAdornment>,
+                        }}
+                        sx={{
+                          '& .MuiInputBase-root': { height: 56, bgcolor: '#fafafa' },
+                          '& .MuiInputBase-root:hover': { bgcolor: '#f5f5f5' },
+                          '& .Mui-focused': { bgcolor: '#ffffff' },
+                        }}
+                      />
+                    </Grid>
+                  </Grid>
                 </Grid>
-                <Grid item xs={12} sm={6}>
-                  <PriceFormat
-                    fullWidth
-                    label="Selling Price 2 (Incl. VAT)"
-                    name="sellingPrice2"
-                    value={formData.sellingPrice2}
-                    onChange={handleChange}
-                    error={!!errors.sellingPrice2}
-                    helperText={errors.sellingPrice2}
-                    InputProps={{
-                      startAdornment: <InputAdornment position="start">KES</InputAdornment>,
-                    }}
-                    sx={{ '& .MuiInputBase-root': { height: 56 } }}
-                  />
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <PriceFormat
-                    fullWidth
-                    label="Selling Price 3 (Incl. VAT)"
-                    name="sellingPrice3"
-                    value={formData.sellingPrice3}
-                    onChange={handleChange}
-                    error={!!errors.sellingPrice3}
-                    helperText={errors.sellingPrice3}
-                    InputProps={{
-                      startAdornment: <InputAdornment position="start">KES</InputAdornment>,
-                    }}
-                    sx={{ '& .MuiInputBase-root': { height: 56 } }}
-                  />
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <QuantityFormat
-                    fullWidth
-                    required
-                    label="Stock Quantity"
-                    name="stockUnits"
-                    value={formData.stockUnits}
-                    onChange={handleChange}
-                    error={!!errors.stockUnits}
-                    helperText={errors.stockUnits}
-                    inputProps={{ "aria-required": true }}
-                    sx={{ '& .MuiInputBase-root': { height: 56 } }}
-                  />
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <PercentageFormat
-                    fullWidth
-                    required
-                    label="VAT Rate"
-                    name="vat"
-                    value={formData.vat}
-                    onChange={handleChange}
-                    error={!!errors.vat}
-                    helperText={errors.vat}
-                    InputProps={{
-                      endAdornment: <InputAdornment position="end">%</InputAdornment>,
-                    }}
-                    inputProps={{ "aria-required": true }}
-                    sx={{ '& .MuiInputBase-root': { height: 56 } }}
-                  />
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <PercentageFormat
-                    fullWidth
-                    required
-                    label="Cashback Rate"
-                    name="cashbackRate"
-                    value={formData.cashbackRate}
-                    onChange={handleChange}
-                    error={!!errors.cashbackRate}
-                    helperText={errors.cashbackRate}
-                    InputProps={{
-                      endAdornment: <InputAdornment position="end">%</InputAdornment>,
-                    }}
-                    inputProps={{ "aria-required": true }}
-                    sx={{ '& .MuiInputBase-root': { height: 56 } }}
-                  />
+                <Grid item xs={12}>
+                  <Typography variant="subtitle1" fontWeight="600" gutterBottom sx={{ color: '#2e7d32' }}>
+                    Pricing Tiers
+                  </Typography>
+                  <TableContainer component={Paper} sx={{ boxShadow: "none", border: "1px solid #e0e0e0", bgcolor: '#fafafa' }}>
+                    <Table size="small">
+                      <TableHead>
+                        <TableRow sx={{ bgcolor: '#c8e6c9' }}>
+                          <TableCell sx={{ color: '#2e7d32', fontWeight: 600 }}>Tier</TableCell>
+                          <TableCell align="right" sx={{ color: '#2e7d32', fontWeight: 600 }}>Min Qty</TableCell>
+                          <TableCell align="right" sx={{ color: '#2e7d32', fontWeight: 600 }}>Max Qty</TableCell>
+                          <TableCell align="right" sx={{ color: '#2e7d32', fontWeight: 600 }}>Price (KES)</TableCell>
+                          <TableCell align="right" sx={{ color: '#2e7d32', fontWeight: 600 }}>Gross Profit (%)</TableCell>
+                          <TableCell align="right" sx={{ color: '#2e7d32', fontWeight: 600 }}>Net Profit (%)</TableCell>
+                        </TableRow>
+                      </TableHead>
+                      <TableBody>
+                        <TableRow>
+                          <TableCell>Tier 1</TableCell>
+                          <TableCell align="right">
+                            <QuantityFormat
+                              size="small"
+                              name="qty1Min"
+                              value={formData.qty1Min}
+                              onChange={handleChange}
+                              error={!!errors.qty1Min}
+                              helperText={errors.qty1Min}
+                              fullWidth
+                              sx={{ '& .MuiInputBase-root': { bgcolor: '#ffffff' } }}
+                            />
+                          </TableCell>
+                          <TableCell align="right">
+                            <QuantityFormat
+                              size="small"
+                              name="qty1Max"
+                              value={formData.qty1Max}
+                              onChange={handleChange}
+                              error={!!errors.qty1Max}
+                              helperText={errors.qty1Max}
+                              fullWidth
+                              sx={{ '& .MuiInputBase-root': { bgcolor: '#ffffff' } }}
+                            />
+                          </TableCell>
+                          <TableCell align="right">{formData.sellingPrice1}</TableCell>
+                          <TableCell align="right">{calculatedProfits.gp1}%</TableCell>
+                          <TableCell align="right">{calculatedProfits.np1}%</TableCell>
+                        </TableRow>
+                        <TableRow>
+                          <TableCell>Tier 2</TableCell>
+                          <TableCell align="right">
+                            <QuantityFormat
+                              size="small"
+                              name="qty2Min"
+                              value={formData.qty2Min}
+                              onChange={handleChange}
+                              error={!!errors.qty2Min}
+                              helperText={errors.qty2Min}
+                              fullWidth
+                              sx={{ '& .MuiInputBase-root': { bgcolor: '#ffffff' } }}
+                            />
+                          </TableCell>
+                          <TableCell align="right">
+                            <QuantityFormat
+                              size="small"
+                              name="qty2Max"
+                              value={formData.qty2Max}
+                              onChange={handleChange}
+                              error={!!errors.qty2Max}
+                              helperText={errors.qty2Max}
+                              fullWidth
+                              sx={{ '& .MuiInputBase-root': { bgcolor: '#ffffff' } }}
+                            />
+                          </TableCell>
+                          <TableCell align="right">{formData.sellingPrice2 || '-'}</TableCell>
+                          <TableCell align="right">{formData.sellingPrice2 ? `${calculatedProfits.gp2}%` : '-'}</TableCell>
+                          <TableCell align="right">{formData.sellingPrice2 ? `${calculatedProfits.np2}%` : '-'}</TableCell>
+                        </TableRow>
+                        <TableRow>
+                          <TableCell>Tier 3</TableCell>
+                          <TableCell align="right">
+                            <QuantityFormat
+                              size="small"
+                              name="qty3Min"
+                              value={formData.qty3Min}
+                              onChange={handleChange}
+                              error={!!errors.qty3Min}
+                              helperText={errors.qty3Min}
+                              fullWidth
+                              sx={{ '& .MuiInputBase-root': { bgcolor: '#ffffff' } }}
+                            />
+                          </TableCell>
+                          <TableCell align="right">-</TableCell>
+                          <TableCell align="right">{formData.sellingPrice3 || '-'}</TableCell>
+                          <TableCell align="right">{formData.sellingPrice3 ? `${calculatedProfits.gp3}%` : '-'}</TableCell>
+                          <TableCell align="right">{formData.sellingPrice3 ? `${calculatedProfits.np3}%` : '-'}</TableCell>
+                        </TableRow>
+                      </TableBody>
+                    </Table>
+                  </TableContainer>
                 </Grid>
               </Grid>
-              <Box sx={{ mt: 3 }}>
-                <Typography variant="subtitle1" fontWeight="600" gutterBottom>
-                  Pricing Tiers
-                </Typography>
-                <TableContainer component={Paper} sx={{ boxShadow: "none", border: "1px solid #e0e0e0" }}>
-                  <Table size="small">
-                    <TableHead>
-                      <TableRow>
-                        <TableCell>Tier</TableCell>
-                        <TableCell align="right">Min Qty</TableCell>
-                        <TableCell align="right">Max Qty</TableCell>
-                        <TableCell align="right">Price (KES)</TableCell>
-                        <TableCell align="right">Gross Profit (%)</TableCell>
-                        <TableCell align="right">Net Profit (%)</TableCell>
-                      </TableRow>
-                    </TableHead>
-                    <TableBody>
-                      <TableRow>
-                        <TableCell>Tier 1</TableCell>
-                        <TableCell align="right">
-                          <QuantityFormat
-                            size="small"
-                            name="qty1Min"
-                            value={formData.qty1Min}
-                            onChange={handleChange}
-                            error={!!errors.qty1Min}
-                            helperText={errors.qty1Min}
-                            fullWidth
-                          />
-                        </TableCell>
-                        <TableCell align="right">
-                          <QuantityFormat
-                            size="small"
-                            name="qty1Max"
-                            value={formData.qty1Max}
-                            onChange={handleChange}
-                            error={!!errors.qty1Max}
-                            helperText={errors.qty1Max}
-                            fullWidth
-                          />
-                        </TableCell>
-                        <TableCell align="right">{formData.sellingPrice1}</TableCell>
-                        <TableCell align="right">{calculatedProfits.gp1}%</TableCell>
-                        <TableCell align="right">{calculatedProfits.np1}%</TableCell>
-                      </TableRow>
-                      <TableRow>
-                        <TableCell>Tier 2</TableCell>
-                        <TableCell align="right">
-                          <QuantityFormat
-                            size="small"
-                            name="qty2Min"
-                            value={formData.qty2Min}
-                            onChange={handleChange}
-                            error={!!errors.qty2Min}
-                            helperText={errors.qty2Min}
-                            fullWidth
-                          />
-                        </TableCell>
-                        <TableCell align="right">
-                          <QuantityFormat
-                            size="small"
-                            name="qty2Max"
-                            value={formData.qty2Max}
-                            onChange={handleChange}
-                            error={!!errors.qty2Max}
-                            helperText={errors.qty2Max}
-                            fullWidth
-                          />
-                        </TableCell>
-                        <TableCell align="right">{formData.sellingPrice2 || '-'}</TableCell>
-                        <TableCell align="right">{formData.sellingPrice2 ? `${calculatedProfits.gp2}%` : '-'}</TableCell>
-                        <TableCell align="right">{formData.sellingPrice2 ? `${calculatedProfits.np2}%` : '-'}</TableCell>
-                      </TableRow>
-                      <TableRow>
-                        <TableCell>Tier 3</TableCell>
-                        <TableCell align="right">
-                          <QuantityFormat
-                            size="small"
-                            name="qty3Min"
-                            value={formData.qty3Min}
-                            onChange={handleChange}
-                            error={!!errors.qty3Min}
-                            helperText={errors.qty3Min}
-                            fullWidth
-                          />
-                        </TableCell>
-                        <TableCell align="right">-</TableCell>
-                        <TableCell align="right">{formData.sellingPrice3 || '-'}</TableCell>
-                        <TableCell align="right">{formData.sellingPrice3 ? `${calculatedProfits.gp3}%` : '-'}</TableCell>
-                        <TableCell align="right">{formData.sellingPrice3 ? `${calculatedProfits.np3}%` : '-'}</TableCell>
-                      </TableRow>
-                    </TableBody>
-                  </Table>
-                </TableContainer>
-              </Box>
             </AccordionDetails>
           </Accordion>
 
-          <Accordion defaultExpanded sx={{ mb: 3, borderRadius: 2, boxShadow: "0 2px 8px rgba(0,0,0,0.1)" }}>
-            <AccordionSummary expandIcon={<ExpandMore />} sx={{ bgcolor: "#f8f9fa" }}>
-              <Typography variant="h6" fontWeight="600" color="#1976d2">🤝 Supplier and Cashback</Typography>
+          <Accordion defaultExpanded sx={{ mb: 3, borderRadius: 2, boxShadow: "0 2px 8px rgba(0,0,0,0.1)", bgcolor: '#fff3e0' }}>
+            <AccordionSummary expandIcon={<ExpandMore />} sx={{ bgcolor: "#ffccbc" }}>
+              <Typography variant="h6" fontWeight="600" color="#e64a19">🤝 Supplier and Cashback</Typography>
             </AccordionSummary>
             <AccordionDetails sx={{ p: 3 }}>
               <Grid container spacing={3}>
@@ -1028,7 +1077,12 @@ const response = await axios.post(`${import.meta.env.VITE_API_URL}/products/gene
                         const supplier = suppliers.find(s => s.id === parseInt(selected))
                         return supplier ? `${supplier.name} (${supplier.code})` : "Select Supplier"
                       }}
-                      sx={{ height: 56 }}
+                      sx={{
+                        height: 56,
+                        bgcolor: '#fafafa',
+                        '&:hover': { bgcolor: '#f5f5f5' },
+                        '&.Mui-focused': { bgcolor: '#ffffff' },
+                      }}
                     >
                       <MenuItem value="" disabled>Select Supplier</MenuItem>
                       {suppliersLoading && <MenuItem disabled>Loading...</MenuItem>}
@@ -1052,7 +1106,32 @@ const response = await axios.post(`${import.meta.env.VITE_API_URL}/products/gene
                     error={!!errors.vendorItemCode}
                     helperText={errors.vendorItemCode}
                     inputProps={{ maxLength: 50 }}
-                    sx={{ '& .MuiInputBase-root': { height: 56 } }}
+                    sx={{
+                      '& .MuiInputBase-root': { height: 56, bgcolor: '#fafafa' },
+                      '& .MuiInputBase-root:hover': { bgcolor: '#f5f5f5' },
+                      '& .Mui-focused': { bgcolor: '#ffffff' },
+                    }}
+                  />
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <PercentageFormat
+                    fullWidth
+                    required
+                    label="Cashback Rate"
+                    name="cashbackRate"
+                    value={formData.cashbackRate}
+                    onChange={handleChange}
+                    error={!!errors.cashbackRate}
+                    helperText={errors.cashbackRate}
+                    InputProps={{
+                      endAdornment: <InputAdornment position="end">%</InputAdornment>,
+                    }}
+                    inputProps={{ "aria-required": true }}
+                    sx={{
+                      '& .MuiInputBase-root': { height: 56, bgcolor: '#fafafa' },
+                      '& .MuiInputBase-root:hover': { bgcolor: '#f5f5f5' },
+                      '& .Mui-focused': { bgcolor: '#ffffff' },
+                    }}
                   />
                 </Grid>
                 <Grid item xs={12} sm={6}>
@@ -1069,7 +1148,11 @@ const response = await axios.post(`${import.meta.env.VITE_API_URL}/products/gene
                       endAdornment: <InputAdornment position="end">%</InputAdornment>,
                     }}
                     inputProps={{ "aria-required": true }}
-                    sx={{ '& .MuiInputBase-root': { height: 56 } }}
+                    sx={{
+                      '& .MuiInputBase-root': { height: 56, bgcolor: '#fafafa' },
+                      '& .MuiInputBase-root:hover': { bgcolor: '#f5f5f5' },
+                      '& .Mui-focused': { bgcolor: '#ffffff' },
+                    }}
                   />
                 </Grid>
                 <Grid item xs={12} sm={6}>
@@ -1086,7 +1169,11 @@ const response = await axios.post(`${import.meta.env.VITE_API_URL}/products/gene
                       endAdornment: <InputAdornment position="end">%</InputAdornment>,
                     }}
                     inputProps={{ "aria-required": true }}
-                    sx={{ '& .MuiInputBase-root': { height: 56 } }}
+                    sx={{
+                      '& .MuiInputBase-root': { height: 56, bgcolor: '#fafafa' },
+                      '& .MuiInputBase-root:hover': { bgcolor: '#f5f5f5' },
+                      '& .Mui-focused': { bgcolor: '#ffffff' },
+                    }}
                   />
                 </Grid>
                 <Grid item xs={12} sm={6}>
@@ -1100,10 +1187,14 @@ const response = await axios.post(`${import.meta.env.VITE_API_URL}/products/gene
                     error={!!errors.saCashback3rdPurchase}
                     helperText={errors.saCashback3rdPurchase}
                     InputProps={{
-                      endAdornment: <InputAdornment severe="end">%</InputAdornment>,
+                      endAdornment: <InputAdornment position="end">%</InputAdornment>,
                     }}
                     inputProps={{ "aria-required": true }}
-                    sx={{ '& .MuiInputBase-root': { height: 56 } }}
+                    sx={{
+                      '& .MuiInputBase-root': { height: 56, bgcolor: '#fafafa' },
+                      '& .MuiInputBase-root:hover': { bgcolor: '#f5f5f5' },
+                      '& .Mui-focused': { bgcolor: '#ffffff' },
+                    }}
                   />
                 </Grid>
                 <Grid item xs={12} sm={6}>
@@ -1120,20 +1211,42 @@ const response = await axios.post(`${import.meta.env.VITE_API_URL}/products/gene
                       endAdornment: <InputAdornment position="end">%</InputAdornment>,
                     }}
                     inputProps={{ "aria-required": true }}
-                    sx={{ '& .MuiInputBase-root': { height: 56 } }}
+                    sx={{
+                      '& .MuiInputBase-root': { height: 56, bgcolor: '#fafafa' },
+                      '& .MuiInputBase-root:hover': { bgcolor: '#f5f5f5' },
+                      '& .Mui-focused': { bgcolor: '#ffffff' },
+                    }}
                   />
                 </Grid>
               </Grid>
             </AccordionDetails>
           </Accordion>
 
-          <Accordion defaultExpanded sx={{ mb: 3, borderRadius: 2, boxShadow: "0 2px 8px rgba(0,0,0,0.1)" }}>
-            <AccordionSummary expandIcon={<ExpandMore />} sx={{ bgcolor: "#f8f9fa" }}>
-              <Typography variant="h6" fontWeight="600" color="#1976d2">📦 Reorder Settings</Typography>
+          <Accordion defaultExpanded sx={{ mb: 3, borderRadius: 2, boxShadow: "0 2px 8px rgba(0,0,0,0.1)", bgcolor: '#f3e5f5' }}>
+            <AccordionSummary expandIcon={<ExpandMore />} sx={{ bgcolor: "#e1bee7" }}>
+              <Typography variant="h6" fontWeight="600" color="#7b1fa2">📦 Reorder Settings</Typography>
             </AccordionSummary>
             <AccordionDetails sx={{ p: 3 }}>
               <Grid container spacing={3}>
-                <Grid item xs={12} sm={6}>
+                <Grid item xs={12} sm={4}>
+                  <QuantityFormat
+                    fullWidth
+                    required
+                    label="Stock Quantity"
+                    name="stockUnits"
+                    value={formData.stockUnits}
+                    onChange={handleChange}
+                    error={!!errors.stockUnits}
+                    helperText={errors.stockUnits}
+                    inputProps={{ "aria-required": true }}
+                    sx={{
+                      '& .MuiInputBase-root': { height: 56, bgcolor: '#fafafa' },
+                      '& .MuiInputBase-root:hover': { bgcolor: '#f5f5f5' },
+                      '& .Mui-focused': { bgcolor: '#ffffff' },
+                    }}
+                  />
+                </Grid>
+                <Grid item xs={12} sm={4}>
                   <QuantityFormat
                     fullWidth
                     label="Reorder Level"
@@ -1142,10 +1255,14 @@ const response = await axios.post(`${import.meta.env.VITE_API_URL}/products/gene
                     onChange={handleChange}
                     error={!!errors.reorderLevel}
                     helperText={errors.reorderLevel}
-                    sx={{ '& .MuiInputBase-root': { height: 56 } }}
+                    sx={{
+                      '& .MuiInputBase-root': { height: 56, bgcolor: '#fafafa' },
+                      '& .MuiInputBase-root:hover': { bgcolor: '#f5f5f5' },
+                      '& .Mui-focused': { bgcolor: '#ffffff' },
+                    }}
                   />
                 </Grid>
-                <Grid item xs={12} sm={6}>
+                <Grid item xs={12} sm={4}>
                   <QuantityFormat
                     fullWidth
                     label="Order Level"
@@ -1154,7 +1271,11 @@ const response = await axios.post(`${import.meta.env.VITE_API_URL}/products/gene
                     onChange={handleChange}
                     error={!!errors.orderLevel}
                     helperText={errors.orderLevel}
-                    sx={{ '& .MuiInputBase-root': { height: 56 } }}
+                    sx={{
+                      '& .MuiInputBase-root': { height: 56, bgcolor: '#fafafa' },
+                      '& .MuiInputBase-root:hover': { bgcolor: '#f5f5f5' },
+                      '& .Mui-focused': { bgcolor: '#ffffff' },
+                    }}
                   />
                 </Grid>
                 <Grid item xs={12}>
@@ -1164,10 +1285,11 @@ const response = await axios.post(`${import.meta.env.VITE_API_URL}/products/gene
                         checked={formData.reorderActive}
                         onChange={handleChange}
                         name="reorderActive"
+                        color="primary"
                       />
                     }
                     label="Enable Auto-Reorder"
-                    sx={{ ml: 1 }}
+                    sx={{ ml: 1, color: '#7b1fa2' }}
                   />
                   {errors.reorderActive && (
                     <Typography color="error" variant="body2">
@@ -1185,6 +1307,11 @@ const response = await axios.post(`${import.meta.env.VITE_API_URL}/products/gene
               color="secondary"
               onClick={resetForm}
               disabled={loadingSubmit}
+              sx={{
+                borderColor: '#e64a19',
+                color: '#e64a19',
+                '&:hover': { borderColor: '#d84315', bgcolor: '#fff3e0' },
+              }}
             >
               Reset
             </Button>
@@ -1194,6 +1321,10 @@ const response = await axios.post(`${import.meta.env.VITE_API_URL}/products/gene
               color="primary"
               disabled={loadingSubmit}
               startIcon={loadingSubmit ? <CircularProgress size={20} /> : null}
+              sx={{
+                bgcolor: '#1976d2',
+                '&:hover': { bgcolor: '#1565c0' },
+              }}
             >
               {loadingSubmit ? "Saving..." : isEditMode ? "Update Product" : "Add Product"}
             </Button>
