@@ -32,67 +32,8 @@ import {
 import { Add, Edit, Delete, Person, Phone } from "@mui/icons-material"
 import axios from "axios"
 
-const initialAgents = [
-  {
-    id: 1,
-    first_name: "John",
-    last_name: "Doe",
-    agent_code: "JD001",
-    email: "john.doe@firstcraft.com",
-    phone_number: "0712345678",
-    id_number: "12345678",
-    kra_pin: "A123456789B",
-    is_active: true,
-    created_at: "2023-01-15T00:00:00Z",
-    updated_at: "2023-01-15T00:00:00Z",
-    is_confirmed: true,
-  },
-  {
-    id: 2,
-    first_name: "Jane",
-    last_name: "Smith",
-    agent_code: "JS002",
-    email: "jane.smith@firstcraft.com",
-    phone_number: "0723456789",
-    id_number: "87654321",
-    kra_pin: "A987654321C",
-    is_active: true,
-    created_at: "2023-03-20T00:00:00Z",
-    updated_at: "2023-03-20T00:00:00Z",
-    is_confirmed: true,
-  },
-  {
-    id: 3,
-    first_name: "Bob",
-    last_name: "Johnson",
-    agent_code: "BJ003",
-    email: "bob.johnson@firstcraft.com",
-    phone_number: "0734567890",
-    id_number: "45678912",
-    kra_pin: "A456789123D",
-    is_active: false,
-    created_at: "2022-11-10T00:00:00Z",
-    updated_at: "2022-11-10T00:00:00Z",
-    is_confirmed: true,
-  },
-  {
-    id: 4,
-    first_name: "Alice",
-    last_name: "Brown",
-    agent_code: "AB004",
-    email: "alice.brown@firstcraft.com",
-    phone_number: "0745678901",
-    id_number: "12378945",
-    kra_pin: "A123789456E",
-    is_active: true,
-    created_at: "2023-05-08T00:00:00Z",
-    updated_at: "2023-05-08T00:00:00Z",
-    is_confirmed: true,
-  },
-]
-
 export default function SalesAgentManagement() {
-  const [agents, setAgents] = useState(initialAgents)
+  const [agents, setAgents] = useState([])
   const [open, setOpen] = useState(false)
   const [editAgent, setEditAgent] = useState(null)
   const [formData, setFormData] = useState({
@@ -116,6 +57,29 @@ export default function SalesAgentManagement() {
     idPhotoBack: null,
     kraCertificate: null,
   })
+
+  // Fetch agents on component mount
+ useEffect(() => {
+  const fetchAgents = async () => {
+    try {
+      const response = await axios.get(`${import.meta.env.VITE_API_URL}/auth/sales-agents`, {
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem("token")}`,
+        },
+      })
+      console.log("Fetched agents:", response.data)
+      setAgents(response.data)
+    } catch (error) {
+      console.error("Error fetching sales agents:", error)
+      setNotification({
+        open: true,
+        message: error.response?.data?.message || "Failed to fetch sales agents",
+        severity: "error",
+      })
+    }
+  }
+  fetchAgents()
+}, [])
 
   const generateAgentCode = (firstName, lastName, existingAgents) => {
     const firstInitial = firstName.charAt(0).toUpperCase()
@@ -259,7 +223,12 @@ export default function SalesAgentManagement() {
         const response = await axios.put(
           `${import.meta.env.VITE_API_URL}/auth/sales-agents/${editAgent.id}`,
           formDataToSend,
-          { headers: { "Content-Type": "multipart/form-data" } }
+          {
+            headers: {
+              "Content-Type": "multipart/form-data",
+              Authorization: `Bearer ${localStorage.getItem("token")}`, // Adjust based on your auth setup
+            },
+          }
         )
         setAgents(agents.map((agent) => (agent.id === editAgent.id ? response.data.agent : agent)))
         setNotification({
@@ -271,7 +240,12 @@ export default function SalesAgentManagement() {
         const response = await axios.post(
           `${import.meta.env.VITE_API_URL}/auth/sales-agents`,
           formDataToSend,
-          { headers: { "Content-Type": "multipart/form-data" } }
+          {
+            headers: {
+              "Content-Type": "multipart/form-data",
+              Authorization: `Bearer ${localStorage.getItem("token")}`, // Adjust based on your auth setup
+            },
+          }
         )
         setAgents([...agents, response.data.agent])
         setNotification({
@@ -293,7 +267,11 @@ export default function SalesAgentManagement() {
 
   const handleDelete = async (id) => {
     try {
-      await axios.delete(`${import.meta.env.VITE_API_URL}/auth/sales-agents/${id}`)
+      await axios.delete(`${import.meta.env.VITE_API_URL}/auth/sales-agents/${id}`, {
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem("token")}`, // Adjust based on your auth setup
+        },
+      })
       setAgents(agents.filter((agent) => agent.id !== id))
       setNotification({
         open: true,
@@ -393,55 +371,65 @@ export default function SalesAgentManagement() {
               </TableRow>
             </TableHead>
             <TableBody>
-              {agents.map((agent) => (
-                <TableRow key={agent.id} hover>
-                  <TableCell>
-                    <Box sx={{ display: "flex", alignItems: "center" }}>
-                      <Avatar sx={{ mr: 2, bgcolor: "primary.main" }}>
-                        {agent.first_name.charAt(0)}
-                      </Avatar>
-                      <Box>
-                        <Typography variant="body1" fontWeight="medium">
-                          {`${agent.first_name} ${agent.last_name}`}
-                        </Typography>
-                        <Typography variant="caption" color="text.secondary">
-                          {agent.email}
-                        </Typography>
-                        <br />
-                        <Typography variant="caption" color="text.secondary">
-                          <Phone sx={{ fontSize: 12, mr: 0.5 }} />
-                          {agent.phone_number}
-                        </Typography>
-                      </Box>
-                      </Box>
-                    </TableCell>
-                    <TableCell>
-                      <Typography variant="body2">{agent.agent_code}</Typography>
-                    </TableCell>
-                    <TableCell>
-                      <Typography variant="body2">{agent.id_number}</Typography>
-                    </TableCell>
-                    <TableCell>
-                      <Typography variant="body2">{agent.kra_pin}</Typography>
-                    </TableCell>
-                    <TableCell align="center">
-                      <Chip
-                        label={agent.is_active ? "Active" : "Inactive"}
-                        size="small"
-                        color={getStatusColor(agent.is_active)}
-                      />
-                    </TableCell>
-                    <TableCell align="center">
-                      <IconButton size="small" onClick={() => handleOpen(agent)} sx={{ mr: 1 }}>
-                        <Edit />
-                      </IconButton>
-                      <IconButton size="small" color="error" onClick={() => handleDelete(agent.id)}>
-                        <Delete />
-                      </IconButton>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
+  {agents.length === 0 ? (
+    <TableRow>
+      <TableCell colSpan={6} align="center">
+        <Typography variant="body2" color="text.secondary">
+          No sales agents found
+        </Typography>
+      </TableCell>
+    </TableRow>
+  ) : (
+    agents.map((agent) => (
+      <TableRow key={agent.id} hover>
+        <TableCell>
+          <Box sx={{ display: "flex", alignItems: "center" }}>
+            <Avatar sx={{ mr: 2, bgcolor: "primary.main" }}>
+              {agent.first_name?.charAt(0) || "?"}
+            </Avatar>
+            <Box>
+              <Typography variant="body1" fontWeight="medium">
+                {`${agent.first_name || "Unknown"} ${agent.last_name || ""}`}
+              </Typography>
+              <Typography variant="caption" color="text.secondary">
+                {agent.email || "No email"}
+              </Typography>
+              <br />
+              <Typography variant="caption" color="text.secondary">
+                <Phone sx={{ fontSize: 12, mr: 0.5 }} />
+                {agent.phone_number || "No phone"}
+              </Typography>
+            </Box>
+          </Box>
+        </TableCell>
+        <TableCell>
+          <Typography variant="body2">{agent.agent_code || "N/A"}</Typography>
+        </TableCell>
+        <TableCell>
+          <Typography variant="body2">{agent.id_number || "N/A"}</Typography>
+        </TableCell>
+        <TableCell>
+          <Typography variant="body2">{agent.kra_pin || "N/A"}</Typography>
+        </TableCell>
+        <TableCell align="center">
+          <Chip
+            label={agent.is_active ? "Active" : "Inactive"}
+            size="small"
+            color={getStatusColor(agent.is_active)}
+          />
+        </TableCell>
+        <TableCell align="center">
+          <IconButton size="small" onClick={() => handleOpen(agent)} sx={{ mr: 1 }}>
+            <Edit />
+          </IconButton>
+          <IconButton size="small" color="error" onClick={() => handleDelete(agent.id)}>
+            <Delete />
+          </IconButton>
+        </TableCell>
+      </TableRow>
+    ))
+  )}
+</TableBody>
             </Table>
           </TableContainer>
         </Paper>
