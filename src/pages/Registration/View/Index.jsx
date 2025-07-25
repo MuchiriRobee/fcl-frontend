@@ -59,6 +59,7 @@ const RegistrationForm = () => {
 
   // Success dialog state
   const [successDialogOpen, setSuccessDialogOpen] = useState(false);
+  const [userCode, setUserCode] = useState('');
 
   // Snackbar state for notifications
   const [snackbar, setSnackbar] = useState({
@@ -210,6 +211,7 @@ const RegistrationForm = () => {
       
       console.log('Registration response:', response.data);
       if (response.status === 201) {
+        setUserCode(response.data.user_code || ''); // Store user code from response
         setSuccessDialogOpen(true);
       } else {
         throw new Error(`Registration failed with status: ${response.status}`);
@@ -597,6 +599,11 @@ const RegistrationForm = () => {
           <DialogContentText>
             Thank you for registering with FirstCraft! Your account has been created successfully.
           </DialogContentText>
+          {userCode && (
+            <DialogContentText sx={{ mt: 2 }}>
+              Your unique user code is: <strong>{userCode}</strong>. Please keep this code for future reference.
+            </DialogContentText>
+          )}
           <Box sx={{ display: "flex", alignItems: "center", mt: 2, p: 2, bgcolor: "#f5f5f5", borderRadius: 1 }}>
             <Email sx={{ mr: 2, color: "primary.main" }} />
             <DialogContentText>

@@ -24,8 +24,7 @@ import CategoryManagement from "../../../components/admin/CategoryManagement"
 import InventoryManagement from "../../../components/admin/InventoryManagement"
 import SalesAgentManagement from "../../../components/admin/SalesAgentManagement"
 import SupplierManagement from "../../../components/admin/SupplierManagement"
-import SalesAgentPage from "../../../components/admin/SalesAgentPage"
-
+import CustomerManagement from "../../../components/admin/CustomerManagement"
 // Error Boundary Component
 import React from 'react';
 
@@ -482,14 +481,9 @@ const AdminPage = () => {
 
         {/* Customers - E-commerce Customer Management with CRUD */}
         <TabPanel value={tabValue} index={7}>
-          <Paper sx={{ p: 4, textAlign: "center", borderRadius: 2 }}>
-            <Typography variant="h6" color="text.secondary" gutterBottom sx={{ fontFamily: "'Poppins', sans-serif" }}>
-              E-commerce Customer Management with CRUD Operations
-            </Typography>
-            <Typography variant="body1" color="text.secondary" sx={{ fontFamily: "'Poppins', sans-serif" }}>
-              Manage customer information and interactions.
-            </Typography>
-          </Paper>
+           <ErrorBoundary>
+          <CustomerManagement />
+        </ErrorBoundary>
         </TabPanel>
       </Box>
     </Box>

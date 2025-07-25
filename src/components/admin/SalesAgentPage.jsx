@@ -83,10 +83,10 @@ export default function SalesAgentPage() {
             <TableContainer>
               <Table>
                 <TableHead>
-                  <TableRow sx={{ bgcolor: "#f8f9fa" }}>
+                <TableRow sx={{ bgcolor: "#f8f9fa" }}>
                     <TableCell sx={{ fontWeight: "bold" }}>User Name</TableCell>
+                    <TableCell sx={{ fontWeight: "bold" }}>User Code</TableCell>
                     {/* Placeholder columns for future implementation */}
-                    {/* <TableCell sx={{ fontWeight: "bold" }}>User Code</TableCell> */}
                     {/* <TableCell sx={{ fontWeight: "bold" }}>Last Purchase/Order Date</TableCell> */}
                     {/* <TableCell sx={{ fontWeight: "bold" }}>Number of Orders</TableCell> */}
                     {/* <TableCell sx={{ fontWeight: "bold" }}>Total Orders Amount</TableCell> */}
@@ -111,12 +111,14 @@ export default function SalesAgentPage() {
                     </TableRow>
                   ) : (
                     users.map((user) => (
-                      <TableRow key={user.id} hover>
+                     <TableRow key={user.id} hover>
                         <TableCell>
                           <Typography variant="body2">{user.name || "N/A"}</Typography>
                         </TableCell>
+                        <TableCell>
+                          <Typography variant="body2">{user.user_code || "N/A"}</Typography>
+                        </TableCell>
                         {/* Placeholder columns */}
-                        {/* <TableCell><Typography variant="body2">N/A</Typography></TableCell> */}
                         {/* <TableCell><Typography variant="body2">N/A</Typography></TableCell> */}
                         {/* <TableCell><Typography variant="body2">0</Typography></TableCell> */}
                         {/* <TableCell><Typography variant="body2">0</Typography></TableCell> */}

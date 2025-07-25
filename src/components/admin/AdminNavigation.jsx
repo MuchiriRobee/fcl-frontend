@@ -919,7 +919,7 @@ const AdminNavigation = ({
           <AdminNavButton
             startIcon={<People sx={{ fontSize: 18 }} />}
             active={isTabActive(7) || activeComponent === "CustomerManagement"}
-            onClick={() => handleDirectComponentNavigation("CustomerManagement", 7, "customers")}
+            onClick={() => handleDirectComponentNavigation("CustomerManagement", 7, "customers", { type: "customer" })}
           >
             Customers
           </AdminNavButton>
