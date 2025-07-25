@@ -75,13 +75,19 @@ const RegistrationForm = () => {
         setAgentError(null);
         console.log('Fetching sales agents from:', `${import.meta.env.VITE_API_URL}/auth/sales-agents`);
         try {
-          const response = await axios.get(`${import.meta.env.VITE_API_URL}/auth/sales-agents`);
+          const response = await axios.get(`${import.meta.env.VITE_API_URL}/auth/sales-agents`, {
+            
+          });
           console.log('Sales agents response:', response.data);
-          setSalesAgents(response.data);
-          if (response.data.length > 0) {
+          // Filter active agents
+          const activeAgents = Array.isArray(response.data)
+            ? response.data.filter(agent => agent.is_active)
+            : [];
+          setSalesAgents(activeAgents);
+          if (activeAgents.length > 0) {
             setFormData((prev) => ({
               ...prev,
-              salesAgentId: response.data[0].id,
+              salesAgentId: activeAgents[0].id,
             }));
           }
         } catch (error) {
@@ -255,7 +261,7 @@ const RegistrationForm = () => {
       open: false,
     });
   };
-// the style
+
   return (
     <Container maxWidth="md" sx={{ py: 4 }}>
       <Paper elevation={0} sx={{ p: 4, borderRadius: 2 }}>
@@ -306,7 +312,7 @@ const RegistrationForm = () => {
                   ) : (
                     salesAgents.map((agent) => (
                       <MenuItem key={agent.id} value={agent.id}>
-                        {agent.name}
+                        {`${agent.first_name} ${agent.last_name}`}
                       </MenuItem>
                     ))
                   )}
@@ -336,7 +342,7 @@ const RegistrationForm = () => {
           {/* Account Information */}
           <Box mb={3}>
             <Typography variant="body1" fontWeight="bold" gutterBottom>
-              {formData.userType === "individual" ? "Individual Name" : "Company Name"}{" "}
+              {formData.userType === "individual" ? "Full Name" : "Company Name"}{" "}
               <Typography component="span" color="error" variant="body2">
                 (*Please fill your First and Last name. Your invoice will be generated in this name)
               </Typography>
@@ -346,7 +352,7 @@ const RegistrationForm = () => {
               name="companyName"
               value={formData.companyName}
               onChange={handleChange}
-              placeholder={formData.userType === "individual" ? "Individual Name" : "Company Name"}
+              placeholder={formData.userType === "individual" ? "Full Name" : "Company Name"}
               size="small"
               error={!!errors.companyName}
               helperText={errors.companyName}

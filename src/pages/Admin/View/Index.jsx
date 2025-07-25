@@ -24,6 +24,7 @@ import CategoryManagement from "../../../components/admin/CategoryManagement"
 import InventoryManagement from "../../../components/admin/InventoryManagement"
 import SalesAgentManagement from "../../../components/admin/SalesAgentManagement"
 import SupplierManagement from "../../../components/admin/SupplierManagement"
+import SalesAgentPage from "../../../components/admin/SalesAgentPage"
 
 // Error Boundary Component
 import React from 'react';

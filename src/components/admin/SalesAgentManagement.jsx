@@ -17,7 +17,6 @@ import {
   DialogContent,
   DialogActions,
   TextField,
-  Chip,
   IconButton,
   Grid,
   Card,
@@ -29,11 +28,14 @@ import {
   Alert,
   Snackbar,
 } from "@mui/material"
-import { Add, Edit, Delete, Person, Phone } from "@mui/icons-material"
+import { Add, Delete, Edit } from "@mui/icons-material"
+import { Person, Phone } from "@mui/icons-material"
+import { useNavigate } from "react-router-dom"
 import axios from "axios"
 
 export default function SalesAgentManagement() {
   const [agents, setAgents] = useState([])
+  const [loading, setLoading] = useState(true)
   const [open, setOpen] = useState(false)
   const [editAgent, setEditAgent] = useState(null)
   const [formData, setFormData] = useState({
@@ -57,29 +59,43 @@ export default function SalesAgentManagement() {
     idPhotoBack: null,
     kraCertificate: null,
   })
+  const navigate = useNavigate()
 
-  // Fetch agents on component mount
- useEffect(() => {
-  const fetchAgents = async () => {
-    try {
-      const response = await axios.get(`${import.meta.env.VITE_API_URL}/auth/sales-agents`, {
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem("token")}`,
-        },
-      })
-      console.log("Fetched agents:", response.data)
-      setAgents(response.data)
-    } catch (error) {
-      console.error("Error fetching sales agents:", error)
-      setNotification({
-        open: true,
-        message: error.response?.data?.message || "Failed to fetch sales agents",
-        severity: "error",
-      })
+  useEffect(() => {
+    const fetchAgents = async () => {
+      try {
+        setLoading(true)
+        const response = await axios.get(`${import.meta.env.VITE_API_URL}/auth/sales-agents`, {
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem("token")}`,
+          },
+        })
+        console.log("Fetched agents:", response.data)
+        const validAgents = Array.isArray(response.data)
+          ? response.data.filter(agent => agent && typeof agent === 'object' && agent.id)
+          : []
+        setAgents(validAgents)
+        setLoading(false)
+        if (validAgents.length === 0 && response.data.length > 0) {
+          setNotification({
+            open: true,
+            message: "No valid agents found in the response",
+            severity: "warning",
+          })
+        }
+      } catch (error) {
+        console.error("Error fetching sales agents:", error)
+        setNotification({
+          open: true,
+          message: error.response?.data?.message || "Failed to fetch sales agents",
+          severity: "error",
+        })
+        setLoading(false)
+        setAgents([])
+      }
     }
-  }
-  fetchAgents()
-}, [])
+    fetchAgents()
+  }, [])
 
   const generateAgentCode = (firstName, lastName, existingAgents) => {
     const firstInitial = firstName.charAt(0).toUpperCase()
@@ -226,7 +242,7 @@ export default function SalesAgentManagement() {
           {
             headers: {
               "Content-Type": "multipart/form-data",
-              Authorization: `Bearer ${localStorage.getItem("token")}`, // Adjust based on your auth setup
+              Authorization: `Bearer ${localStorage.getItem("token")}`,
             },
           }
         )
@@ -243,7 +259,7 @@ export default function SalesAgentManagement() {
           {
             headers: {
               "Content-Type": "multipart/form-data",
-              Authorization: `Bearer ${localStorage.getItem("token")}`, // Adjust based on your auth setup
+              Authorization: `Bearer ${localStorage.getItem("token")}`,
             },
           }
         )
@@ -269,7 +285,7 @@ export default function SalesAgentManagement() {
     try {
       await axios.delete(`${import.meta.env.VITE_API_URL}/auth/sales-agents/${id}`, {
         headers: {
-          Authorization: `Bearer ${localStorage.getItem("token")}`, // Adjust based on your auth setup
+          Authorization: `Bearer ${localStorage.getItem("token")}`,
         },
       })
       setAgents(agents.filter((agent) => agent.id !== id))
@@ -287,6 +303,32 @@ export default function SalesAgentManagement() {
     }
   }
 
+  const handleToggleStatus = async (agent) => {
+    try {
+      const response = await axios.patch(
+        `${import.meta.env.VITE_API_URL}/auth/sales-agents/${agent.id}/status`,
+        { is_active: !agent.is_active },
+        {
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem("token")}`,
+          },
+        }
+      )
+      setAgents(agents.map((a) => (a.id === agent.id ? response.data.agent : a)))
+      setNotification({
+        open: true,
+        message: `Sales agent ${agent.is_active ? 'deactivated' : 'activated'} successfully!`,
+        severity: "success",
+      })
+    } catch (error) {
+      setNotification({
+        open: true,
+        message: error.response?.data?.message || "Failed to update agent status",
+        severity: "error",
+      })
+    }
+  }
+
   const handleCloseNotification = () => {
     setNotification({ ...notification, open: false })
   }
@@ -295,7 +337,6 @@ export default function SalesAgentManagement() {
     return status ? "success" : "error"
   }
 
-  // Calculate summary stats
   const totalAgents = agents.length
   const activeAgents = agents.filter((agent) => agent.is_active).length
 
@@ -313,7 +354,7 @@ export default function SalesAgentManagement() {
               <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                 <Box>
                   <Typography variant="h4" fontWeight="bold" color="primary">
-                    {totalAgents}
+                    {agents.length}
                   </Typography>
                   <Typography variant="body2" color="text.secondary">
                     Total Agents
@@ -330,7 +371,7 @@ export default function SalesAgentManagement() {
               <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                 <Box>
                   <Typography variant="h4" fontWeight="bold" color="success.main">
-                    {activeAgents}
+                    {agents.filter((agent) => agent.is_active).length}
                   </Typography>
                   <Typography variant="body2" color="text.secondary">
                     Active Agents
@@ -371,296 +412,310 @@ export default function SalesAgentManagement() {
               </TableRow>
             </TableHead>
             <TableBody>
-  {agents.length === 0 ? (
-    <TableRow>
-      <TableCell colSpan={6} align="center">
-        <Typography variant="body2" color="text.secondary">
-          No sales agents found
-        </Typography>
-      </TableCell>
-    </TableRow>
-  ) : (
-    agents.map((agent) => (
-      <TableRow key={agent.id} hover>
-        <TableCell>
-          <Box sx={{ display: "flex", alignItems: "center" }}>
-            <Avatar sx={{ mr: 2, bgcolor: "primary.main" }}>
-              {agent.first_name?.charAt(0) || "?"}
-            </Avatar>
-            <Box>
-              <Typography variant="body1" fontWeight="medium">
-                {`${agent.first_name || "Unknown"} ${agent.last_name || ""}`}
-              </Typography>
-              <Typography variant="caption" color="text.secondary">
-                {agent.email || "No email"}
-              </Typography>
-              <br />
-              <Typography variant="caption" color="text.secondary">
-                <Phone sx={{ fontSize: 12, mr: 0.5 }} />
-                {agent.phone_number || "No phone"}
-              </Typography>
-            </Box>
-          </Box>
-        </TableCell>
-        <TableCell>
-          <Typography variant="body2">{agent.agent_code || "N/A"}</Typography>
-        </TableCell>
-        <TableCell>
-          <Typography variant="body2">{agent.id_number || "N/A"}</Typography>
-        </TableCell>
-        <TableCell>
-          <Typography variant="body2">{agent.kra_pin || "N/A"}</Typography>
-        </TableCell>
-        <TableCell align="center">
-          <Chip
-            label={agent.is_active ? "Active" : "Inactive"}
-            size="small"
-            color={getStatusColor(agent.is_active)}
-          />
-        </TableCell>
-        <TableCell align="center">
-          <IconButton size="small" onClick={() => handleOpen(agent)} sx={{ mr: 1 }}>
-            <Edit />
-          </IconButton>
-          <IconButton size="small" color="error" onClick={() => handleDelete(agent.id)}>
-            <Delete />
-          </IconButton>
-        </TableCell>
-      </TableRow>
-    ))
-  )}
-</TableBody>
-            </Table>
-          </TableContainer>
-        </Paper>
+              {loading ? (
+                <TableRow>
+                  <TableCell colSpan={6} align="center">
+                    <Typography variant="body2" color="text.secondary">
+                      Loading agents...
+                    </Typography>
+                  </TableCell>
+                </TableRow>
+              ) : agents.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={6} align="center">
+                    <Typography variant="body2" color="text.secondary">
+                      No sales agents found
+                    </Typography>
+                  </TableCell>
+                </TableRow>
+              ) : (
+                agents.map((agent) => (
+                  <TableRow
+                    key={agent.id}
+                    hover
+                    onClick={() => navigate(`/agent/${agent.id}`)}
+                    sx={{ cursor: "pointer" }}
+                  >
+                    <TableCell>
+                      <Box sx={{ display: "flex", alignItems: "center" }}>
+                        <Avatar sx={{ mr: 2, bgcolor: "primary.main" }}>
+                          {agent.first_name?.charAt(0) || "?"}
+                        </Avatar>
+                        <Box>
+                          <Typography variant="body1" fontWeight="medium">
+                            {`${agent.first_name || "Unknown"} ${agent.last_name || ""}`}
+                          </Typography>
+                          <Typography variant="caption" color="text.secondary">
+                            {agent.email || "No email"}
+                          </Typography>
+                          <br />
+                          <Typography variant="caption" color="text.secondary">
+                            <Phone sx={{ fontSize: 12, mr: 0.5 }} />
+                            {agent.phone_number || "No phone"}
+                          </Typography>
+                        </Box>
+                      </Box>
+                    </TableCell>
+                    <TableCell>
+                      <Typography variant="body2">{agent.agent_code || "N/A"}</Typography>
+                    </TableCell>
+                    <TableCell>
+                      <Typography variant="body2">{agent.id_number || "N/A"}</Typography>
+                    </TableCell>
+                    <TableCell>
+                      <Typography variant="body2">{agent.kra_pin || "N/A"}</Typography>
+                    </TableCell>
+                    <TableCell align="center" onClick={(e) => e.stopPropagation()}>
+                      <Switch
+                        checked={agent.is_active}
+                        onChange={() => handleToggleStatus(agent)}
+                        color="primary"
+                        size="small"
+                      />
+                    </TableCell>
+                    <TableCell align="center" onClick={(e) => e.stopPropagation()}>
+                      <IconButton size="small" onClick={() => handleOpen(agent)} sx={{ mr: 1 }}>
+                        <Edit />
+                      </IconButton>
+                      <IconButton size="small" color="error" onClick={() => handleDelete(agent.id)}>
+                        <Delete />
+                      </IconButton>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </TableContainer>
+      </Paper>
 
-        {/* Add/Edit Dialog */}
-        <Dialog open={open} onClose={handleClose} maxWidth="md" fullWidth>
-          <DialogTitle>{editAgent ? "Edit Agent" : "Add New Agent"}</DialogTitle>
-          <DialogContent>
-            <Grid container spacing={2} sx={{ mt: 1 }}>
-              <Grid item xs={12} md={4}>
-                <TextField
-                  fullWidth
-                  label="First Name"
-                  value={formData.first_name}
-                  onChange={(e) => setFormData({ ...formData, first_name: e.target.value })}
-                  error={!!formErrors.first_name}
-                  helperText={formErrors.first_name}
-                  required
-                />
-              </Grid>
-              <Grid item xs={12} md={4}>
-                <TextField
-                  fullWidth
-                  label="Last Name"
-                  value={formData.last_name}
-                  onChange={(e) => setFormData({ ...formData, last_name: e.target.value })}
-                  error={!!formErrors.last_name}
-                  helperText={formErrors.last_name}
-                  required
-                />
-              </Grid>
-              <Grid item xs={12} md={4}>
-                <Button
-                  variant="outlined"
-                  component="label"
-                  fullWidth
-                  sx={{ textAlign: "left", justifyContent: "flex-start" }}
-                >
-                  {formData.agentPhoto ? formData.agentPhoto.name : "Upload Agent Photo"}
-                  <input
-                    type="file"
-                    accept="image/jpeg,image/png"
-                    hidden
-                    onChange={(e) => handleFileChange(e, "agentPhoto")}
-                  />
-                </Button>
-                {imagePreviews.agentPhoto && (
-                  <Box sx={{ mt: 1 }}>
-                    <img src={imagePreviews.agentPhoto} alt="Agent Preview" style={{ maxWidth: "100%", maxHeight: "150px" }} />
-                  </Box>
-                )}
-                {formErrors.agentPhoto && (
-                  <Typography variant="caption" color="error">
-                    {formErrors.agentPhoto}
-                  </Typography>
-                )}
-              </Grid>
-              <Grid item xs={12} md={6}>
-                <TextField
-                  fullWidth
-                  label="ID Number (8 digits)"
-                  value={formData.id_number}
-                  onChange={(e) => setFormData({ ...formData, id_number: e.target.value })}
-                  error={!!formErrors.id_number}
-                  helperText={formErrors.id_number}
-                  required
-                />
-              </Grid>
-              <Grid item xs={12} md={3}>
-                <Button
-                  variant="outlined"
-                  component="label"
-                  fullWidth
-                  sx={{ textAlign: "left", justifyContent: "flex-start" }}
-                >
-                  {formData.idPhotoFront ? formData.idPhotoFront.name : "Upload ID Photo (Front)"}
-                  <input
-                    type="file"
-                    accept="image/jpeg,image/png"
-                    hidden
-                    onChange={(e) => handleFileChange(e, "idPhotoFront")}
-                  />
-                </Button>
-                {imagePreviews.idPhotoFront && (
-                  <Box sx={{ mt: 1 }}>
-                    <img src={imagePreviews.idPhotoFront} alt="ID Front Preview" style={{ maxWidth: "100%", maxHeight: "150px" }} />
-                  </Box>
-                )}
-                {formErrors.idPhotoFront && (
-                  <Typography variant="caption" color="error">
-                    {formErrors.idPhotoFront}
-                  </Typography>
-                )}
-              </Grid>
-              <Grid item xs={12} md={3}>
-                <Button
-                  variant="outlined"
-                  component="label"
-                  fullWidth
-                  sx={{ textAlign: "left", justifyContent: "flex-start" }}
-                >
-                  {formData.idPhotoBack ? formData.idPhotoBack.name : "Upload ID Photo (Back)"}
-                  <input
-                    type="file"
-                    accept="image/jpeg,image/png"
-                    hidden
-                    onChange={(e) => handleFileChange(e, "idPhotoBack")}
-                  />
-                </Button>
-                {imagePreviews.idPhotoBack && (
-                  <Box sx={{ mt: 1 }}>
-                    <img src={imagePreviews.idPhotoBack} alt="ID Back Preview" style={{ maxWidth: "100%", maxHeight: "150px" }} />
-                  </Box>
-                )}
-                {formErrors.idPhotoBack && (
-                  <Typography variant="caption" color="error">
-                    {formErrors.idPhotoBack}
-                  </Typography>
-                )}
-              </Grid>
-              <Grid item xs={12} md={6}>
-                <TextField
-                  fullWidth
-                  label="KRA PIN (e.g., A123456789B)"
-                  value={formData.kra_pin}
-                  onChange={(e) => setFormData({ ...formData, kra_pin: e.target.value })}
-                  error={!!formErrors.kra_pin}
-                  helperText={formErrors.kra_pin}
-                  required
-                />
-              </Grid>
-              <Grid item xs={12} md={6}>
-                <Button
-                  variant="outlined"
-                  component="label"
-                  fullWidth
-                  sx={{ textAlign: "left", justifyContent: "flex-start" }}
-                >
-                  {formData.kraCertificate ? formData.kraCertificate.name : "Upload KRA Certificate (PDF)"}
-                  <input
-                    type="file"
-                    accept="application/pdf"
-                    hidden
-                    onChange={(e) => handleFileChange(e, "kraCertificate")}
-                  />
-                </Button>
-                {imagePreviews.kraCertificate && (
-                  <Box sx={{ mt: 1 }}>
-                    <iframe
-                      src={imagePreviews.kraCertificate}
-                      title="KRA Certificate Preview"
-                      style={{ width: "100%", height: "150px" }}
-                    />
-                  </Box>
-                )}
-                {formErrors.kraCertificate && (
-                  <Typography variant="caption" color="error">
-                    {formErrors.kraCertificate}
-                  </Typography>
-                )}
-              </Grid>
-              <Grid item xs={12} md={6}>
-                <TextField
-                  fullWidth
-                  label="Email"
-                  type="email"
-                  value={formData.email}
-                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                  error={!!formErrors.email}
-                  helperText={formErrors.email}
-                  required
-                />
-              </Grid>
-              <Grid item xs={12} md={6}>
-                <TextField
-                  fullWidth
-                  label="Phone Number (e.g., 0712345678)"
-                  value={formData.phone_number}
-                  onChange={(e) => setFormData({ ...formData, phone_number: e.target.value })}
-                  error={!!formErrors.phone_number}
-                  helperText={formErrors.phone_number}
-                  required
-                />
-              </Grid>
-              <Grid item xs={12}>
-                <FormControlLabel
-                  control={
-                    <Switch
-                      checked={formData.is_active}
-                      onChange={(e) => setFormData({ ...formData, is_active: e.target.checked })}
-                      color="primary"
-                    />
-                  }
-                  label={formData.is_active ? "Active" : "Inactive"}
-                />
-              </Grid>
+      {/* Add/Edit Dialog */}
+      <Dialog open={open} onClose={handleClose} maxWidth="md" fullWidth>
+        <DialogTitle>{editAgent ? "Edit Agent" : "Add New Agent"}</DialogTitle>
+        <DialogContent>
+          <Grid container spacing={2} sx={{ mt: 1 }}>
+            <Grid item xs={12} md={4}>
+              <TextField
+                fullWidth
+                label="First Name"
+                value={formData.first_name}
+                onChange={(e) => setFormData({ ...formData, first_name: e.target.value })}
+                error={!!formErrors.first_name}
+                helperText={formErrors.first_name}
+                required
+              />
             </Grid>
-          </DialogContent>
-          <DialogActions>
-            <Button onClick={handleClose}>Cancel</Button>
-            <Button onClick={handleSubmit} variant="contained">
-              {editAgent ? "Update" : "Add"}
-            </Button>
-          </DialogActions>
-        </Dialog>
+            <Grid item xs={12} md={4}>
+              <TextField
+                fullWidth
+                label="Last Name"
+                value={formData.last_name}
+                onChange={(e) => setFormData({ ...formData, last_name: e.target.value })}
+                error={!!formErrors.last_name}
+                helperText={formErrors.last_name}
+                required
+              />
+            </Grid>
+            <Grid item xs={12} md={4}>
+              <Button
+                variant="outlined"
+                component="label"
+                fullWidth
+                sx={{ textAlign: "left", justifyContent: "flex-start" }}
+              >
+                {formData.agentPhoto ? formData.agentPhoto.name : "Upload Agent Photo"}
+                <input
+                  type="file"
+                  accept="image/jpeg,image/png"
+                  hidden
+                  onChange={(e) => handleFileChange(e, "agentPhoto")}
+                />
+              </Button>
+              {imagePreviews.agentPhoto && (
+                <Box sx={{ mt: 1 }}>
+                  <img src={imagePreviews.agentPhoto} alt="Agent Preview" style={{ maxWidth: "100%", maxHeight: "150px" }} />
+                </Box>
+              )}
+              {formErrors.agentPhoto && (
+                <Typography variant="caption" color="error">
+                  {formErrors.agentPhoto}
+                </Typography>
+              )}
+            </Grid>
+            <Grid item xs={12} md={6}>
+              <TextField
+                fullWidth
+                label="ID Number (8 digits)"
+                value={formData.id_number}
+                onChange={(e) => setFormData({ ...formData, id_number: e.target.value })}
+                error={!!formErrors.id_number}
+                helperText={formErrors.id_number}
+                required
+              />
+            </Grid>
+            <Grid item xs={12} md={3}>
+              <Button
+                variant="outlined"
+                component="label"
+                fullWidth
+                sx={{ textAlign: "left", justifyContent: "flex-start" }}
+              >
+                {formData.idPhotoFront ? formData.idPhotoFront.name : "Upload ID Photo (Front)"}
+                <input
+                  type="file"
+                  accept="image/jpeg,image/png"
+                  hidden
+                  onChange={(e) => handleFileChange(e, "idPhotoFront")}
+                />
+              </Button>
+              {imagePreviews.idPhotoFront && (
+                <Box sx={{ mt: 1 }}>
+                  <img src={imagePreviews.idPhotoFront} alt="ID Front Preview" style={{ maxWidth: "100%", maxHeight: "150px" }} />
+                </Box>
+              )}
+              {formErrors.idPhotoFront && (
+                <Typography variant="caption" color="error">
+                  {formErrors.idPhotoFront}
+                </Typography>
+              )}
+            </Grid>
+            <Grid item xs={12} md={3}>
+              <Button
+                variant="outlined"
+                component="label"
+                fullWidth
+                sx={{ textAlign: "left", justifyContent: "flex-start" }}
+              >
+                {formData.idPhotoBack ? formData.idPhotoBack.name : "Upload ID Photo (Back)"}
+                <input
+                  type="file"
+                  accept="image/jpeg,image/png"
+                  hidden
+                  onChange={(e) => handleFileChange(e, "idPhotoBack")}
+                />
+              </Button>
+              {imagePreviews.idPhotoBack && (
+                <Box sx={{ mt: 1 }}>
+                  <img src={imagePreviews.idPhotoBack} alt="ID Back Preview" style={{ maxWidth: "100%", maxHeight: "150px" }} />
+                </Box>
+              )}
+              {formErrors.idPhotoBack && (
+                <Typography variant="caption" color="error">
+                  {formErrors.idPhotoBack}
+                </Typography>
+              )}
+            </Grid>
+            <Grid item xs={12} md={6}>
+              <TextField
+                fullWidth
+                label="KRA PIN (e.g., A123456789B)"
+                value={formData.kra_pin}
+                onChange={(e) => setFormData({ ...formData, kra_pin: e.target.value })}
+                error={!!formErrors.kra_pin}
+                helperText={formErrors.kra_pin}
+                required
+              />
+            </Grid>
+            <Grid item xs={12} md={6}>
+              <Button
+                variant="outlined"
+                component="label"
+                fullWidth
+                sx={{ textAlign: "left", justifyContent: "flex-start" }}
+              >
+                {formData.kraCertificate ? formData.kraCertificate.name : "Upload KRA Certificate (PDF)"}
+                <input
+                  type="file"
+                  accept="application/pdf"
+                  hidden
+                  onChange={(e) => handleFileChange(e, "kraCertificate")}
+                />
+              </Button>
+              {imagePreviews.kraCertificate && (
+                <Box sx={{ mt: 1 }}>
+                  <iframe
+                    src={imagePreviews.kraCertificate}
+                    title="KRA Certificate Preview"
+                    style={{ width: "100%", height: "150px" }}
+                  />
+                </Box>
+              )}
+              {formErrors.kraCertificate && (
+                <Typography variant="caption" color="error">
+                  {formErrors.kraCertificate}
+                </Typography>
+              )}
+            </Grid>
+            <Grid item xs={12} md={6}>
+              <TextField
+                fullWidth
+                label="Email"
+                type="email"
+                value={formData.email}
+                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                error={!!formErrors.email}
+                helperText={formErrors.email}
+                required
+              />
+            </Grid>
+            <Grid item xs={12} md={6}>
+              <TextField
+                fullWidth
+                label="Phone Number (e.g., 0712345678)"
+                value={formData.phone_number}
+                onChange={(e) => setFormData({ ...formData, phone_number: e.target.value })}
+                error={!!formErrors.phone_number}
+                helperText={formErrors.phone_number}
+                required
+              />
+            </Grid>
+            <Grid item xs={12}>
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={formData.is_active}
+                    onChange={(e) => setFormData({ ...formData, is_active: e.target.checked })}
+                    color="primary"
+                  />
+                }
+                label={formData.is_active ? "Active" : "Inactive"}
+              />
+            </Grid>
+          </Grid>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleClose}>Cancel</Button>
+          <Button onClick={handleSubmit} variant="contained">
+            {editAgent ? "Update" : "Add"}
+          </Button>
+        </DialogActions>
+      </Dialog>
 
-        {/* Notification */}
-        <Snackbar
-          open={notification.open}
-          autoHideDuration={4000}
+      {/* Notification */}
+      <Snackbar
+        open={notification.open}
+        autoHideDuration={4000}
+        onClose={handleCloseNotification}
+        anchorOrigin={{ vertical: "top", horizontal: "right" }}
+      >
+        <Alert
           onClose={handleCloseNotification}
-          anchorOrigin={{ vertical: "top", horizontal: "right" }}
+          severity={notification.severity}
+          sx={{ fontFamily: "'Poppins', sans-serif" }}
         >
-          <Alert
-            onClose={handleCloseNotification}
-            severity={notification.severity}
-            sx={{ fontFamily: "'Poppins', sans-serif" }}
-          >
-            {notification.message}
-          </Alert>
-        </Snackbar>
+          {notification.message}
+        </Alert>
+      </Snackbar>
 
-        {/* Floating Action Button */}
-        <Fab
-          color="primary"
-          aria-label="add"
-          sx={{ position: "fixed", bottom: 16, right: 16 }}
-          onClick={() => handleOpen()}
-        >
-          <Add />
-        </Fab>
-      </Box>
-    )
+      {/* Floating Action Button */}
+      <Fab
+        color="primary"
+        aria-label="add"
+        sx={{ position: "fixed", bottom: 16, right: 16 }}
+        onClick={() => handleOpen()}
+      >
+        <Add />
+      </Fab>
+    </Box>
+  )
 }

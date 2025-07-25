@@ -17,12 +17,12 @@ import LoginPage from "./pages/Login/View/Index"
 import RegistrationForm from "./pages/Registration/View/Index"
 import AccountPage from "./pages/Account/View/Index"
 import WalletPage from "./pages/Wallet/View/Index"
-import SalesAgentPage from "./pages/SalesAgent/View/Index"
 import ForgotPasswordPage from "./components/ForgotPassword"
 import ResetPasswordPage from "./components/ResetPassword"
 import ProductsPage from "./components/admin/ProductsPage"
 import AdminPage from "./pages/Admin/View/Index" 
 import CheckoutPage from "./pages/Checkout/View/Index"
+import SalesAgentPage from "./components/admin/SalesAgentPage"
 import { Typography, Box } from "@mui/material"
 import ErrorBoundary from "./components/admin/ErrorBoundary"
 
@@ -192,6 +192,7 @@ function App() {
                   <Route path="/checkout" element={<CheckoutPage />} />
                   <Route path="/admin/*" element={<AdminPage />} />
                   <Route path="/products/subcategory/:subcategoryId" element={<ProductsPage />} />
+                  <Route path="/agent/:id" element={<SalesAgentPage />} />
                 </Routes>
               </main>
               <Footer />          
