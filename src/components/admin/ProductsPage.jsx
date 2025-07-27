@@ -1,64 +1,62 @@
-import { useState, useEffect } from "react"
-import { useParams, useNavigate } from "react-router-dom"
+import { useState, useEffect } from "react";
+import { useParams, useNavigate } from "react-router-dom";
 import {
   Box, Typography, Grid, Card, CardMedia, Button, CircularProgress,
   TextField, FormControl, InputLabel, Select, MenuItem, Stack, Snackbar, Alert
-} from "@mui/material"
-import { Search } from "@mui/icons-material"
-import placeholderProduct from "../../assets/images/placeholder-product.png"
-import ErrorBoundary from "./ErrorBoundary"
+} from "@mui/material";
+import { Search } from "@mui/icons-material";
+import placeholderProduct from "../../assets/images/placeholder-product.png";
+import ErrorBoundary from "./ErrorBoundary";
 
 // Helper function to format numbers with commas and two decimal places
 const formatCurrency = (value) => {
-  if (!value && value !== 0) return "0.00"
-  const num = parseFloat(value)
-  if (isNaN(num)) return "0.00"
-  return num.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-}
+  if (!value && value !== 0) return "0.00";
+  const num = parseFloat(value);
+  if (isNaN(num)) return "0.00";
+  return num.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+};
 
 export default function ProductsPage() {
-  const { subcategoryId } = useParams()
-  const navigate = useNavigate()
-  const [products, setProducts] = useState([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState(null)
-  const [search, setSearch] = useState("")
-  const [sort, setSort] = useState("name-asc")
-  const [snackbarOpen, setSnackbarOpen] = useState(false)
-  const [snackbarMessage, setSnackbarMessage] = useState("")
-  // Use VITE_BASE_URL for static assets, VITE_API_URL for API calls
-  const baseUrl = import.meta.env.VITE_BASE_URL || 'https://fcl-back.onrender.com'
+  const { subcategoryId } = useParams();
+  const navigate = useNavigate();
+  const [products, setProducts] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [search, setSearch] = useState("");
+  const [sort, setSort] = useState("name-asc");
+  const [snackbarOpen, setSnackbarOpen] = useState(false);
+  const [snackbarMessage, setSnackbarMessage] = useState("");
+  const baseUrl = import.meta.env.VITE_BASE_URL || 'https://fcl-back.onrender.com';
 
   useEffect(() => {
     const fetchProducts = async () => {
-      setLoading(true)
-      setError(null)
+      setLoading(true);
+      setError(null);
       try {
         if (!subcategoryId || isNaN(parseInt(subcategoryId))) {
-          throw new Error("Invalid subcategory ID")
+          throw new Error("Invalid subcategory ID");
         }
-        const url = `${import.meta.env.VITE_API_URL}/products/subcategory/${subcategoryId}`
-        console.log("Fetching products from:", url)
-        const response = await fetch(url)
+        const url = `${import.meta.env.VITE_API_URL}/products/subcategory/${subcategoryId}`;
+        console.log("Fetching products from:", url);
+        const response = await fetch(url);
         if (!response.ok) {
-          const errorText = await response.text()
-          console.error("Response status:", response.status, "Response text:", errorText)
-          let errorMessage = "Failed to fetch products"
+          const errorText = await response.text();
+          console.error("Response status:", response.status, "Response text:", errorText);
+          let errorMessage = "Failed to fetch products";
           try {
-            const errorData = JSON.parse(errorText)
-            errorMessage = errorData.message || errorMessage
+            const errorData = JSON.parse(errorText);
+            errorMessage = errorData.message || errorMessage;
           } catch {
-            errorMessage = "Server returned an unexpected response"
+            errorMessage = "Server returned an unexpected response";
           }
-          throw new Error(errorMessage)
+          throw new Error(errorMessage);
         }
-        const data = await response.json()
+        const data = await response.json();
         if (data.length === 0) {
-          setError("No products available in this subcategory")
+          setError("No products available in this subcategory");
         }
-        // Transform API response to include tier_pricing array
         const transformedData = data.map(product => ({
-          id: product.id,
+          id: Number(product.id), // Ensure ID is a number
           product_name: product.product_name,
           product_code: product.product_code,
           description: product.description,
@@ -73,71 +71,76 @@ export default function ProductsPage() {
             ...(product.selling_price3 && product.qty3_min
               ? [{ min_quantity: product.qty3_min, max_quantity: null, price: parseFloat(product.selling_price3) }]
               : []),
-          ]
-        }))
-        setProducts(transformedData)
+          ],
+          vat: product.vat || 0.16, // Add vat for consistency with cart and checkout
+        }));
+        setProducts(transformedData);
       } catch (err) {
-        console.error("Fetch error:", err)
-        setError(err.message)
+        console.error("Fetch error:", err);
+        setError(err.message);
       } finally {
-        setLoading(false)
+        setLoading(false);
       }
-    }
+    };
 
-    fetchProducts()
-  }, [subcategoryId])
+    fetchProducts();
+  }, [subcategoryId]);
 
   const addToCart = (product) => {
-    const quantity = 1 // Default quantity for new items
+    if (!product.id || isNaN(Number(product.id)) || Number(product.id) < 1) {
+      console.error(`Invalid product ID: ${product.id}`);
+      setSnackbarMessage("Error: Invalid product. Please try again.");
+      setSnackbarOpen(true);
+      return;
+    }
+
+    const quantity = 1;
     const selectedTier = product.tier_pricing.find(tier => 
       quantity >= tier.min_quantity && (!tier.max_quantity || quantity <= tier.max_quantity)
-    ) || product.tier_pricing[0] // Fallback to first tier
-
-    const cashbackPercent = parseFloat(product.cashback_rate || 0).toFixed(2)
+    ) || product.tier_pricing[0];
+    const cashbackPercent = parseFloat(product.cashback_rate || 0).toFixed(2);
     const cartItem = {
-      id: `item${product.id}`,
+      id: Number(product.id), // Use numeric ID
       name: product.product_name,
       description: product.description,
-      price: parseFloat(selectedTier.price),
-      basePrice: parseFloat(selectedTier.price),
+      price: parseFloat(selectedTier.price).toFixed(2),
+      basePrice: parseFloat(selectedTier.price).toFixed(2),
       cashbackPercent,
       image: product.image_url ? `${baseUrl}${product.image_url}` : placeholderProduct,
-      itemCode: product.product_code,
+      itemCode: product.product_code || "N/A",
       tier_pricing: product.tier_pricing,
       quantity,
-    }
+      vat: product.vat || 0.16, // Add vat for consistency
+    };
 
-    const existingCartItems = JSON.parse(localStorage.getItem("cartItems")) || []
-    const existingItemIndex = existingCartItems.findIndex(item => item.id === cartItem.id)
+    const existingCartItems = JSON.parse(localStorage.getItem("cartItems")) || [];
+    const existingItemIndex = existingCartItems.findIndex(item => item.id === cartItem.id);
 
-    let updatedCart
+    let updatedCart;
     if (existingItemIndex >= 0) {
-      // Product exists in cart, increase quantity
-      updatedCart = [...existingCartItems]
-      updatedCart[existingItemIndex].quantity += 1
-      // Update price based on new quantity
-      const newQuantity = updatedCart[existingItemIndex].quantity
+      updatedCart = [...existingCartItems];
+      updatedCart[existingItemIndex].quantity += 1;
+      const newQuantity = updatedCart[existingItemIndex].quantity;
       const newTier = product.tier_pricing.find(tier => 
         newQuantity >= tier.min_quantity && (!tier.max_quantity || newQuantity <= tier.max_quantity)
-      ) || product.tier_pricing[0]
-      updatedCart[existingItemIndex].price = parseFloat(newTier.price)
-      setSnackbarMessage(`${product.product_name} quantity updated in cart! You'll earn ${cashbackPercent}% cashback.`)
+      ) || product.tier_pricing[0];
+      updatedCart[existingItemIndex].price = parseFloat(newTier.price).toFixed(2);
+      setSnackbarMessage(`${product.product_name} quantity updated in cart! You'll earn ${cashbackPercent}% cashback.`);
     } else {
-      // Product not in cart, add it
-      updatedCart = [...existingCartItems, cartItem]
-      setSnackbarMessage(`${product.product_name} added to cart! You'll earn ${cashbackPercent}% cashback.`)
+      updatedCart = [...existingCartItems, cartItem];
+      setSnackbarMessage(`${product.product_name} added to cart! You'll earn ${cashbackPercent}% cashback.`);
     }
 
-    localStorage.setItem("cartItems", JSON.stringify(updatedCart))
-    setSnackbarOpen(true)
-  }
+    localStorage.setItem("cartItems", JSON.stringify(updatedCart));
+    setSnackbarOpen(true);
+  };
 
   const handleCloseSnackbar = () => {
-    setSnackbarOpen(false)
-  }
+    setSnackbarOpen(false);
+  };
 
   const CategoryCard = ({ product }) => {
-    const [imageError, setImageError] = useState(false)
+    const [imageError, setImageError] = useState(false);
 
     return (
       <Card
@@ -305,18 +308,18 @@ export default function ProductsPage() {
           ADD TO CART
         </Button>
       </Card>
-    )
-  }
+    );
+  };
 
   const filteredProducts = products
     .filter(product => product.product_name.toLowerCase().includes(search.toLowerCase()))
     .sort((a, b) => {
-      if (sort === "name-asc") return a.product_name.localeCompare(b.product_name)
-      if (sort === "name-desc") return b.product_name.localeCompare(a.product_name)
-      if (sort === "price-asc") return (a.tier_pricing[0]?.price || 0) - (b.tier_pricing[0]?.price || 0)
-      if (sort === "price-desc") return (b.tier_pricing[0]?.price || 0) - (a.tier_pricing[0]?.price || 0)
-      return 0
-    })
+      if (sort === "name-asc") return a.product_name.localeCompare(b.product_name);
+      if (sort === "name-desc") return b.product_name.localeCompare(a.product_name);
+      if (sort === "price-asc") return (a.tier_pricing[0]?.price || 0) - (b.tier_pricing[0]?.price || 0);
+      if (sort === "price-desc") return (b.tier_pricing[0]?.price || 0) - (a.tier_pricing[0]?.price || 0);
+      return 0;
+    });
 
   return (
     <ErrorBoundary>
@@ -379,5 +382,5 @@ export default function ProductsPage() {
         </Snackbar>
       </Box>
     </ErrorBoundary>
-  )
+  );
 }

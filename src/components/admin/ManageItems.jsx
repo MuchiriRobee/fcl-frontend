@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useContext,  } from "react"
+import { useState, useEffect, useContext } from "react"
 import {
   Box, Typography, Button, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper,
   IconButton, Dialog, DialogTitle, DialogContent, DialogActions, TextField, CircularProgress,
@@ -29,8 +29,6 @@ export default function ManageItems() {
   const [importErrors, setImportErrors] = useState([])
   const baseUrl = import.meta.env.VITE_BASE_URL || 'https://fcl-back.onrender.com'
 
-  
-
   // Convert snake_case product to camelCase for NewItemForm
   const toCamelCaseProduct = (product) => ({
     id: product.id,
@@ -58,7 +56,7 @@ export default function ManageItems() {
     qty2Max: product.qty2_max ? product.qty2_max.toString() : "",
     qty3Min: product.qty3_min ? product.qty3_min.toString() : "",
     vat: product.vat ? parseFloat(product.vat).toFixed(2) : "16",
-    cashbackRate: product.cashback_rate ? parseFloat(product.cashback_rate).toFixed(2) : "0",
+    cashbackRate: product.cashbackRate ? parseFloat(product.cashbackRate).toFixed(2) : "0",
     preferredVendor1: product.preferred_vendor1 ? product.preferred_vendor1.toString() : "",
     vendorItemCode: product.vendor_item_code || "",
     saCashback1stPurchase: product.sa_cashback_1st ? parseFloat(product.sa_cashback_1st).toFixed(2) : "6",
@@ -219,302 +217,66 @@ export default function ManageItems() {
   }
 
   const handleExport = async () => {
-  try {
-    // Fetch all suppliers once
-    let allSuppliers = []
     try {
-      const suppliersResponse = await fetch(`${import.meta.env.VITE_API_URL}/suppliers`)
-      if (!suppliersResponse.ok) throw new Error('Failed to fetch suppliers')
-      allSuppliers = await suppliersResponse.json()
-    } catch (err) {
-      console.warn(`Failed to fetch suppliers: ${err.message}`)
-    }
-
-    const exportData = filteredProducts.map(product => {
-      const camelCaseProduct = toCamelCaseProduct(product)
-      const parentCat = categories.find(cat => cat.id === product.parent_cat_id)
-      const category = parentCat?.categories.find(cat => cat.id === product.category_id)
-      const subCategory = subcategories[product.category_id]?.find(sub => sub.id === product.subcategory_id)
-      const supplier = product.preferred_vendor1
-        ? allSuppliers.find(s => s.id === parseInt(product.preferred_vendor1))
-        : null
-
-      const costPriceExclVat = parseFloat(product.cost_price) || 0
-      const vatRate = parseFloat(product.vat) / 100 || 0
-      const calculateProfit = (sellingPriceInclVat) => {
-        const sellingPrice = parseFloat(sellingPriceInclVat) || 0
-        const sellingPriceExclVat = sellingPrice / (1 + vatRate)
-        const gp = sellingPriceExclVat - costPriceExclVat
-        const gpPercentage = costPriceExclVat > 0 ? (gp / costPriceExclVat) * 100 : 0
-        const npPercentage = sellingPriceExclVat > 0 ? ((sellingPriceExclVat - costPriceExclVat) / sellingPriceExclVat) * 100 : 0
-        return { gp: gpPercentage.toFixed(2), np: npPercentage.toFixed(2) }
+      // Fetch all suppliers once
+      let allSuppliers = []
+      try {
+        const suppliersResponse = await fetch(`${import.meta.env.VITE_API_URL}/suppliers`)
+        if (!suppliersResponse.ok) throw new Error('Failed to fetch suppliers')
+        allSuppliers = await suppliersResponse.json()
+      } catch (err) {
+        console.warn(`Failed to fetch suppliers: ${err.message}`)
       }
 
-      return {
-        parentCat: parentCat?.name || '',
-        category: category?.name || '',
-        subCat: subCategory?.name || '',
-        itemCode: product.product_code || '',
-        itemName: product.product_name || '',
-        preferredVendor1: supplier?.name || '',
-        vendorItemCode: product.vendor_item_code || '',
-        itemBarcode: product.product_barcode || '',
-        vat: parseFloat(product.vat).toFixed(2),
-        uom: product.uom || '',
-        packSize: product.pack_size || '',
-        reorderLevel: product.reorder_level?.toString() || '',
-        orderLevel: product.order_level?.toString() || '',
-        reorderActive: product.reorder_active ? 'TRUE' : 'FALSE',
-        currentStock: product.stock_units?.toString() || '0',
-        costPrice: parseFloat(product.cost_price).toFixed(2),
-        GP1: calculateProfit(product.selling_price1).gp,
-        NP1: calculateProfit(product.selling_price1).np,                           
-        qty1Min: product.qty1_min?.toString() || '1',
-        qty1Max: product.qty1_max?.toString() || '3',
-        sp1: parseFloat(product.selling_price1).toFixed(2),
-        GP2: product.selling_price2 ? calculateProfit(product.selling_price2).gp : '',
-        NP2: product.selling_price2 ? calculateProfit(product.selling_price2).np : '',        
-        qty2Min: product.qty2_min?.toString() || '',
-        qty2Max: product.qty2_max?.toString() || '',
-        sp2: product.selling_price2 ? parseFloat(product.selling_price2).toFixed(2) : '',
-        GP3: product.selling_price3 ? calculateProfit(product.selling_price3).gp : '',
-        NP3: product.selling_price3 ? calculateProfit(product.selling_price3).np : '',                
-        qty3Min: product.qty3_min?.toString() || '', 
-        sp3: product.selling_price3 ? parseFloat(product.selling_price3).toFixed(2) : '',       
-        clientCashBack: parseFloat(product.cashback_rate).toFixed(2),        
-        saCashback1: parseFloat(product.sa_cashback_1st).toFixed(2),
-        saCashback2: parseFloat(product.sa_cashback_2nd).toFixed(2),
-        saCashback3: parseFloat(product.sa_cashback_3rd).toFixed(2),
-        saCashback4: parseFloat(product.sa_cashback_4th).toFixed(2),
-        active: product.active ? 'TRUE' : 'FALSE',
-        image: product.image_url ? 'TRUE' : 'FALSE',        
-        longerDescription: product.longer_description ? 'TRUE' : 'FALSE',        
-        etimsRef: product.etims_ref_code || ''                
-      }
-    })
+      const exportData = filteredProducts.map(product => {
+        const camelCaseProduct = toCamelCaseProduct(product)
+        const parentCat = categories.find(cat => cat.id === product.parent_cat_id)
+        const category = parentCat?.categories.find(cat => cat.id === product.category_id)
+        const subCategory = subcategories[product.category_id]?.find(sub => sub.id === product.subcategory_id)
+        const supplier = product.preferred_vendor1
+          ? allSuppliers.find(s => s.id === parseInt(product.preferred_vendor1))
+          : null
 
-    const validExportData = exportData.filter(item => item !== null)
-    if (validExportData.length === 0) {
-      setError('No valid products to export')
-      return
-    }
-
-    const ws = XLSX.utils.json_to_sheet(validExportData)
-    const wb = XLSX.utils.book_new()
-    XLSX.utils.book_append_sheet(wb, ws, 'Products')
-    XLSX.writeFile(wb, 'Products_Export.xlsx')
-  } catch (err) {
-    setError('Failed to export products: ' + err.message)
-  }
-}
-
-const handleImport = async (event) => {
-  const file = event.target.files[0]
-  if (!file) return
-
-  setImportError(null)
-  setImportErrors([])
-  const reader = new FileReader()
-  reader.onload = async (e) => {
-    try {
-      const data = new Uint8Array(e.target.result)
-      const workbook = XLSX.read(data, { type: 'array' })
-      const sheet = workbook.Sheets[workbook.SheetNames[0]]
-      const jsonData = XLSX.utils.sheet_to_json(sheet)
-
-      if (jsonData.length === 0) {
-        setImportError('Excel file is empty')
-        return
-      }
-
-      const errors = []
-      const validProducts = []
-      for (let i = 0; i < jsonData.length; i++) {
-        const row = jsonData[i]
-        const rowErrors = {}
-
-        // Validate required fields
-        if (!row['parentCatId']) rowErrors.parentCat = 'Parent category is required'
-        if (!row['categoryId']) rowErrors.category = 'Category is required'
-        if (!row['subcategoryId']) rowErrors.subCat = 'Subcategory is required'
-        if (!row['productName']) rowErrors.itemName = 'Product name is required'
-        if (!row['productCode'] || !/^[A-Z]\d{9}$/.test(row['productCode'])) {
-          rowErrors.itemCode = 'Product code must be 1 letter followed by 9 digits'
-        }
-        if (!row['uom'] || !['PC', 'PKT', 'BOX', 'SET', 'KG', 'LITERS', 'METERS', 'REAMS', 'PACKS'].includes(row['uom'])) {
-          rowErrors.uom = 'Unit of measure must be one of PC, PKT, BOX, SET, KG, LITERS, METERS, REAMS, PACKS'
-        }
-        if (!row['costPrice'] || isNaN(row['costPrice']) || row['costPrice'] <= 0 || row['costPrice'] > 9999999999999.99) {
-          rowErrors.costPrice = 'Cost price must be between 0.01 and 9,999,999,999,999.99'
-        }
-        if (!row['sellingPrice1'] || isNaN(row['sellingPrice1']) || row['sellingPrice1'] <= 0 || row['sellingPrice1'] > 9999999999999.99) {
-          rowErrors.sp1 = 'Selling price 1 must be between 0.01 and 9,999,999,999,999.99'
-        }
-        if (!row['qty1Min'] || isNaN(row['qty1Min']) || row['qty1Min'] < 1) {
-          rowErrors.qty1Min = 'Quantity 1 min must be at least 1'
-        }
-        if (!row['qty1Max'] || isNaN(row['qty1Max']) || row['qty1Max'] < 1) {
-          rowErrors.qty1Max = 'Quantity 1 max must be at least 1'
-        }
-        if (row['vat'] == null || isNaN(row['vat']) || row['vat'] < 0 || row['vat'] > 100) {
-          rowErrors.vat = 'VAT must be between 0 and 100'
-        }
-        if (row['cashbackRate'] == null || isNaN(row['cashbackRate']) || row['cashbackRate'] < 0 || row['cashbackRate'] > 100) {
-          rowErrors.clientCashBack = 'Cashback rate must be between 0 and 100'
-        }
-        if (row['saCashback1stPurchase'] == null || isNaN(row['saCashback1stPurchase']) || row['saCashback1stPurchase'] < 0 || row['saCashback1stPurchase'] > 100) {
-          rowErrors.saCashback1 = '1st purchase cashback must be between 0 and 100'
-        }
-        if (row['saCashback2ndPurchase'] == null || isNaN(row['saCashback2ndPurchase']) || row['saCashback2ndPurchase'] < 0 || row['saCashback2ndPurchase'] > 100) {
-          rowErrors.saCashback2 = '2nd purchase cashback must be between 0 and 100'
-        }
-        if (row['saCashback3rdPurchase'] == null || isNaN(row['saCashback3rdPurchase']) || row['saCashback3rdPurchase'] < 0 || row['saCashback3rdPurchase'] > 100) {
-          rowErrors.saCashback3 = '3rd purchase cashback must be between 0 and 100'
-        }
-        if (row['saCashback4thPurchase'] == null || isNaN(row['saCashback4thPurchase']) || row['saCashback4thPurchase'] < 0 || row['saCashback4thPurchase'] > 100) {
-          rowErrors.saCashback4 = '4th purchase cashback must be between 0 and 100'
-        }
-        if (row['stockUnits'] == null || isNaN(row['stockUnits']) || row['stockUnits'] < 0) {
-          rowErrors.currentStock = 'Stock units must be non-negative'
-        }
-        if (typeof row['reorderActive'] !== 'string' || !['TRUE', 'FALSE'].includes(row['reorderActive'])) {
-          rowErrors.reorderActive = 'Reorder active must be TRUE or FALSE'
-        }
-        if (typeof row['active'] !== 'string' || !['TRUE', 'FALSE'].includes(row['active'])) {
-          rowErrors.active = 'Active status must be TRUE or FALSE'
-        }
-        if (typeof row['hasImage'] !== 'string' || !['TRUE', 'FALSE'].includes(row['hasImage'])) {
-          rowErrors.image = 'Image status must be TRUE or FALSE'
+        const costPriceExclVat = parseFloat(product.cost_price) || 0
+        const vatRate = parseFloat(product.vat) / 100 || 0
+        const calculateProfit = (sellingPriceInclVat) => {
+          const sellingPrice = parseFloat(sellingPriceInclVat) || 0
+          const sellingPriceExclVat = sellingPrice / (1 + vatRate)
+          const gp = sellingPriceExclVat - costPriceExclVat
+          const gpPercentage = costPriceExclVat > 0 ? (gp / costPriceExclVat) * 100 : 0
+          const npPercentage = sellingPriceExclVat > 0 ? ((sellingPriceExclVat - costPriceExclVat) / sellingPriceExclVat) * 100 : 0
+          return { gp: gpPercentage.toFixed(2), np: npPercentage.toFixed(2) }
         }
 
-        // Validate optional fields
-        if (row['sellingPrice2'] && (isNaN(row['sellingPrice2']) || row['sellingPrice2'] <= 0 || row['sellingPrice2'] > 9999999999999.99)) {
-          rowErrors.sp2 = 'Selling price 2 must be between 0.01 and 9,999,999,999,999.99'
-        }
-        if (row['sellingPrice3'] && (isNaN(row['sellingPrice3']) || row['sellingPrice3'] <= 0 || row['sellingPrice3'] > 9999999999999.99)) {
-          rowErrors.sp3 = 'Selling price 3 must be between 0.01 and 9,999,999,999,999.99'
-        }
-        if (row['qty2Min'] && (isNaN(row['qty2Min']) || row['qty2Min'] < 1)) {
-          rowErrors.qty2Min = 'Quantity 2 min must be at least 1'
-        }
-        if (row['qty2Max'] && (isNaN(row['qty2Max']) || row['qty2Max'] < 1)) {
-          rowErrors.qty2Max = 'Quantity 2 max must be at least 1'
-        }
-        if (row['qty3Min'] && (isNaN(row['qty3Min']) || row['qty3Min'] < 1)) {
-          rowErrors.qty3Min = 'Quantity 3 min must be at least 1'
-        }
-        // longerDescription is now handled as TRUE/FALSE in export, no need for length validation here
-        
-        if (row['productBarcode'] && row['productBarcode'].length > 50) {
-          rowErrors.itemBarcode = 'Product barcode must be less than 50 characters'
-        }
-        if (row['etimsRefCode'] && row['etimsRefCode'].length > 50) {
-          rowErrors.etimsRef = 'eTIMS ref code must be less than 50 characters'
-        }
-        if (row['packSize'] && row['packSize'].length > 50) {
-          rowErrors.packSize = 'Pack size must be less than 50 characters'
-        }
-        if (row['vendorItemCode'] && row['vendorItemCode'].length > 50) {
-          rowErrors.vendorItemCode = 'Vendor item code must be less than 50 characters'
-        }
-        if (row['reorderLevel'] && (isNaN(row['reorderLevel']) || row['reorderLevel'] < 0)) {
-          rowErrors.reorderLevel = 'Reorder level must be non-negative'
-        }
-        if (row['orderLevel'] && (isNaN(row['orderLevel']) || row['orderLevel'] < 0)) {
-          rowErrors.orderLevel = 'Order level must be non-negative'
-        }
-
-        // Validate quantity ranges
-        const qty1Min = parseInt(row['qty1Min'])
-        const qty1Max = parseInt(row['qty1Max'])
-        const qty2Min = row['qty2Min'] ? parseInt(row['qty2Min']) : null
-        const qty2Max = row['qty2Max'] ? parseInt(row['qty2Max']) : null
-        const qty3Min = row['qty3Min'] ? parseInt(row['qty3Min']) : null
-        if (qty1Max < qty1Min) {
-          rowErrors.qty1Max = 'Quantity 1 max must be greater than min'
-        }
-        if (qty2Min && qty2Min <= qty1Max) {
-          rowErrors.qty2Min = 'Quantity 2 min must be greater than Quantity 1 max'
-        }
-        if (qty2Max && qty2Max < qty2Min) {
-          rowErrors.qty2Max = 'Quantity 2 max must be greater than min'
-        }
-        if (qty3Min && qty2Max && qty3Min <= qty2Max) {
-          rowErrors.qty3Min = 'Quantity 3 min must be greater than Quantity 2 max'
-        }
-
-        if (Object.keys(rowErrors).length > 0) {
-          errors.push({ row: i + 2, errors: rowErrors })
-          continue
-        }
-
-        // Map category names to IDs
-        const parentCat = categories.find(cat => cat.name.toLowerCase() === row['parentCatId'].toLowerCase())
-        if (!parentCat) {
-          errors.push({ row: i + 2, errors: { parentCat: `Parent category ${row['parentCatId']} not found` } })
-          continue
-        }
-        const category = parentCat.categories.find(cat => cat.name.toLowerCase() === row['categoryId'].toLowerCase())
-        if (!category) {
-          errors.push({ row: i + 2, errors: { category: `Category ${row['categoryId']} not found` } })
-          continue
-        }
-        const subCategory = subcategories[category.id]?.find(sub => sub.name.toLowerCase() === row['subcategoryId'].toLowerCase())
-        if (!subCategory) {
-          errors.push({ row: i + 2, errors: { subCat: `Subcategory ${row['subcategoryId']} not found` } })
-          continue
-        }
-
-        // Map supplier name to ID and code
-        let supplierId = null
-        let vendorItemCode = null
-        if (row['preferredVendor1']) {
-          try {
-            const supplierResponse = await fetch(`${import.meta.env.VITE_API_URL}/suppliers`)
-            if (!supplierResponse.ok) throw new Error('Failed to fetch suppliers')
-            const suppliers = await supplierResponse.json()
-            const supplier = suppliers.find(s => s.name.toLowerCase() === row['preferredVendor1'].toLowerCase())
-            if (!supplier) {
-              errors.push({ row: i + 2, errors: { preferredVendor1: `Supplier ${row['preferredVendor1']} not found` } })
-              continue
-            }
-            supplierId = supplier.id
-            vendorItemCode = supplier.code
-          } catch (err) {
-            errors.push({ row: i + 2, errors: { preferredVendor1: `Failed to fetch suppliers: ${err.message}` } })
-            continue
-          }
-        }
-
-        validProducts.push({
-          parentCat: parentCat.id.toString(),
-          category: category.id.toString(),
-          subCat: subCategory.id.toString(),
-          itemCode: row['productCode'],
-          itemName: row['productName'],          
-          preferredVendor1: supplierId ? supplierId.toString() : '',
-          vendorItemCode: vendorItemCode || '',
-          itemBarcode: row['productBarcode'] || '',
-          vat: parseFloat(row['vat']).toFixed(2),
-          uom: row['uom'],
-          packSize: row['packSize'] || '',
-          reorderLevel: row['reorderLevel'] ? parseInt(row['reorderLevel']) : '',
-          orderLevel: row['orderLevel'] ? parseInt(row['orderLevel']) : '',
-          reorderActive: row['reorderActive'] === 'TRUE',
-          currentStock: parseInt(row['stockUnits']) || 0,          
+        return {
+          parentCat: parentCat?.name || '',
+          category: category?.name || '',
+          subCat: subCategory?.name || '',
+          itemCode: product.product_code || '',
+          itemName: product.product_name || '',
+          preferredVendor1: supplier?.name || '',
+          vendorItemCode: product.vendor_item_code || '',
+          itemBarcode: product.product_barcode || '',
+          vat: parseFloat(product.vat).toFixed(2),
+          uom: product.uom || '',
+          packSize: product.pack_size || '',
+          reorderLevel: product.reorder_level?.toString() || '',
+          orderLevel: product.order_level?.toString() || '',
+          reorderActive: product.reorder_active ? 'TRUE' : 'FALSE',
+          currentStock: product.stock_units?.toString() || '0',
           costPrice: parseFloat(product.cost_price).toFixed(2),
           GP1: calculateProfit(product.selling_price1).gp,
-          NP1: calculateProfit(product.selling_price1).np,          
+          NP1: calculateProfit(product.selling_price1).np,
           qty1Min: product.qty1_min?.toString() || '1',
           qty1Max: product.qty1_max?.toString() || '3',
           sp1: parseFloat(product.selling_price1).toFixed(2),
           GP2: product.selling_price2 ? calculateProfit(product.selling_price2).gp : '',
-          NP2: product.selling_price2 ? calculateProfit(product.selling_price2).np : '',          
+          NP2: product.selling_price2 ? calculateProfit(product.selling_price2).np : '',
           qty2Min: product.qty2_min?.toString() || '',
           qty2Max: product.qty2_max?.toString() || '',
           sp2: product.selling_price2 ? parseFloat(product.selling_price2).toFixed(2) : '',
           GP3: product.selling_price3 ? calculateProfit(product.selling_price3).gp : '',
-          NP3: product.selling_price3 ? calculateProfit(product.selling_price3).np : '',          
+          NP3: product.selling_price3 ? calculateProfit(product.selling_price3).np : '',
           qty3Min: product.qty3_min?.toString() || '',
           sp3: product.selling_price3 ? parseFloat(product.selling_price3).toFixed(2) : '',
           clientCashBack: parseFloat(product.cashback_rate).toFixed(2),
@@ -526,92 +288,320 @@ const handleImport = async (event) => {
           image: product.image_url ? 'TRUE' : 'FALSE',
           longerDescription: product.longer_description ? 'TRUE' : 'FALSE',
           etimsRef: product.etims_ref_code || ''
-        })
-      }
-
-      if (errors.length > 0) {
-        setImportErrors(errors)
-        return
-      }
-
-      if (validProducts.length === 0) {
-        setImportError('No valid products to import')
-        return
-      }
-
-      const response = await fetch(`${import.meta.env.VITE_API_URL}/products/bulk`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(validProducts)
+        }
       })
 
-      const result = await response.json()
-      if (!response.ok) {
-        console.error('Bulk import error response:', result)
-        setImportError(result.message || 'Failed to import products')
-        setImportErrors(result.errors && Array.isArray(result.errors) ? result.errors.map(err => ({
-          row: err.index + 2,
-          errors: err.errors.reduce((acc, e) => ({ ...acc, [e.path]: e.msg }), {})
-        })) : [])
+      const validExportData = exportData.filter(item => item !== null)
+      if (validExportData.length === 0) {
+        setError('No valid products to export')
         return
       }
 
-      await fetchProducts()
+      const ws = XLSX.utils.json_to_sheet(validExportData)
+      const wb = XLSX.utils.book_new()
+      XLSX.utils.book_append_sheet(wb, ws, 'Products')
+      XLSX.writeFile(wb, 'Products_Export.xlsx')
     } catch (err) {
-      console.error('Import error:', err.message)
-      setImportError('Error importing file: ' + err.message)
+      setError('Failed to export products: ' + err.message)
     }
   }
-  reader.readAsArrayBuffer(file)
-}
 
-const handleDownloadTemplate = () => {
-  const templateData = [{
-    parentCat: '',
-    category: '',
-    subCat: '',
-    itemCode: '',
-    itemName: '',    
-    preferredVendor1: '',
-    vendorItemCode: '',
-    itemBarcode: '',
-    vat: '',
-    uom: '',
-    packSize: '',    
-    reorderLevel: '',
-    orderLevel: '',
-    reorderActive: 'TRUE',
-    currentStock: '',
-    costPrice: '',
-    GP1: '',
-    NP1: '',    
-    qty1Min: '',
-    qty1Max: '',
-    sp1: '',
-    GP2: '',
-    NP2: '',    
-    qty2Min: '',
-    qty2Max: '',
-    sp2: '',
-    GP3: '',
-    NP3: '',            
-    qty3Min: '',
-    sp3: '',    
-    clientCashBack: '',    
-    saCashback1: '',
-    saCashback2: '',
-    saCashback3: '',
-    saCashback4: '',        
-    active: 'TRUE',
-    image: 'FALSE',
-    longerDescription: 'FALSE',
-    etimsRef: ''            
-  }]
-  const ws = XLSX.utils.json_to_sheet(templateData)
-  const wb = XLSX.utils.book_new()
-  XLSX.utils.book_append_sheet(wb, ws, 'Products')
-  XLSX.writeFile(wb, 'Products_Import_Template.xlsx')
-}
+  const handleImport = async (event) => {
+    const file = event.target.files[0]
+    if (!file) return
+
+    setImportError(null)
+    setImportErrors([])
+    const reader = new FileReader()
+    reader.onload = async (e) => {
+      try {
+        const data = new Uint8Array(e.target.result)
+        const workbook = XLSX.read(data, { type: 'array' })
+        const sheet = workbook.Sheets[workbook.SheetNames[0]]
+        const jsonData = XLSX.utils.sheet_to_json(sheet)
+
+        if (jsonData.length === 0) {
+          setImportError('Excel file is empty')
+          return
+        }
+
+        const errors = []
+        const validProducts = []
+        for (let i = 0; i < jsonData.length; i++) {
+          const row = jsonData[i]
+          const rowErrors = {}
+
+          // Validate required fields
+          if (!row['parentCat']) rowErrors.parentCat = 'Parent category is required'
+          if (!row['category']) rowErrors.category = 'Category is required'
+          if (!row['subCat']) rowErrors.subCat = 'Subcategory is required'
+          if (!row['itemName']) rowErrors.itemName = 'Product name is required'
+          if (!row['itemCode'] || !/^[A-Z]\d{9}$/.test(row['itemCode'])) {
+            rowErrors.itemCode = 'Product code must be 1 letter followed by 9 digits'
+          }
+          if (!row['uom'] || !['PC', 'PKT', 'BOX', 'SET', 'KG', 'LITERS', 'METERS', 'REAMS', 'PACKS'].includes(row['uom'])) {
+            rowErrors.uom = 'Unit of measure must be one of PC, PKT, BOX, SET, KG, LITERS, METERS, REAMS, PACKS'
+          }
+          if (!row['costPrice'] || isNaN(row['costPrice']) || row['costPrice'] <= 0 || row['costPrice'] > 9999999999999.99) {
+            rowErrors.costPrice = 'Cost price must be between 0.01 and 9,999,999,999,999.99'
+          }
+          if (!row['sp1'] || isNaN(row['sp1']) || row['sp1'] <= 0 || row['sp1'] > 9999999999999.99) {
+            rowErrors.sp1 = 'Selling price 1 must be between 0.01 and 9,999,999,999,999.99'
+          }
+          if (!row['qty1Min'] || isNaN(row['qty1Min']) || row['qty1Min'] < 1) {
+            rowErrors.qty1Min = 'Quantity 1 min must be at least 1'
+          }
+          if (!row['qty1Max'] || isNaN(row['qty1Max']) || row['qty1Max'] < 1) {
+            rowErrors.qty1Max = 'Quantity 1 max must be at least 1'
+          }
+          if (row['vat'] == null || isNaN(row['vat']) || row['vat'] < 0 || row['vat'] > 100) {
+            rowErrors.vat = 'VAT must be between 0 and 100'
+          }
+          if (row['clientCashBack'] == null || isNaN(row['clientCashBack']) || row['clientCashBack'] < 0 || row['clientCashBack'] > 100) {
+            rowErrors.clientCashBack = 'Cashback rate must be between 0 and 100'
+          }
+          if (row['saCashback1'] == null || isNaN(row['saCashback1']) || row['saCashback1'] < 0 || row['saCashback1'] > 100) {
+            rowErrors.saCashback1 = '1st purchase cashback must be between 0 and 100'
+          }
+          if (row['saCashback2'] == null || isNaN(row['saCashback2']) || row['saCashback2'] < 0 || row['saCashback2'] > 100) {
+            rowErrors.saCashback2 = '2nd purchase cashback must be between 0 and 100'
+          }
+          if (row['saCashback3'] == null || isNaN(row['saCashback3']) || row['saCashback3'] < 0 || row['saCashback3'] > 100) {
+            rowErrors.saCashback3 = '3rd purchase cashback must be between 0 and 100'
+          }
+          if (row['saCashback4'] == null || isNaN(row['saCashback4']) || row['saCashback4'] < 0 || row['saCashback4'] > 100) {
+            rowErrors.saCashback4 = '4th purchase cashback must be between 0 and 100'
+          }
+          if (row['currentStock'] == null || isNaN(row['currentStock']) || row['currentStock'] < 0) {
+            rowErrors.currentStock = 'Stock units must be non-negative'
+          }
+          if (typeof row['reorderActive'] !== 'string' || !['TRUE', 'FALSE'].includes(row['reorderActive'])) {
+            rowErrors.reorderActive = 'Reorder active must be TRUE or FALSE'
+          }
+          if (typeof row['active'] !== 'string' || !['TRUE', 'FALSE'].includes(row['active'])) {
+            rowErrors.active = 'Active status must be TRUE or FALSE'
+          }
+          if (typeof row['image'] !== 'string' || !['TRUE', 'FALSE'].includes(row['image'])) {
+            rowErrors.image = 'Image status must be TRUE or FALSE'
+          }
+
+          // Validate optional fields
+          if (row['sp2'] && (isNaN(row['sp2']) || row['sp2'] <= 0 || row['sp2'] > 9999999999999.99)) {
+            rowErrors.sp2 = 'Selling price 2 must be between 0.01 and 9,999,999,999,999.99'
+          }
+          if (row['sp3'] && (isNaN(row['sp3']) || row['sp3'] <= 0 || row['sp3'] > 9999999999999.99)) {
+            rowErrors.sp3 = 'Selling price 3 must be between 0.01 and 9,999,999,999,999.99'
+          }
+          if (row['qty2Min'] && (isNaN(row['qty2Min']) || row['qty2Min'] < 1)) {
+            rowErrors.qty2Min = 'Quantity 2 min must be at least 1'
+          }
+          if (row['qty2Max'] && (isNaN(row['qty2Max']) || row['qty2Max'] < 1)) {
+            rowErrors.qty2Max = 'Quantity 2 max must be at least 1'
+          }
+          if (row['qty3Min'] && (isNaN(row['qty3Min']) || row['qty3Min'] < 1)) {
+            rowErrors.qty3Min = 'Quantity 3 min must be at least 1'
+          }
+          if (row['itemBarcode'] && row['itemBarcode'].length > 50) {
+            rowErrors.itemBarcode = 'Product barcode must be less than 50 characters'
+          }
+          if (row['etimsRef'] && row['etimsRef'].length > 50) {
+            rowErrors.etimsRef = 'eTIMS ref code must be less than 50 characters'
+          }
+          if (row['packSize'] && row['packSize'].length > 50) {
+            rowErrors.packSize = 'Pack size must be less than 50 characters'
+          }
+          if (row['vendorItemCode'] && row['vendorItemCode'].length > 50) {
+            rowErrors.vendorItemCode = 'Vendor item code must be less than 50 characters'
+          }
+          if (row['reorderLevel'] && (isNaN(row['reorderLevel']) || row['reorderLevel'] < 0)) {
+            rowErrors.reorderLevel = 'Reorder level must be non-negative'
+          }
+          if (row['orderLevel'] && (isNaN(row['orderLevel']) || row['orderLevel'] < 0)) {
+            rowErrors.orderLevel = 'Order level must be non-negative'
+          }
+
+          // Validate quantity ranges
+          const qty1Min = parseInt(row['qty1Min'])
+          const qty1Max = parseInt(row['qty1Max'])
+          const qty2Min = row['qty2Min'] ? parseInt(row['qty2Min']) : null
+          const qty2Max = row['qty2Max'] ? parseInt(row['qty2Max']) : null
+          const qty3Min = row['qty3Min'] ? parseInt(row['qty3Min']) : null
+          if (qty1Max < qty1Min) {
+            rowErrors.qty1Max = 'Quantity 1 max must be greater than min'
+          }
+          if (qty2Min && qty2Min <= qty1Max) {
+            rowErrors.qty2Min = 'Quantity 2 min must be greater than Quantity 1 max'
+          }
+          if (qty2Max && qty2Max < qty2Min) {
+            rowErrors.qty2Max = 'Quantity 2 max must be greater than min'
+          }
+          if (qty3Min && qty2Max && qty3Min <= qty2Max) {
+            rowErrors.qty3Min = 'Quantity 3 min must be greater than Quantity 2 max'
+          }
+
+          if (Object.keys(rowErrors).length > 0) {
+            errors.push({ row: i + 2, errors: rowErrors })
+            continue
+          }
+
+          // Map category names to IDs
+          const parentCat = categories.find(cat => cat.name.toLowerCase() === row['parentCat'].toLowerCase())
+          if (!parentCat) {
+            errors.push({ row: i + 2, errors: { parentCat: `Parent category ${row['parentCat']} not found` } })
+            continue
+          }
+          const category = parentCat.categories.find(cat => cat.name.toLowerCase() === row['category'].toLowerCase())
+          if (!category) {
+            errors.push({ row: i + 2, errors: { category: `Category ${row['category']} not found` } })
+            continue
+          }
+          const subCategory = subcategories[category.id]?.find(sub => sub.name.toLowerCase() === row['subCat'].toLowerCase())
+          if (!subCategory) {
+            errors.push({ row: i + 2, errors: { subCat: `Subcategory ${row['subCat']} not found` } })
+            continue
+          }
+
+          // Map supplier name to ID and code
+          let supplierId = null
+          let vendorItemCode = null
+          if (row['preferredVendor1']) {
+            try {
+              const supplierResponse = await fetch(`${import.meta.env.VITE_API_URL}/suppliers`)
+              if (!supplierResponse.ok) throw new Error('Failed to fetch suppliers')
+              const suppliers = await supplierResponse.json()
+              const supplier = suppliers.find(s => s.name.toLowerCase() === row['preferredVendor1'].toLowerCase())
+              if (!supplier) {
+                errors.push({ row: i + 2, errors: { preferredVendor1: `Supplier ${row['preferredVendor1']} not found` } })
+                continue
+              }
+              supplierId = supplier.id
+              vendorItemCode = supplier.code
+            } catch (err) {
+              errors.push({ row: i + 2, errors: { preferredVendor1: `Failed to fetch suppliers: ${err.message}` } })
+              continue
+            }
+          }
+
+          validProducts.push({
+            parentCatId: parentCat.id.toString(),
+            categoryId: category.id.toString(),
+            subcategoryId: subCategory.id.toString(),
+            productName: row['itemName'],
+            productCode: row['itemCode'],
+            uom: row['uom'],
+            packSize: row['packSize'] || '',
+            productBarcode: row['itemBarcode'] || '',
+            etimsRefCode: row['etimsRef'] || '',
+            costPrice: parseFloat(row['costPrice']).toFixed(2),
+            sellingPrice1: parseFloat(row['sp1']).toFixed(2),
+            sellingPrice2: row['sp2'] ? parseFloat(row['sp2']).toFixed(2) : '',
+            sellingPrice3: row['sp3'] ? parseFloat(row['sp3']).toFixed(2) : '',
+            qty1Min: parseInt(row['qty1Min']) || 1,
+            qty1Max: parseInt(row['qty1Max']) || 3,
+            qty2Min: row['qty2Min'] ? parseInt(row['qty2Min']) : '',
+            qty2Max: row['qty2Max'] ? parseInt(row['qty2Max']) : '',
+            qty3Min: row['qty3Min'] ? parseInt(row['qty3Min']) : '',
+            vat: parseFloat(row['vat']).toFixed(2),
+            cashbackRate: parseFloat(row['clientCashBack']).toFixed(2),
+            preferredVendor1: supplierId ? supplierId.toString() : '',
+            vendorItemCode: vendorItemCode || row['vendorItemCode'] || '',
+            saCashback1stPurchase: parseFloat(row['saCashback1']).toFixed(2),
+            saCashback2ndPurchase: parseFloat(row['saCashback2']).toFixed(2),
+            saCashback3rdPurchase: parseFloat(row['saCashback3']).toFixed(2),
+            saCashback4thPurchase: parseFloat(row['saCashback4']).toFixed(2),
+            stockUnits: parseInt(row['currentStock']) || 0,
+            reorderLevel: row['reorderLevel'] ? parseInt(row['reorderLevel']) : '',
+            orderLevel: row['orderLevel'] ? parseInt(row['orderLevel']) : '',
+            reorderActive: row['reorderActive'] === 'TRUE',
+            active: row['active'] === 'TRUE',
+            hasImage: row['image'] === 'TRUE',
+            longerDescription: row['longerDescription'] === 'TRUE'
+          })
+        }
+
+        if (errors.length > 0) {
+          setImportErrors(errors)
+          return
+        }
+
+        if (validProducts.length === 0) {
+          setImportError('No valid products to import')
+          return
+        }
+
+        const response = await fetch(`${import.meta.env.VITE_API_URL}/products/bulk`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(validProducts)
+        })
+
+        const result = await response.json()
+        if (!response.ok) {
+          console.error('Bulk import error response:', result)
+          setImportError(result.message || 'Failed to import products')
+          setImportErrors(result.errors && Array.isArray(result.errors) ? result.errors.map(err => ({
+            row: err.index + 2,
+            errors: err.errors.reduce((acc, e) => ({ ...acc, [e.path]: e.msg }), {})
+          })) : [])
+          return
+        }
+
+        await fetchProducts()
+      } catch (err) {
+        console.error('Import error:', err.message)
+        setImportError('Error importing file: ' + err.message)
+      }
+    }
+    reader.readAsArrayBuffer(file)
+  }
+
+  const handleDownloadTemplate = () => {
+    const templateData = [{
+      parentCat: '',
+      category: '',
+      subCat: '',
+      itemCode: '',
+      itemName: '',
+      preferredVendor1: '',
+      vendorItemCode: '',
+      itemBarcode: '',
+      vat: '',
+      uom: '',
+      packSize: '',
+      reorderLevel: '',
+      orderLevel: '',
+      reorderActive: 'TRUE',
+      currentStock: '',
+      costPrice: '',
+      GP1: '',
+      NP1: '',
+      qty1Min: '',
+      qty1Max: '',
+      sp1: '',
+      GP2: '',
+      NP2: '',
+      qty2Min: '',
+      qty2Max: '',
+      sp2: '',
+      GP3: '',
+      NP3: '',
+      qty3Min: '',
+      sp3: '',
+      clientCashBack: '',
+      saCashback1: '',
+      saCashback2: '',
+      saCashback3: '',
+      saCashback4: '',
+      active: 'TRUE',
+      image: 'FALSE',
+      longerDescription: 'FALSE',
+      etimsRef: ''
+    }]
+    const ws = XLSX.utils.json_to_sheet(templateData)
+    const wb = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(wb, ws, 'Products')
+    XLSX.writeFile(wb, 'Products_Import_Template.xlsx')
+  }
 
   const handleChangePage = (event, newPage) => {
     setPage(newPage)
@@ -680,7 +670,6 @@ const handleDownloadTemplate = () => {
             Import
             <input type="file" hidden accept=".xlsx,.xls" onChange={handleImport} />
           </Button>
-          
           <Button
             variant="outlined"
             startIcon={<Download />}

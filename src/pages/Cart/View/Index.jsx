@@ -1,186 +1,185 @@
-"use client"
+"use client";
 
-import { useState, useEffect } from "react"
+import { useState, useEffect } from "react";
 import {
-  Box,
-  Typography,
-  Paper,
-  Grid,
-  Button,
-  Divider,
-  IconButton,
-  Stack,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  useMediaQuery,
-  useTheme,
-  Chip,
-} from "@mui/material"
-import { KeyboardArrowDown, ArrowBack, KeyboardArrowUp, DeleteOutline } from "@mui/icons-material"
+  Box, Typography, Paper, Grid, Button, Divider, IconButton, Stack,
+  Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
+  useMediaQuery, useTheme, Chip, Alert
+} from "@mui/material";
+import { KeyboardArrowDown, ArrowBack, KeyboardArrowUp, DeleteOutline } from "@mui/icons-material";
 
 // Helper function to format numbers with commas and two decimal places
 const formatNumberWithCommas = (number) => {
-  if (isNaN(number) || number === null || number === undefined) return "0.00"
-  const [integerPart, decimalPart = ""] = Number(number).toFixed(2).split(".")
-  const formattedInteger = integerPart.replace(/\B(?=(\d{3})+(?!\d))/g, ",")
-  return `${formattedInteger}.${decimalPart.padEnd(2, "0")}`
-}
+  if (isNaN(number) || number === null || number === undefined) return "0.00";
+  const [integerPart, decimalPart = ""] = Number(number).toFixed(2).split(".");
+  const formattedInteger = integerPart.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+  return `${formattedInteger}.${decimalPart.padEnd(2, "0")}`;
+};
 
 export default function Cart() {
-  // State for cart items
-  const [cartItems, setCartItems] = useState([])
+  const [cartItems, setCartItems] = useState([]);
+  const [error, setError] = useState("");
+  const [quantities, setQuantities] = useState({});
 
-  // Load cart items from localStorage on component mount
+  // Load cart items from localStorage on mount
   useEffect(() => {
-    const storedCartItems = JSON.parse(localStorage.getItem("cartItems")) || []
-    if (storedCartItems.length > 0) {
-      // Ensure all items have cashbackPercent and tier_pricing properties
-      const updatedItems = storedCartItems.map((item) => ({
+    const storedCartItems = JSON.parse(localStorage.getItem("cartItems")) || [];
+    const validItems = storedCartItems
+      .filter((item) => {
+        if (!item.id || isNaN(Number(item.id)) || Number(item.id) < 1) {
+          console.warn(`Invalid cart item detected: ${JSON.stringify(item)}`);
+          return false;
+        }
+        return true;
+      })
+      .map((item) => ({
         ...item,
+        id: Number(item.id),
         cashbackPercent: Number(item.cashbackPercent || (item.cashback ? (item.cashback / item.price) * 100 : 5)).toFixed(2),
-        tier_pricing: item.tier_pricing || [], // Ensure tier_pricing is present
-        quantity: item.quantity || 1, // Ensure quantity is set
-        price: Number(item.price || 0).toFixed(2), // Ensure price has 2 decimal places
-      }))
-      setCartItems(updatedItems)
+        tier_pricing: item.tier_pricing || [],
+        quantity: Number(item.quantity) || 1,
+        price: Number(item.price || 0).toFixed(2),
+        vat: Number(item.vat || 0.16).toFixed(2),
+      }));
+    if (validItems.length !== storedCartItems.length) {
+      localStorage.setItem("cartItems", JSON.stringify(validItems));
+      if (validItems.length === 0 && storedCartItems.length > 0) {
+        setError("Invalid items were removed from your cart. Please add products again.");
+      }
     }
-  }, [])
+    setCartItems(validItems);
+  }, []);
 
-  // State for quantity selectors
-  const [quantities, setQuantities] = useState({})
-
-  // Initialize quantities for cart items
+  // Initialize quantities state
   useEffect(() => {
-    const initialQuantities = {}
+    const initialQuantities = {};
     cartItems.forEach((item) => {
-      initialQuantities[item.id] = item.quantity || 1
-    })
-    setQuantities(initialQuantities)
-  }, [cartItems])
+      initialQuantities[item.id] = Number(item.quantity) || 1;
+    });
+    setQuantities(initialQuantities);
+  }, [cartItems]);
 
   // Update localStorage when quantities change
   useEffect(() => {
     if (cartItems.length > 0) {
       const updatedCartItems = cartItems.map((item) => ({
         ...item,
-        quantity: quantities[item.id] || 1,
-        price: getAdjustedPrice(item, quantities[item.id] || 1), // Store adjusted price
-      }))
-      localStorage.setItem("cartItems", JSON.stringify(updatedCartItems))
+        quantity: Number(quantities[item.id] || 1),
+        price: Number(getAdjustedPrice(item, quantities[item.id] || 1)).toFixed(2),
+      }));
+      localStorage.setItem("cartItems", JSON.stringify(updatedCartItems));
+      // Do not call setCartItems to avoid infinite loop
     }
-  }, [quantities, cartItems])
+  }, [quantities, cartItems]);
 
-  // Add theme and isMobile detection
-  const theme = useTheme()
-  const isMobile = useMediaQuery(theme.breakpoints.down("sm"))
-  const isTablet = useMediaQuery(theme.breakpoints.between("sm", "lg"))
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
+  const isTablet = useMediaQuery(theme.breakpoints.between("sm", "lg"));
 
-  // Function to get the price tier based on quantity
   const getPriceTier = (item, quantity) => {
-    return item.tier_pricing.find(tier => 
-      quantity >= tier.min_quantity && (!tier.max_quantity || quantity <= tier.max_quantity)
-    ) || item.tier_pricing[0] || { price: item.price } // Fallback to first tier or item.price
-  }
+    return (
+      item.tier_pricing.find(
+        (tier) =>
+          quantity >= tier.min_quantity &&
+          (!tier.max_quantity || quantity <= tier.max_quantity)
+      ) || item.tier_pricing[0] || { price: item.price }
+    );
+  };
 
-  // Function to get the adjusted price based on quantity
   const getAdjustedPrice = (item, quantity) => {
-    const tier = getPriceTier(item, quantity)
-    return Number(parseFloat(tier.price) || item.price).toFixed(2)
-  }
+    const tier = getPriceTier(item, quantity);
+    return Number(parseFloat(tier.price) || item.price).toFixed(2);
+  };
 
-  // Function to get the tier label
   const getTierLabel = (item, quantity) => {
-    const tier = getPriceTier(item, quantity)
-    if (!tier) return "N/A"
-    return tier.max_quantity 
-      ? `${tier.min_quantity}-${tier.max_quantity} PC` 
-      : `${tier.min_quantity}+ PC`
-  }
+    const tier = getPriceTier(item, quantity);
+    if (!tier) return "N/A";
+    return tier.max_quantity
+      ? `${tier.min_quantity}-${tier.max_quantity} PC`
+      : `${tier.min_quantity}+ PC`;
+  };
 
-  // Handlers for increasing and decreasing quantity
   const increaseQuantity = (itemId) => {
-    setQuantities({
-      ...quantities,
-      [itemId]: (quantities[itemId] || 1) + 1,
-    })
-  }
+    setQuantities((prev) => ({
+      ...prev,
+      [itemId]: (prev[itemId] || 1) + 1,
+    }));
+  };
 
   const decreaseQuantity = (itemId) => {
     if (quantities[itemId] > 1) {
-      setQuantities({
-        ...quantities,
-        [itemId]: quantities[itemId] - 1,
-      })
+      setQuantities((prev) => ({
+        ...prev,
+        [itemId]: prev[itemId] - 1,
+      }));
     }
-  }
+  };
 
-  // Handler for removing an item from the cart
   const removeItem = (itemId) => {
-    const updatedCartItems = cartItems.filter((item) => item.id !== itemId)
-    setCartItems(updatedCartItems)
-    localStorage.setItem("cartItems", JSON.stringify(updatedCartItems))
-  }
+    const updatedCartItems = cartItems.filter((item) => item.id !== itemId);
+    setCartItems(updatedCartItems);
+    localStorage.setItem("cartItems", JSON.stringify(updatedCartItems));
+  };
 
-  // VAT rate (16%)
-  const VAT_RATE = 0.16
+  const VAT_RATE = 0.16;
 
-  // Calculate order summary with adjusted prices
   const subtotalExclVAT = cartItems.reduce((sum, item) => {
-    const quantity = quantities[item.id] || 1
-    const adjustedPrice = Number(getAdjustedPrice(item, quantity))
-    const priceExclVAT = Number((adjustedPrice / (1 + VAT_RATE)).toFixed(2))
-    return Number(sum) + Number((priceExclVAT * quantity).toFixed(2))
-  }, 0).toFixed(2)
+    const quantity = quantities[item.id] || 1;
+    const adjustedPrice = Number(getAdjustedPrice(item, quantity));
+    const priceExclVAT = Number((adjustedPrice / (1 + VAT_RATE)).toFixed(2));
+    return Number(sum) + Number((priceExclVAT * quantity).toFixed(2));
+  }, 0).toFixed(2);
 
-  // Calculate VAT amount
-  const vatAmount = Number((subtotalExclVAT * VAT_RATE).toFixed(2))
+  const vatAmount = Number((subtotalExclVAT * VAT_RATE).toFixed(2));
 
-  // Calculate total (subtotal + VAT) and round to whole number
-const total = Math.round(Number(subtotalExclVAT) + Number(vatAmount))
+  const total = Math.round(Number(subtotalExclVAT) + Number(vatAmount));
 
-  // Calculate cashback based on percentage (excluding VAT)
   const calculateCashback = (item, quantity) => {
-    const cashbackPercent = Number(item.cashbackPercent) || 0
-    const adjustedPrice = Number(getAdjustedPrice(item, quantity))
-    const priceExclVAT = Number((adjustedPrice / (1 + VAT_RATE)).toFixed(2))
-    return Number(((priceExclVAT * quantity * cashbackPercent) / 100).toFixed(2))
-  }
+    const cashbackPercent = Number(item.cashbackPercent) || 0;
+    const adjustedPrice = Number(getAdjustedPrice(item, quantity));
+    const priceExclVAT = Number((adjustedPrice / (1 + VAT_RATE)).toFixed(2));
+    return Number(((priceExclVAT * quantity * cashbackPercent) / 100).toFixed(2));
+  };
 
   const totalCashback = cartItems.reduce((sum, item) => {
-    const quantity = quantities[item.id] || 1
-    return Number(sum) + Number(calculateCashback(item, quantity))
-  }, 0).toFixed(2)
+    const quantity = quantities[item.id] || 1;
+    return Number(sum) + Number(calculateCashback(item, quantity));
+  }, 0).toFixed(2);
 
-  // Clear cart function
   const clearCart = () => {
-    setCartItems([])
-    localStorage.removeItem("cartItems")
-  }
+    setCartItems([]);
+    localStorage.removeItem("cartItems");
+  };
+
+  const handleCheckout = () => {
+    const invalidItems = cartItems.filter(
+      (item) => !item.id || isNaN(Number(item.id)) || Number(item.id) < 1
+    );
+    if (invalidItems.length > 0) {
+      setError("Invalid cart items detected. Please remove them and try again.");
+      console.error("Invalid cart items:", invalidItems);
+      return;
+    }
+    window.location.href = "/checkout";
+  };
 
   return (
-    <Box
-      sx={{
-        px: { xs: 2, md: 3 },
-        py: { xs: 3, md: 4 },
-      }}
-    >
+    <Box sx={{ px: { xs: 2, md: 3 }, py: { xs: 3, md: 4 } }}>
+      {error && (
+        <Alert severity="error" sx={{ mb: 3, fontSize: "1.1rem" }}>
+          {error}
+        </Alert>
+      )}
       <Typography
         variant="h5"
         fontWeight="bold"
         gutterBottom
-        sx={{
-          fontSize: { xs: "1.5rem", md: "1.75rem" },
-        }}
+        sx={{ fontSize: { xs: "1.5rem", md: "1.75rem" } }}
       >
         My cart ({cartItems.length})
       </Typography>
 
       <Grid container spacing={3}>
-        {/* Cart Items */}
         <Grid item xs={12} md={8}>
           <Paper variant="outlined" sx={{ mb: 3 }}>
             {cartItems.length === 0 ? (
@@ -204,12 +203,11 @@ const total = Math.round(Number(subtotalExclVAT) + Number(vatAmount))
                 </Button>
               </Box>
             ) : isMobile || isTablet ? (
-              // Mobile view - Card layout
               <Box>
                 {cartItems.map((item) => {
-                  const quantity = quantities[item.id] || 1
-                  const adjustedPrice = getAdjustedPrice(item, quantity)
-                  const tierLabel = getTierLabel(item, quantity)
+                  const quantity = quantities[item.id] || 1;
+                  const adjustedPrice = getAdjustedPrice(item, quantity);
+                  const tierLabel = getTierLabel(item, quantity);
 
                   return (
                     <Paper key={item.id} sx={{ mb: 2, p: 2 }}>
@@ -247,7 +245,6 @@ const total = Math.round(Number(subtotalExclVAT) + Number(vatAmount))
                           <Typography variant="body2" color="text.secondary">
                             Cashback: {Number(item.cashbackPercent).toFixed(2)}%
                           </Typography>
-                          
                         </Grid>
 
                         <Grid item xs={6}>
@@ -269,9 +266,7 @@ const total = Math.round(Number(subtotalExclVAT) + Number(vatAmount))
                                 size="small"
                                 onClick={() => decreaseQuantity(item.id)}
                                 disabled={quantities[item.id] <= 1}
-                                sx={{
-                                  p: 1,
-                                }}
+                                sx={{ p: 1 }}
                               >
                                 <KeyboardArrowDown fontSize="small" />
                               </IconButton>
@@ -289,9 +284,7 @@ const total = Math.round(Number(subtotalExclVAT) + Number(vatAmount))
                               <IconButton
                                 size="small"
                                 onClick={() => increaseQuantity(item.id)}
-                                sx={{
-                                  p: 1,
-                                }}
+                                sx={{ p: 1 }}
                               >
                                 <KeyboardArrowUp fontSize="small" />
                               </IconButton>
@@ -300,7 +293,12 @@ const total = Math.round(Number(subtotalExclVAT) + Number(vatAmount))
                         </Grid>
 
                         <Grid item xs={6}>
-                          <Typography variant="body1" fontWeight="bold" align="right" sx={{ fontSize: "1.1rem" }}>
+                          <Typography
+                            variant="body1"
+                            fontWeight="bold"
+                            align="right"
+                            sx={{ fontSize: "1.1rem" }}
+                          >
                             {formatNumberWithCommas(adjustedPrice)}
                           </Typography>
                           <Typography variant="body2" color="text.secondary" align="right">
@@ -315,8 +313,13 @@ const total = Math.round(Number(subtotalExclVAT) + Number(vatAmount))
                         </Grid>
 
                         <Grid item xs={6}>
-                          <Typography variant="body1" fontWeight="bold" align="right" sx={{ fontSize: "1.1rem" }}>
-                            Total (Excludes V): {formatNumberWithCommas((adjustedPrice * quantity).toFixed(2))}
+                          <Typography
+                            variant="body1"
+                            fontWeight="bold"
+                            align="right"
+                            sx={{ fontSize: "1.1rem" }}
+                          >
+                            Total (Excl. VAT): {formatNumberWithCommas((adjustedPrice * quantity).toFixed(2))}
                           </Typography>
                         </Grid>
 
@@ -343,11 +346,10 @@ const total = Math.round(Number(subtotalExclVAT) + Number(vatAmount))
                         </Grid>
                       </Grid>
                     </Paper>
-                  )
+                  );
                 })}
               </Box>
             ) : (
-              // Desktop view - Table layout
               <TableContainer>
                 <Table sx={{ minWidth: 650 }}>
                   <TableHead>
@@ -362,9 +364,9 @@ const total = Math.round(Number(subtotalExclVAT) + Number(vatAmount))
                   </TableHead>
                   <TableBody>
                     {cartItems.map((item) => {
-                      const quantity = quantities[item.id] || 1
-                      const adjustedPrice = getAdjustedPrice(item, quantity)
-                      const tierLabel = getTierLabel(item, quantity)
+                      const quantity = quantities[item.id] || 1;
+                      const adjustedPrice = getAdjustedPrice(item, quantity);
+                      const tierLabel = getTierLabel(item, quantity);
 
                       return (
                         <TableRow key={item.id}>
@@ -382,7 +384,12 @@ const total = Math.round(Number(subtotalExclVAT) + Number(vatAmount))
                             />
                           </TableCell>
                           <TableCell>
-                            <Typography variant="body1" fontWeight="medium" gutterBottom sx={{ fontSize: "1rem" }}>
+                            <Typography
+                              variant="body1"
+                              fontWeight="medium"
+                              gutterBottom
+                              sx={{ fontSize: "1rem" }}
+                            >
                               {item.name}
                             </Typography>
                             <Chip
@@ -402,7 +409,6 @@ const total = Math.round(Number(subtotalExclVAT) + Number(vatAmount))
                             <Typography variant="body2" color="text.secondary">
                               Cashback: {Number(item.cashbackPercent).toFixed(2)}%
                             </Typography>
-                            
                           </TableCell>
                           <TableCell align="center">
                             <Box
@@ -416,7 +422,11 @@ const total = Math.round(Number(subtotalExclVAT) + Number(vatAmount))
                                 margin: "0 auto",
                               }}
                             >
-                              <IconButton size="small" onClick={() => increaseQuantity(item.id)} sx={{ p: 0.5 }}>
+                              <IconButton
+                                size="small"
+                                onClick={() => increaseQuantity(item.id)}
+                                sx={{ p: 0.5 }}
+                              >
                                 <KeyboardArrowUp fontSize="small" />
                               </IconButton>
                               <Typography
@@ -469,7 +479,7 @@ const total = Math.round(Number(subtotalExclVAT) + Number(vatAmount))
                             </Stack>
                           </TableCell>
                         </TableRow>
-                      )
+                      );
                     })}
                   </TableBody>
                 </Table>
@@ -516,9 +526,7 @@ const total = Math.round(Number(subtotalExclVAT) + Number(vatAmount))
           )}
         </Grid>
 
-        {/* Order Summary */}
         <Grid item xs={12} md={4}>
-          {/* Cashback Summary Box */}
           <Paper
             variant="outlined"
             sx={{
@@ -535,17 +543,20 @@ const total = Math.round(Number(subtotalExclVAT) + Number(vatAmount))
               <Typography variant="body1" sx={{ fontSize: "1.05rem" }}>
                 Total Cashback Earned:
               </Typography>
-              <Typography variant="body1" color="success.main" fontWeight="bold" sx={{ fontSize: "1.05rem" }}>
+              <Typography
+                variant="body1"
+                color="success.main"
+                fontWeight="bold"
+                sx={{ fontSize: "1.05rem" }}
+              >
                 {formatNumberWithCommas(totalCashback)}
               </Typography>
             </Box>
             <Typography variant="body2" color="text.secondary" sx={{ fontSize: "0.95rem" }}>
-              Cashback is added to your e-wallet after purchase
-              completion.
+              Cashback is added to your e-wallet after purchase completion.
             </Typography>
           </Paper>
 
-          {/* Order Summary Box */}
           <Paper
             variant="outlined"
             sx={{
@@ -604,7 +615,7 @@ const total = Math.round(Number(subtotalExclVAT) + Number(vatAmount))
                 "&:hover": { bgcolor: "#00873e" },
                 mt: 3,
               }}
-              onClick={() => (window.location.href = "/checkout")}
+              onClick={handleCheckout}
             >
               Checkout
             </Button>
@@ -612,5 +623,5 @@ const total = Math.round(Number(subtotalExclVAT) + Number(vatAmount))
         </Grid>
       </Grid>
     </Box>
-  )
+  );
 }

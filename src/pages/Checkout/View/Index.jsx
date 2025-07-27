@@ -1,75 +1,57 @@
-"use client"
+"use client";
 
-import { useState, useEffect } from "react"
-import { useNavigate } from "react-router-dom"
+import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import {
-  Box,
-  Typography,
-  Paper,
-  Grid,
-  Button,
-  TextField,
-  FormControl,
-  RadioGroup,
-  FormControlLabel,
-  Radio,
-  Divider,
-  Stepper,
-  Step,
-  StepLabel,
-  Checkbox,
-  Alert,
-  CircularProgress,
-  useMediaQuery,
-  useTheme,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-} from "@mui/material"
-import { ArrowBack, ArrowForward, CheckCircle, LocalShipping, Payment, Receipt } from "@mui/icons-material"
-import axios from "axios"
-import { jwtDecode } from "jwt-decode"
+  Box, Typography, Paper, Grid, Button, TextField, FormControl, RadioGroup,
+  FormControlLabel, Radio, Divider, Stepper, Step, StepLabel, Checkbox,
+  Alert, CircularProgress, useMediaQuery, useTheme, Table, TableBody,
+  TableCell, TableContainer, TableHead, TableRow
+} from "@mui/material";
+import { ArrowBack, ArrowForward, CheckCircle, LocalShipping, Payment, Receipt } from "@mui/icons-material";
+import axios from "axios";
+import { jwtDecode } from "jwt-decode";
 
-// Helper function to format numbers with commas
 const formatNumberWithCommas = (number) => {
-  return number.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",")
-}
+  if (isNaN(number) || number === null || number === undefined) return "0.00";
+  const [integerPart, decimalPart = ""] = Number(number).toFixed(2).split(".");
+  const formattedInteger = integerPart.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+  return `${formattedInteger}.${decimalPart.padEnd(2, "0")}`;
+};
 
-// Function to get the price tier based on quantity
 const getPriceTier = (item, quantity) => {
   return item.tier_pricing.find(tier => 
     quantity >= tier.min_quantity && (!tier.max_quantity || quantity <= tier.max_quantity)
-  ) || item.tier_pricing[0] || { price: item.price } // Fallback to first tier or item.price
-}
+  ) || item.tier_pricing[0] || { price: item.price };
+};
 
-// Function to get the adjusted price based on quantity
 const getAdjustedPrice = (item, quantity) => {
-  const tier = getPriceTier(item, quantity)
-  return Math.round(parseFloat(tier.price) || item.price)
-}
+  const tier = getPriceTier(item, quantity);
+  return Number(parseFloat(tier.price) || item.price).toFixed(2);
+};
 
-const steps = ["Shipping Information", "Payment Method", "Order Confirmation"]
+const steps = ["Shipping Information", "Payment Method", "Order Confirmation"];
 
 export default function CheckoutPage() {
-  const navigate = useNavigate()
-  const theme = useTheme()
-  const isMobile = useMediaQuery(theme.breakpoints.down("sm"))
+  const navigate = useNavigate();
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
 
-  const [activeStep, setActiveStep] = useState(0)
-  const [cartItems, setCartItems] = useState([])
-  const [orderComplete, setOrderComplete] = useState(false)
-  const [orderNumber, setOrderNumber] = useState("")
-  const [orderId, setOrderId] = useState(null)
-  const [isAuthenticated, setIsAuthenticated] = useState(false)
-  const [user, setUser] = useState(null)
-  const [error, setError] = useState("")
-  const [loading, setLoading] = useState(false)
-  const [mpesaPhone, setMpesaPhone] = useState("")
-
-  // Form states
+  const [activeStep, setActiveStep] = useState(0);
+  const [cartItems, setCartItems] = useState([]);
+  const [orderComplete, setOrderComplete] = useState(false);
+  const [orderNumber, setOrderNumber] = useState("");
+  const [orderId, setOrderId] = useState(null);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [user, setUser] = useState(null);
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [mpesaPhone, setMpesaPhone] = useState("");
+  const [cardDetails, setCardDetails] = useState({
+    cardNumber: "",
+    expiry: "",
+    cvv: "",
+  });
   const [shippingInfo, setShippingInfo] = useState({
     username: "",
     email: "",
@@ -77,33 +59,30 @@ export default function CheckoutPage() {
     address: "",
     city: "",
     country: "Uganda",
-  })
+  });
+  const [paymentMethod, setPaymentMethod] = useState("mpesa");
+  const [termsAccepted, setTermsAccepted] = useState(false);
 
-  const [paymentMethod, setPaymentMethod] = useState("mpesa")
-  const [termsAccepted, setTermsAccepted] = useState(false)
-
-  // Check authentication and fetch user details
   useEffect(() => {
-    const token = localStorage.getItem("authToken")
-    const userData = JSON.parse(localStorage.getItem("currentUser"))
+    const token = localStorage.getItem("authToken");
+    const userData = JSON.parse(localStorage.getItem("currentUser"));
     if (token && userData?.userType === "customer") {
       try {
-        const decoded = jwtDecode(token)
+        const decoded = jwtDecode(token);
         if (decoded.exp * 1000 > Date.now()) {
-          setIsAuthenticated(true)
-          setUser(userData)
-          // Fetch detailed user info
+          setIsAuthenticated(true);
+          setUser(userData);
           const fetchUserDetails = async () => {
             try {
-              setLoading(true)
+              setLoading(true);
               const response = await axios.get(`${import.meta.env.VITE_API_URL}/auth/me`, {
                 headers: { Authorization: `Bearer ${token}` },
-              })
-              const userDetails = response.data
-              const userPhone = userDetails.phone_number || ""
+              });
+              const userDetails = response.data;
+              const userPhone = userDetails.phone_number || "";
               const formattedPhone = userPhone.length === 9 && /^\d{9}$/.test(userPhone) 
                 ? `0${userPhone}` 
-                : userPhone
+                : userPhone || "0123456789";
               setShippingInfo({
                 username: userDetails.name || userData.username || "",
                 email: userDetails.email || userData.email || "",
@@ -111,132 +90,219 @@ export default function CheckoutPage() {
                 address: userDetails.street_name || "",
                 city: userDetails.city || "",
                 country: userDetails.country || "Uganda",
-              })
-              setMpesaPhone(formattedPhone)
+              });
+              setMpesaPhone(formattedPhone);
             } catch (err) {
-              console.error("Fetch user details error:", err)
+              console.error("Fetch user details error:", err);
               setShippingInfo({
                 username: userData.username || "",
                 email: userData.email || "",
-                phone: "",
+                phone: "0123456789",
                 address: "",
                 city: "",
                 country: "Uganda",
-              })
+              });
             } finally {
-              setLoading(false)
+              setLoading(false);
             }
-          }
-          fetchUserDetails()
+          };
+          fetchUserDetails();
         } else {
-          localStorage.removeItem("authToken")
-          localStorage.removeItem("currentUser")
-          setError("Session expired. Please log in to continue.")
-          setTimeout(() => navigate("/login?redirect=/checkout"), 2000)
+          localStorage.removeItem("authToken");
+          localStorage,removeItem("currentUser");
+          setError("Session expired. Please log in to continue.");
+          setTimeout(() => navigate("/login?redirect=/checkout"), 2000);
         }
       } catch (err) {
-        console.error("Token decode error:", err)
-        setError("Invalid session. Please log in to continue.")
-        setTimeout(() => navigate("/login?redirect=/checkout"), 2000)
+        console.error("Token decode error:", err);
+        setError("Invalid session. Please log in to continue.");
+        setTimeout(() => navigate("/login?redirect=/checkout"), 2000);
       }
     } else {
-      setError("Please log in to access checkout.")
-      setTimeout(() => navigate("/login?redirect=/checkout"), 2000)
+      setError("Please log in to access checkout.");
+      setTimeout(() => navigate("/login?redirect=/checkout"), 2000);
     }
-  }, [navigate])
+  }, [navigate]);
 
-  // Load cart items
   useEffect(() => {
-    const storedCartItems = JSON.parse(localStorage.getItem("cartItems")) || []
+    const storedCartItems = JSON.parse(localStorage.getItem("cartItems")) || [];
     if (storedCartItems.length === 0 && isAuthenticated) {
-      navigate("/cart")
-      return
+      setError("Your cart is empty. Please add items to continue.");
+      navigate("/cart");
+      return;
     }
-    // Ensure all items have required properties
-    const updatedItems = storedCartItems.map((item) => ({
-      ...item,
-      quantity: item.quantity || 1,
-      price: getAdjustedPrice(item, item.quantity || 1),
-      tier_pricing: item.tier_pricing || [],
-      cashbackPercent: item.cashbackPercent || (item.cashback ? Math.round((item.cashback / item.price) * 100) : 5),
-    }))
-    setCartItems(updatedItems)
-  }, [navigate, isAuthenticated])
+    const validItems = storedCartItems
+      .filter((item) => {
+        if (!item.id || isNaN(Number(item.id)) || Number(item.id) < 1) {
+          console.warn(`Invalid cart item detected: ${JSON.stringify(item)}`);
+          return false;
+        }
+        return true;
+      })
+      .map((item) => ({
+        ...item,
+        id: Number(item.id),
+        quantity: Number(item.quantity) || 1,
+        price: Number(getAdjustedPrice(item, Number(item.quantity) || 1)).toFixed(2),
+        tier_pricing: item.tier_pricing || [],
+        cashbackPercent: Number(item.cashbackPercent || (item.cashback ? Math.round((item.cashback / item.price) * 100) : 5)).toFixed(2),
+        vat: Number(item.vat || 0.16).toFixed(2),
+      }));
+    if (validItems.length === 0 && storedCartItems.length > 0) {
+      setError("Invalid items were removed from your cart. Please add products again.");
+      localStorage.setItem("cartItems", JSON.stringify(validItems));
+      navigate("/cart");
+      return;
+    }
+    setCartItems(validItems);
+  }, [navigate, isAuthenticated]);
 
-  // Calculate totals
+  const VAT_RATE = 0.16;
+
   const subtotalExclVAT = cartItems.reduce((sum, item) => {
-    const quantity = item.quantity || 1
-    const adjustedPrice = getAdjustedPrice(item, quantity)
-    const vatRate = parseFloat(item.vat) || 0.16
-    const priceExclVAT = Math.round(adjustedPrice / (1 + vatRate))
-    return sum + priceExclVAT * quantity
-  }, 0)
+    const quantity = Number(item.quantity) || 1;
+    const adjustedPrice = Number(getAdjustedPrice(item, quantity));
+    const priceExclVAT = Number((adjustedPrice / (1 + VAT_RATE)).toFixed(2));
+    return Number(sum) + Number((priceExclVAT * quantity).toFixed(2));
+  }, 0).toFixed(2);
 
-  const vatAmount = cartItems.reduce((sum, item) => {
-    const quantity = item.quantity || 1
-    const adjustedPrice = getAdjustedPrice(item, quantity)
-    const vatRate = parseFloat(item.vat) || 0.16
-    const priceExclVAT = Math.round(adjustedPrice / (1 + vatRate))
-    return sum + Math.round(priceExclVAT * vatRate * quantity)
-  }, 0)
+  const vatAmount = Number((subtotalExclVAT * VAT_RATE).toFixed(2));
 
-  const total = subtotalExclVAT + vatAmount
-  const shippingCost = 299 // Fixed shipping cost
+  const shippingCost = 299;
+
+  const total = Math.round(Number(subtotalExclVAT) + Number(vatAmount) + Number(shippingCost));
 
   const handleNext = () => {
     if (activeStep === 0) {
-      // Validate shipping information
-      const requiredFields = ["username", "email", "phone", "address", "city"]
-      const isValid = requiredFields.every((field) => shippingInfo[field].trim() !== "")
+      const requiredFields = ["username", "email", "phone", "address", "city"];
+      const isValid = requiredFields.every((field) => shippingInfo[field].trim() !== "");
       if (!isValid) {
-        setError("Please fill in all required fields")
-        return
+        setError("Please fill in all required fields");
+        return;
       }
       if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(shippingInfo.email)) {
-        setError("Please enter a valid email address")
-        return
+        setError("Please enter a valid email address");
+        return;
       }
     }
 
     if (activeStep === 1) {
-      // Validate payment method and M-Pesa phone
       if (!termsAccepted) {
-        setError("Please accept the terms and conditions")
-        return
+        setError("Please accept the terms and conditions");
+        return;
       }
       if (paymentMethod === "mpesa" && (!/^(0)\d{9}$/.test(mpesaPhone))) {
-        setError("Please enter a valid M-Pesa phone number (0 followed by 9 digits)")
-        return
+        setError("Please enter a valid M-Pesa phone number (0 followed by 9 digits)");
+        return;
+      }
+      if (paymentMethod === "card") {
+        if (!/^\d{16}$/.test(cardDetails.cardNumber)) {
+          setError("Please enter a valid 16-digit card number");
+          return;
+        }
+        if (!/^(0[1-9]|1[0-2])\/[0-9]{2}$/.test(cardDetails.expiry)) {
+          setError("Please enter a valid expiry date (MM/YY)");
+          return;
+        }
+        if (!/^\d{3,4}$/.test(cardDetails.cvv)) {
+          setError("Please enter a valid CVV (3 or 4 digits)");
+          return;
+        }
       }
     }
 
-    setError("")
-    setActiveStep((prevActiveStep) => prevActiveStep + 1)
-  }
+    setError("");
+    setActiveStep((prevActiveStep) => prevActiveStep + 1);
+  };
 
   const handleBack = () => {
-    setActiveStep((prevActiveStep) => prevActiveStep - 1)
-  }
+    setActiveStep((prevActiveStep) => prevActiveStep - 1);
+  };
 
-  // Dummy place order handler
+  const handleCardDetailsChange = (field) => (e) => {
+    let value = e.target.value;
+    if (field === "cardNumber" && !/^\d*$/.test(value)) return;
+    if (field === "cvv" && !/^\d*$/.test(value)) return;
+    if (field === "expiry") {
+      value = value.replace(/[^0-9/]/g, "");
+      if (value.length === 2 && !value.includes("/")) {
+        value = value + "/";
+      }
+      if (value.length > 5) {
+        value = value.slice(0, 5);
+      }
+    }
+    setCardDetails((prev) => ({ ...prev, [field]: value }));
+  };
+
   const handlePlaceOrder = async () => {
     try {
-      setLoading(true)
-      // Simulate API call with a delay
-      await new Promise((resolve) => setTimeout(resolve, 1500))
-      const orderNum = `FCL${Date.now().toString().slice(-6)}`
-      setOrderNumber(orderNum)
-      setOrderId(Date.now()) // Dummy order ID
-      setOrderComplete(true)
-      localStorage.removeItem("cartItems")
-    } catch (err) {
-      setError("Failed to place order. Please try again.")
-    } finally {
-      setLoading(false)
-    }
-  }
+      setLoading(true);
+      const token = localStorage.getItem("authToken");
+      if (!token) {
+        setError("Please log in to place an order.");
+        setLoading(false);
+        return;
+      }
+      if (cartItems.length === 0) {
+        setError("Cart is empty. Please add items to your cart.");
+        setLoading(false);
+        return;
+      }
 
-  if (loading) return <CircularProgress sx={{ display: "block", mx: "auto", mt: 4 }} />
+      const invalidItems = cartItems.filter(item => !item.id || isNaN(Number(item.id)) || Number(item.id) < 1);
+      if (invalidItems.length > 0) {
+        setError("Invalid cart items detected. Please review your cart.");
+        console.error("Invalid cart items:", invalidItems);
+        setLoading(false);
+        return;
+      }
+
+      const paymentDetails = paymentMethod === "mpesa" 
+        ? { mpesaPhone }
+        : { cardNumber: `**** **** **** ${cardDetails.cardNumber.slice(-4)}` };
+
+      const orderData = {
+        shippingInfo,
+        paymentMethod,
+        paymentDetails,
+        cartItems: cartItems.map(item => ({
+          id: Number(item.id),
+          quantity: Number(item.quantity) || 1,
+        })),
+        subtotalExclVAT: Number(subtotalExclVAT),
+        vatAmount: Number(vatAmount),
+        shippingCost: Number(shippingCost),
+        total: Number(total),
+      };
+
+      console.log("Order data sent to backend:", JSON.stringify(orderData, null, 2));
+
+      const response = await axios.post(`${import.meta.env.VITE_API_URL}/orders`, orderData, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      setOrderNumber(response.data.orderNumber);
+      setOrderId(response.data.orderId);
+      setOrderComplete(true);
+      localStorage.removeItem("cartItems");
+    } catch (err) {
+      console.error("Order placement error:", {
+        message: err.response?.data?.message,
+        errors: err.response?.data?.errors,
+        status: err.response?.status,
+        fullResponse: err.response?.data,
+      });
+      const errorMessage = err.response?.data?.errors
+        ? err.response.data.errors.map(e => e.msg).join("; ")
+        : err.response?.data?.message || "Failed to place order. Please try again.";
+      setError(errorMessage);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (loading) return <CircularProgress sx={{ display: "block", mx: "auto", mt: 4 }} />;
 
   if (orderComplete) {
     return (
@@ -258,7 +324,7 @@ export default function CheckoutPage() {
           View Orders
         </Button>
       </Box>
-    )
+    );
   }
 
   return (
@@ -281,8 +347,8 @@ export default function CheckoutPage() {
           <Step key={label}>
             <StepLabel
               StepIconComponent={({ active, completed }) => {
-                const icons = [LocalShipping, Payment, Receipt]
-                const Icon = icons[index]
+                const icons = [LocalShipping, Payment, Receipt];
+                const Icon = icons[index];
                 return (
                   <Icon
                     sx={{
@@ -290,7 +356,7 @@ export default function CheckoutPage() {
                       fontSize: 32,
                     }}
                   />
-                )
+                );
               }}
             >
               {!isMobile && <Typography variant="h6">{label}</Typography>}
@@ -383,7 +449,6 @@ export default function CheckoutPage() {
                     value="card"
                     control={<Radio size="medium" />}
                     label={<Typography variant="h6">Credit/Debit Card</Typography>}
-                    disabled
                   />
                   <FormControlLabel
                     value="bank"
@@ -394,24 +459,69 @@ export default function CheckoutPage() {
                 </RadioGroup>
               </FormControl>
               {paymentMethod === "mpesa" && (
-                <TextField
-                  fullWidth
-                  label="M-Pesa Phone Number *"
-                  value={mpesaPhone}
-                  onChange={(e) => {
-                    const value = e.target.value
-                    // Only allow digits and ensure it starts with 0
-                    if (/^\d*$/.test(value) && value.length <= 10) {
-                      setMpesaPhone(value)
-                    }
-                  }}
-                  required
-                  variant="outlined"
-                  size="medium"
-                  sx={{ mb: 3 }}
-                  inputProps={{ pattern: "^(0)\\d{9}$", maxLength: 10 }}
-                  helperText="Enter a valid phone number starting with 0 (10 digits)"
-                />
+                <Box sx={{ mb: 3 }}>
+                  <TextField
+                    fullWidth
+                    label="M-Pesa Phone Number *"
+                    value={mpesaPhone}
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      if (/^\d*$/.test(value) && value.length <= 10) {
+                        setMpesaPhone(value);
+                      }
+                    }}
+                    required
+                    variant="outlined"
+                    size="medium"
+                    inputProps={{ pattern: "^(0)\\d{9}$", maxLength: 10 }}
+                    helperText="Enter a valid phone number starting with 0 (10 digits)"
+                  />
+                </Box>
+              )}
+              {paymentMethod === "card" && (
+                <Box sx={{ mb: 3 }}>
+                  <Grid container spacing={2}>
+                    <Grid item xs={12}>
+                      <TextField
+                        fullWidth
+                        label="Card Number *"
+                        value={cardDetails.cardNumber}
+                        onChange={handleCardDetailsChange("cardNumber")}
+                        required
+                        variant="outlined"
+                        size="medium"
+                        inputProps={{ maxLength: 16 }}
+                        helperText="Enter a 16-digit card number"
+                      />
+                    </Grid>
+                    <Grid item xs={12} sm={6}>
+                      <TextField
+                        fullWidth
+                        label="Expiry Date *"
+                        value={cardDetails.expiry}
+                        onChange={handleCardDetailsChange("expiry")}
+                        required
+                        variant="outlined"
+                        size="medium"
+                        placeholder="MM/YY"
+                        helperText="Enter expiry date in MM/YY format"
+                      />
+                    </Grid>
+                    <Grid item xs={12} sm={6}>
+                      <TextField
+                        fullWidth
+                        label="CVV *"
+                        value={cardDetails.cvv}
+                        onChange={handleCardDetailsChange("cvv")}
+                        required
+                        variant="outlined"
+                        size="medium"
+                        inputProps={{ maxLength: 4 }}
+                        helperText="Enter 3 or 4-digit CVV"
+                      />
+                    </Grid>
+                  </Grid>
+                </Box>
               )}
               <Box>
                 <FormControlLabel
@@ -446,11 +556,16 @@ export default function CheckoutPage() {
                   Payment Method:
                 </Typography>
                 <Typography variant="h6" sx={{ mb: 1 }}>
-                  {paymentMethod === "mpesa" ? "M-Pesa Mobile Money" : paymentMethod}
+                  {paymentMethod === "mpesa" ? "M-Pesa Mobile Money" : paymentMethod === "card" ? "Credit/Debit Card" : "Bank Transfer"}
                 </Typography>
                 {paymentMethod === "mpesa" && (
                   <Typography variant="h6" sx={{ mb: 1 }}>
                     M-Pesa Phone: {mpesaPhone}
+                  </Typography>
+                )}
+                {paymentMethod === "card" && (
+                  <Typography variant="h6" sx={{ mb: 1 }}>
+                    Card Number: **** **** **** {cardDetails.cardNumber.slice(-4)}
                   </Typography>
                 )}
               </Box>
@@ -528,7 +643,7 @@ export default function CheckoutPage() {
                       </TableCell>
                       <TableCell align="right" sx={{ fontSize: "1rem" }}>{item.quantity || 1}</TableCell>
                       <TableCell align="right" sx={{ fontSize: "1rem" }}>
-                        {formatNumberWithCommas(getAdjustedPrice(item, item.quantity || 1) * (item.quantity || 1))}/=
+                        {formatNumberWithCommas((Number(getAdjustedPrice(item, item.quantity || 1)) * (item.quantity || 1)).toFixed(2))}
                       </TableCell>
                     </TableRow>
                   ))}
@@ -538,15 +653,15 @@ export default function CheckoutPage() {
             <Divider sx={{ my: 3 }} />
             <Box sx={{ display: "flex", justifyContent: "space-between", mb: 2 }}>
               <Typography variant="h6">Subtotal (Excl. VAT):</Typography>
-              <Typography variant="h6">{formatNumberWithCommas(subtotalExclVAT)}/=</Typography>
+              <Typography variant="h6">{formatNumberWithCommas(subtotalExclVAT)}</Typography>
             </Box>
             <Box sx={{ display: "flex", justifyContent: "space-between", mb: 2 }}>
               <Typography variant="h6">Shipping:</Typography>
-              <Typography variant="h6">{formatNumberWithCommas(shippingCost)}/=</Typography>
+              <Typography variant="h6">{formatNumberWithCommas(shippingCost)}</Typography>
             </Box>
             <Box sx={{ display: "flex", justifyContent: "space-between", mb: 2 }}>
               <Typography variant="h6">VAT:</Typography>
-              <Typography variant="h6">{formatNumberWithCommas(vatAmount)}/=</Typography>
+              <Typography variant="h6">{formatNumberWithCommas(vatAmount)}</Typography>
             </Box>
             <Divider sx={{ my: 3 }} />
             <Box sx={{ display: "flex", justifyContent: "space-between" }}>
@@ -554,12 +669,12 @@ export default function CheckoutPage() {
                 Total:
               </Typography>
               <Typography variant="h5" fontWeight="bold">
-                {formatNumberWithCommas(total + shippingCost)}/=
+                {formatNumberWithCommas(total)}
               </Typography>
             </Box>
           </Paper>
         </Grid>
       </Grid>
     </Box>
-  )
+  );
 }
