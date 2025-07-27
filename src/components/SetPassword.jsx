@@ -119,8 +119,11 @@ const SetPassword = () => {
   return (
     <Container maxWidth="sm" sx={{ py: 4 }}>
       <Paper elevation={0} sx={{ p: 4, borderRadius: 2 }}>
-        <Typography variant="h5" component="h1" fontWeight="bold" gutterBottom>
+        <Typography variant="h3" component="h1" fontWeight="bold" gutterBottom>
           Set Your Password
+        </Typography>
+        <Typography variant="h6" component="h6" color="error" fontWeight="normal" fontFamily="fantasy" fontSize="" gutterBottom>
+          *Password must be atleast 8 characters long, must contain atleast one uppercase letter, one lowercase letter, one number and one special character.
         </Typography>
 
         {status === 'loading' && <CircularProgress sx={{ display: 'block', mx: 'auto', my: 2 }} />}
