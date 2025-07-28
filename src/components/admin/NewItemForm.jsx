@@ -47,7 +47,7 @@ const initialFormState = {
   reorderActive: false,
 }
 
-const uomOptions = ["PC", "PKT", "BOX", "BOTTLES", "SET", "KG", "LITERS", "METERS", "REAMS", "PACKS"]
+const uomOptions = ["PC", "PKT", "BOX", "SET", "KG", "LITERS", "METERS", "REAMS", "PACKS"]
 
 // Custom NumericFormat component for price inputs
 const PriceFormat = ({ onChange, ...props }) => (

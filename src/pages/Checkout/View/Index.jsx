@@ -109,7 +109,7 @@ export default function CheckoutPage() {
           fetchUserDetails();
         } else {
           localStorage.removeItem("authToken");
-          localStorage,removeItem("currentUser");
+          localStorage.removeItem("currentUser");
           setError("Session expired. Please log in to continue.");
           setTimeout(() => navigate("/login?redirect=/checkout"), 2000);
         }
@@ -171,6 +171,15 @@ export default function CheckoutPage() {
   const shippingCost = 299;
 
   const total = Math.round(Number(subtotalExclVAT) + Number(vatAmount) + Number(shippingCost));
+
+  const cashbackTotal = cartItems.reduce((sum, item) => {
+    const quantity = Number(item.quantity) || 1;
+    const adjustedPrice = Number(getAdjustedPrice(item, quantity));
+    const priceExclVAT = Number((adjustedPrice / (1 + VAT_RATE)).toFixed(2));
+    const subtotalExclVAT = Number((priceExclVAT * quantity).toFixed(2));
+    const cashbackPercent = Number(item.cashbackPercent) || 5;
+    return sum + Number((subtotalExclVAT * (cashbackPercent / 100)).toFixed(2));
+  }, 0).toFixed(2);
 
   const handleNext = () => {
     if (activeStep === 0) {
@@ -269,6 +278,9 @@ export default function CheckoutPage() {
         cartItems: cartItems.map(item => ({
           id: Number(item.id),
           quantity: Number(item.quantity) || 1,
+          unitPrice: Number(getAdjustedPrice(item, Number(item.quantity) || 1)),
+          vatRate: Number(item.vat) || 0.16,
+          cashbackPercent: Number(item.cashbackPercent) || 5,
         })),
         subtotalExclVAT: Number(subtotalExclVAT),
         vatAmount: Number(vatAmount),
@@ -625,28 +637,40 @@ export default function CheckoutPage() {
                     <TableCell sx={{ fontSize: "1.1rem", fontWeight: "bold" }}>Item</TableCell>
                     <TableCell align="right" sx={{ fontSize: "1.1rem", fontWeight: "bold" }}>Qty</TableCell>
                     <TableCell align="right" sx={{ fontSize: "1.1rem", fontWeight: "bold" }}>Price</TableCell>
+                    <TableCell align="right" sx={{ fontSize: "1.1rem", fontWeight: "bold" }}>Cashback</TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
-                  {cartItems.map((item) => (
-                    <TableRow key={item.id}>
-                      <TableCell sx={{ fontSize: "1rem" }}>
-                        <Box sx={{ display: "flex", alignItems: "center" }}>
-                          <Box
-                            component="img"
-                            src={item.image}
-                            alt={item.name}
-                            sx={{ width: 60, height: 60, objectFit: "contain", mr: 2 }}
-                          />
-                          <Typography variant="body1">{item.name}</Typography>
-                        </Box>
-                      </TableCell>
-                      <TableCell align="right" sx={{ fontSize: "1rem" }}>{item.quantity || 1}</TableCell>
-                      <TableCell align="right" sx={{ fontSize: "1rem" }}>
-                        {formatNumberWithCommas((Number(getAdjustedPrice(item, item.quantity || 1)) * (item.quantity || 1)).toFixed(2))}
-                      </TableCell>
-                    </TableRow>
-                  ))}
+                  {cartItems.map((item) => {
+                    const quantity = Number(item.quantity) || 1;
+                    const adjustedPrice = Number(getAdjustedPrice(item, quantity));
+                    const priceExclVAT = Number((adjustedPrice / (1 + VAT_RATE)).toFixed(2));
+                    const subtotalExclVAT = Number((priceExclVAT * quantity).toFixed(2));
+                    const cashbackPercent = Number(item.cashbackPercent) || 5;
+                    const cashbackAmount = Number((subtotalExclVAT * (cashbackPercent / 100)).toFixed(2));
+                    return (
+                      <TableRow key={item.id}>
+                        <TableCell sx={{ fontSize: "1rem" }}>
+                          <Box sx={{ display: "flex", alignItems: "center" }}>
+                            <Box
+                              component="img"
+                              src={item.image}
+                              alt={item.name}
+                              sx={{ width: 60, height: 60, objectFit: "contain", mr: 2 }}
+                            />
+                            <Typography variant="body1">{item.name}</Typography>
+                          </Box>
+                        </TableCell>
+                        <TableCell align="right" sx={{ fontSize: "1rem" }}>{quantity}</TableCell>
+                        <TableCell align="right" sx={{ fontSize: "1rem" }}>
+                          {formatNumberWithCommas((adjustedPrice * quantity).toFixed(2))}
+                        </TableCell>
+                        <TableCell align="right" sx={{ fontSize: "1rem" }}>
+                          {formatNumberWithCommas(cashbackAmount)} ({cashbackPercent}%)
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
                 </TableBody>
               </Table>
             </TableContainer>
@@ -662,6 +686,10 @@ export default function CheckoutPage() {
             <Box sx={{ display: "flex", justifyContent: "space-between", mb: 2 }}>
               <Typography variant="h6">VAT:</Typography>
               <Typography variant="h6">{formatNumberWithCommas(vatAmount)}</Typography>
+            </Box>
+            <Box sx={{ display: "flex", justifyContent: "space-between", mb: 2 }}>
+              <Typography variant="h6">Cashback Total:</Typography>
+              <Typography variant="h6">{formatNumberWithCommas(cashbackTotal)}</Typography>
             </Box>
             <Divider sx={{ my: 3 }} />
             <Box sx={{ display: "flex", justifyContent: "space-between" }}>

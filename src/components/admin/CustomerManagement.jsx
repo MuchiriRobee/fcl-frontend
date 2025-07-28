@@ -27,7 +27,7 @@ import {
   Alert,
   Snackbar,
   Avatar,
-  Chip,
+  Divider,
 } from "@mui/material"
 import {
   Search as SearchIcon,
@@ -37,7 +37,6 @@ import {
   Phone as PhoneIcon,
   LocationOn as LocationIcon,
   History as HistoryIcon,
-  CardGiftcard as CashbackIcon,
   Refresh as RefreshIcon,
 } from "@mui/icons-material"
 import axios from "axios"
@@ -147,13 +146,10 @@ const CustomerManagement = () => {
               null
             )?.created_at || null
 
-            // Calculate cashback earned (assuming 5% cashback rate)
             const cashbackEarned = orders
               .reduce((sum, order) => {
                 const orderCashback = order.items.reduce((itemSum, item) => {
-                  const itemPriceExclVAT = item.subtotal_excl_vat || 0
-                  const cashbackRate = 0.05
-                  return itemSum + (itemPriceExclVAT * cashbackRate)
+                  return itemSum + Number(item.cashback_amount || 0);
                 }, 0)
                 return sum + orderCashback
               }, 0)
@@ -174,21 +170,23 @@ const CustomerManagement = () => {
               totalSpent: parseFloat(totalSpent),
               cashbackEarned: parseFloat(cashbackEarned),
               lastPurchaseDate,
-              transactions: orders.map((order) => ({
+              orders: orders.map((order) => ({
                 id: order.id,
+                orderNumber: order.order_number,
                 date: order.created_at,
-                type: "purchase",
-                amount: parseFloat(order.total_amount || 0),
-                description: `Order ${order.order_number || "N/A"}`,
-                status: order.status || "unknown",
-              })),
-              cashbackHistory: orders.map((order) => ({
-                id: order.id,
-                date: order.created_at,
-                orderAmount: parseFloat(order.total_amount || 0),
-                cashbackRate: 5,
-                cashbackAmount: order.items.reduce((sum, item) => sum + ((item.subtotal_excl_vat || 0) * 0.05), 0),
-                status: "credited",
+                totalAmount: Number(order.total_amount || 0).toFixed(2),
+                cashbackTotal: order.items
+                  .reduce((sum, item) => sum + Number(item.cashback_amount || 0), 0)
+                  .toFixed(2),
+                items: order.items.map((item) => ({
+                  productId: item.product_id,
+                  productName: item.product_name,
+                  quantity: item.quantity,
+                  unitPrice: item.unit_price,
+                  cashbackAmount: item.cashback_amount,
+                  subtotalExclVat: item.subtotal_excl_vat,
+                  imageUrl: item.image_url || null,
+                })),
               })),
             }
           } catch (error) {
@@ -208,8 +206,7 @@ const CustomerManagement = () => {
               totalSpent: 0.00,
               cashbackEarned: 0.00,
               lastPurchaseDate: null,
-              transactions: [],
-              cashbackHistory: [],
+              orders: [],
             }
           }
         })
@@ -262,15 +259,6 @@ const CustomerManagement = () => {
   const handleViewCustomer = (customer) => {
     setSelectedCustomer(customer)
     setViewDialogOpen(true)
-  }
-
-  // Show notification
-  const showNotification = (message, severity = "success") => {
-    setNotification({
-      open: true,
-      message,
-      severity,
-    })
   }
 
   // Handle tab change
@@ -459,8 +447,8 @@ const CustomerManagement = () => {
               {/* Customer Info */}
               <Grid container spacing={3} sx={{ mb: 3 }}>
                 <Grid item xs={12} md={6}>
-                  <Paper sx={{ p: 3 }}>
-                    <Typography variant="h6" sx={{ mb: 2, color: "#1976d2" }}>
+                  <Paper sx={{ p: 3, borderRadius: 2, boxShadow: 3 }}>
+                    <Typography variant="h6" sx={{ mb: 2, color: "#1976d2", fontWeight: 600 }}>
                       Customer Information
                     </Typography>
                     <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
@@ -484,8 +472,8 @@ const CustomerManagement = () => {
                   </Paper>
                 </Grid>
                 <Grid item xs={12} md={6}>
-                  <Paper sx={{ p: 3 }}>
-                    <Typography variant="h6" sx={{ mb: 2, color: "#1976d2" }}>
+                  <Paper sx={{ p: 3, borderRadius: 2, boxShadow: 3 }}>
+                    <Typography variant="h6" sx={{ mb: 2, color: "#1976d2", fontWeight: 600 }}>
                       Account Summary
                     </Typography>
                     <Grid container spacing={2}>
@@ -503,7 +491,7 @@ const CustomerManagement = () => {
                       </Grid>
                       <Grid item xs={6}>
                         <Typography variant="body2" color="text.secondary">
-                          Cashback Earned
+                          Total Cashback
                         </Typography>
                         <Typography variant="h6">{formatCurrency(selectedCustomer.cashbackEarned)}</Typography>
                       </Grid>
@@ -519,94 +507,113 @@ const CustomerManagement = () => {
               </Grid>
 
               {/* Tabs for detailed information */}
-              <Paper>
-                <Tabs value={tabValue} onChange={handleTabChange} aria-label="customer details tabs">
-                  <Tab icon={<HistoryIcon />} label="Transaction History" />
-                  <Tab icon={<CashbackIcon />} label="Cashback Details" />
+              <Paper sx={{ borderRadius: 2, boxShadow: 3 }}>
+                <Tabs value={tabValue} onChange={handleTabChange} aria-label="customer details tabs" sx={{ bgcolor: "#f5f5f5" }}>
+                  <Tab icon={<HistoryIcon />} label="Purchase History" />
                 </Tabs>
 
                 <TabPanel value={tabValue} index={0}>
-                  <TableContainer>
-                    <Table>
-                      <TableHead>
-                        <TableRow>
-                          <TableCell>Date</TableCell>
-                          <TableCell>Type</TableCell>
-                          <TableCell>Description</TableCell>
-                          <TableCell>Amount</TableCell>
-                          <TableCell>Status</TableCell>
-                        </TableRow>
-                      </TableHead>
-                      <TableBody>
-                        {selectedCustomer.transactions.length === 0 ? (
-                          <TableRow>
-                            <TableCell colSpan={5} align="center">
-                              <Typography variant="body2" color="text.secondary">
-                                No transactions found
-                              </Typography>
-                            </TableCell>
+                  <Box sx={{ maxHeight: 400, overflowY: 'auto' }}>
+                    <TableContainer>
+                      <Table>
+                        <TableHead>
+                          <TableRow sx={{ bgcolor: "#e3f2fd" }}>
+                            <TableCell sx={{ fontWeight: 600, color: "#1976d2" }}>Product Name</TableCell>
+                            <TableCell sx={{ fontWeight: 600, color: "#1976d2" }} align="right">Quantity</TableCell>
+                            <TableCell sx={{ fontWeight: 600, color: "#1976d2" }} align="right">Unit Price</TableCell>
+                            <TableCell sx={{ fontWeight: 600, color: "#1976d2" }} align="right">Subtotal (Excl. VAT)</TableCell>
+                            <TableCell sx={{ fontWeight: 600, color: "#1976d2" }} align="right">Cashback</TableCell>
                           </TableRow>
-                        ) : (
-                          selectedCustomer.transactions.map((transaction) => (
-                            <TableRow key={transaction.id}>
-                              <TableCell>{formatDate(transaction.date)}</TableCell>
-                              <TableCell>
-                                <Chip
-                                  label={transaction.type}
-                                  color={transaction.type === "purchase" ? "primary" : "success"}
-                                  size="small"
-                                />
-                              </TableCell>
-                              <TableCell>{transaction.description}</TableCell>
-                              <TableCell>{formatCurrency(transaction.amount)}</TableCell>
-                              <TableCell>
-                                <Chip label={transaction.status} color="success" size="small" />
+                        </TableHead>
+                        <TableBody>
+                          {selectedCustomer.orders.length === 0 ? (
+                            <TableRow>
+                              <TableCell colSpan={5} align="center">
+                                <Typography variant="body2" color="text.secondary">
+                                  No purchase history found
+                                </Typography>
                               </TableCell>
                             </TableRow>
-                          ))
-                        )}
-                      </TableBody>
-                    </Table>
-                  </TableContainer>
-                </TabPanel>
-
-                <TabPanel value={tabValue} index={1}>
-                  <TableContainer>
-                    <Table>
-                      <TableHead>
-                        <TableRow>
-                          <TableCell>Date</TableCell>
-                          <TableCell>Order Amount</TableCell>
-                          <TableCell>Cashback Rate</TableCell>
-                          <TableCell>Cashback Amount</TableCell>
-                          <TableCell>Status</TableCell>
-                        </TableRow>
-                      </TableHead>
-                      <TableBody>
-                        {selectedCustomer.cashbackHistory.length === 0 ? (
-                          <TableRow>
-                            <TableCell colSpan={5} align="center">
-                              <Typography variant="body2" color="text.secondary">
-                                No cashback history found
-                              </Typography>
-                            </TableCell>
-                          </TableRow>
-                        ) : (
-                          selectedCustomer.cashbackHistory.map((cashback) => (
-                            <TableRow key={cashback.id}>
-                              <TableCell>{formatDate(cashback.date)}</TableCell>
-                              <TableCell>{formatCurrency(cashback.orderAmount)}</TableCell>
-                              <TableCell>{cashback.cashbackRate}%</TableCell>
-                              <TableCell>{formatCurrency(cashback.cashbackAmount)}</TableCell>
-                              <TableCell>
-                                <Chip label={cashback.status} color="success" size="small" />
+                          ) : (
+                            selectedCustomer.orders
+                              .sort((a, b) => new Date(b.date) - new Date(a.date)) // Most recent first
+                              .map((order, index) => (
+                                <Box key={order.id}>
+                                  <TableRow>
+                                    <TableCell colSpan={5} sx={{ bgcolor: "#f5f5f5", py: 1 }}>
+                                      <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
+                                        Order {order.orderNumber} - {formatDate(order.date)}
+                                      </Typography>
+                                    </TableCell>
+                                  </TableRow>
+                                  {order.items.map((item) => (
+                                    <TableRow
+                                      key={item.productId}
+                                      hover
+                                      sx={{
+                                        '&:hover': { bgcolor: '#e8f5e8' },
+                                        borderBottom: '1px solid #ddd',
+                                      }}
+                                    >
+                                      <TableCell sx={{ fontSize: '0.9rem' }}>
+                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                          {item.imageUrl && (
+                                            <Box
+                                              component="img"
+                                              src={item.imageUrl}
+                                              alt={item.productName}
+                                              sx={{ width: 40, height: 40, objectFit: 'contain', borderRadius: 1 }}
+                                            />
+                                          )}
+                                          <Typography variant="body2">{item.productName}</Typography>
+                                        </Box>
+                                      </TableCell>
+                                      <TableCell align="right" sx={{ fontSize: '0.9rem' }}>{item.quantity}</TableCell>
+                                      <TableCell align="right" sx={{ fontSize: '0.9rem' }}>
+                                        {formatCurrency(item.unitPrice)}
+                                      </TableCell>
+                                      <TableCell align="right" sx={{ fontSize: '0.9rem' }}>
+                                        {formatCurrency(item.subtotalExclVat)}
+                                      </TableCell>
+                                      <TableCell align="right" sx={{ fontSize: '0.9rem', color: '#388e3c' }}>
+                                        {formatCurrency(item.cashbackAmount)}
+                                      </TableCell>
+                                    </TableRow>
+                                  ))}
+                                  <TableRow>
+                                    <TableCell colSpan={3} />
+                                    <TableCell align="right" sx={{ fontWeight: 600, fontSize: '0.9rem' }}>
+                                      Total: {formatCurrency(order.totalAmount)}
+                                    </TableCell>
+                                    <TableCell align="right" sx={{ fontWeight: 600, fontSize: '0.9rem', color: '#388e3c' }}>
+                                      Total Cashback: {formatCurrency(order.cashbackTotal)}
+                                    </TableCell>
+                                  </TableRow>
+                                  {index < selectedCustomer.orders.length - 1 && (
+                                    <TableRow>
+                                      <TableCell colSpan={5} sx={{ py: 0 }}>
+                                        <Divider sx={{ my: 2, borderWidth: 2, borderColor: '#1976d2' }} />
+                                      </TableCell>
+                                    </TableRow>
+                                  )}
+                                </Box>
+                              ))
+                          )}
+                          {selectedCustomer.orders.length > 0 && (
+                            <TableRow sx={{ bgcolor: '#e3f2fd' }}>
+                              <TableCell colSpan={3} />
+                              <TableCell align="right" sx={{ fontWeight: 700, fontSize: '1rem' }}>
+                                Grand Total: {formatCurrency(selectedCustomer.orders.reduce((sum, order) => sum + Number(order.totalAmount), 0))}
+                              </TableCell>
+                              <TableCell align="right" sx={{ fontWeight: 700, fontSize: '1rem', color: '#388e3c' }}>
+                                Grand Total Cashback: {formatCurrency(selectedCustomer.cashbackEarned)}
                               </TableCell>
                             </TableRow>
-                          ))
-                        )}
-                      </TableBody>
-                    </Table>
-                  </TableContainer>
+                          )}
+                        </TableBody>
+                      </Table>
+                    </TableContainer>
+                  </Box>
                 </TabPanel>
               </Paper>
             </Box>
