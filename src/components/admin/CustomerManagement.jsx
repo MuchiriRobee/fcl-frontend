@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import React, { useState, useEffect, } from "react"
 import {
   Box,
   Paper,
@@ -65,17 +65,17 @@ const formatNumberWithCommas = (number) => {
   return `${formattedInteger}.${decimalPart.padEnd(2, "0")}`
 }
 
-// Helper function to format date as MM/DD/YYYY
+// Helper function to format date as DD/MM/YYYY
 const formatDate = (dateString) => {
-  if (!dateString) return "N/A"
-  const date = new Date(dateString)
-  if (isNaN(date.getTime())) return "N/A"
-  return date.toLocaleDateString("en-US", {
-    month: "2-digit",
+  if (!dateString) return "N/A";
+  const date = new Date(dateString);
+  if (isNaN(date.getTime())) return "N/A";
+  return date.toLocaleDateString("en-GB", {
     day: "2-digit",
+    month: "2-digit",
     year: "numeric",
-  })
-}
+  });
+};
 
 // Helper function to format location
 const formatLocation = (street, city, country) => {
@@ -175,6 +175,7 @@ const CustomerManagement = () => {
                 orderNumber: order.order_number,
                 date: order.created_at,
                 totalAmount: Number(order.total_amount || 0).toFixed(2),
+                shippingCost: Number(order.shipping_cost || 0).toFixed(2),
                 cashbackTotal: order.items
                   .reduce((sum, item) => sum + Number(item.cashback_amount || 0), 0)
                   .toFixed(2),
@@ -522,13 +523,14 @@ const CustomerManagement = () => {
                             <TableCell sx={{ fontWeight: 600, color: "#1976d2" }} align="right">Quantity</TableCell>
                             <TableCell sx={{ fontWeight: 600, color: "#1976d2" }} align="right">Unit Price</TableCell>
                             <TableCell sx={{ fontWeight: 600, color: "#1976d2" }} align="right">Subtotal (Excl. VAT)</TableCell>
+                            <TableCell sx={{ fontWeight: 600, color: "#1976d2" }} align="right">Shipping Cost</TableCell>
                             <TableCell sx={{ fontWeight: 600, color: "#1976d2" }} align="right">Cashback</TableCell>
                           </TableRow>
                         </TableHead>
                         <TableBody>
                           {selectedCustomer.orders.length === 0 ? (
                             <TableRow>
-                              <TableCell colSpan={5} align="center">
+                              <TableCell colSpan={6} align="center">
                                 <Typography variant="body2" color="text.secondary">
                                   No purchase history found
                                 </Typography>
@@ -538,9 +540,9 @@ const CustomerManagement = () => {
                             selectedCustomer.orders
                               .sort((a, b) => new Date(b.date) - new Date(a.date)) // Most recent first
                               .map((order, index) => (
-                                <Box key={order.id}>
+                                <React.Fragment key={order.id}>
                                   <TableRow>
-                                    <TableCell colSpan={5} sx={{ bgcolor: "#f5f5f5", py: 1 }}>
+                                    <TableCell colSpan={6} sx={{ bgcolor: "#f5f5f5", py: 1 }}>
                                       <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
                                         Order {order.orderNumber} - {formatDate(order.date)}
                                       </Typography>
@@ -556,15 +558,7 @@ const CustomerManagement = () => {
                                       }}
                                     >
                                       <TableCell sx={{ fontSize: '0.9rem' }}>
-                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                          {item.imageUrl && (
-                                            <Box
-                                              component="img"
-                                              src={item.imageUrl}
-                                              alt={item.productName}
-                                              sx={{ width: 40, height: 40, objectFit: 'contain', borderRadius: 1 }}
-                                            />
-                                          )}
+                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>                                          
                                           <Typography variant="body2">{item.productName}</Typography>
                                         </Box>
                                       </TableCell>
@@ -574,6 +568,9 @@ const CustomerManagement = () => {
                                       </TableCell>
                                       <TableCell align="right" sx={{ fontSize: '0.9rem' }}>
                                         {formatCurrency(item.subtotalExclVat)}
+                                      </TableCell>
+                                      <TableCell align="right" sx={{ fontSize: '0.9rem' }}>
+                                        {formatCurrency(order.shippingCost)}
                                       </TableCell>
                                       <TableCell align="right" sx={{ fontSize: '0.9rem', color: '#388e3c' }}>
                                         {formatCurrency(item.cashbackAmount)}
@@ -585,18 +582,21 @@ const CustomerManagement = () => {
                                     <TableCell align="right" sx={{ fontWeight: 600, fontSize: '0.9rem' }}>
                                       Total: {formatCurrency(order.totalAmount)}
                                     </TableCell>
+                                    <TableCell align="right" sx={{ fontWeight: 600, fontSize: '0.9rem' }}>
+                                      {/* Empty cell for alignment */}
+                                    </TableCell>
                                     <TableCell align="right" sx={{ fontWeight: 600, fontSize: '0.9rem', color: '#388e3c' }}>
                                       Total Cashback: {formatCurrency(order.cashbackTotal)}
                                     </TableCell>
                                   </TableRow>
                                   {index < selectedCustomer.orders.length - 1 && (
                                     <TableRow>
-                                      <TableCell colSpan={5} sx={{ py: 0 }}>
+                                      <TableCell colSpan={6} sx={{ py: 0 }}>
                                         <Divider sx={{ my: 2, borderWidth: 2, borderColor: '#1976d2' }} />
                                       </TableCell>
                                     </TableRow>
                                   )}
-                                </Box>
+                                </React.Fragment>
                               ))
                           )}
                           {selectedCustomer.orders.length > 0 && (
@@ -604,6 +604,9 @@ const CustomerManagement = () => {
                               <TableCell colSpan={3} />
                               <TableCell align="right" sx={{ fontWeight: 700, fontSize: '1rem' }}>
                                 Grand Total: {formatCurrency(selectedCustomer.orders.reduce((sum, order) => sum + Number(order.totalAmount), 0))}
+                              </TableCell>
+                              <TableCell align="right" sx={{ fontWeight: 700, fontSize: '1rem' }}>
+                                {/* Empty cell for alignment */}
                               </TableCell>
                               <TableCell align="right" sx={{ fontWeight: 700, fontSize: '1rem', color: '#388e3c' }}>
                                 Grand Total Cashback: {formatCurrency(selectedCustomer.cashbackEarned)}
