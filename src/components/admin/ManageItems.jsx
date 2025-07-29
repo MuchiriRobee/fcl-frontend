@@ -6,7 +6,7 @@ import {
   IconButton, Dialog, DialogTitle, DialogContent, DialogActions, TextField, CircularProgress,
   TablePagination, Switch, FormControlLabel
 } from "@mui/material"
-import { Edit, Delete, Add, Upload, Download } from "@mui/icons-material"
+import { Edit, Delete, Add, Upload, Download, ArrowUpward, ArrowDownward } from "@mui/icons-material"
 import { NumericFormat } from 'react-number-format'
 import * as XLSX from 'xlsx'
 import { CategoriesContext } from "./CategoriesContext"
@@ -27,6 +27,7 @@ export default function ManageItems() {
   const [deleteItemId, setDeleteItemId] = useState(null)
   const [importError, setImportError] = useState(null)
   const [importErrors, setImportErrors] = useState([])
+  const [sortConfig, setSortConfig] = useState({ key: null, direction: 'asc' })
   const baseUrl = import.meta.env.VITE_BASE_URL || 'https://fcl-back.onrender.com'
 
   // Convert snake_case product to camelCase for NewItemForm
@@ -56,7 +57,7 @@ export default function ManageItems() {
     qty2Max: product.qty2_max ? product.qty2_max.toString() : "",
     qty3Min: product.qty3_min ? product.qty3_min.toString() : "",
     vat: product.vat ? parseFloat(product.vat).toFixed(2) : "16",
-    cashbackRate: product.cashbackRate ? parseFloat(product.cashbackRate).toFixed(2) : "0",
+    cashbackRate: product.cashback_rate ? parseFloat(product.cashback_rate).toFixed(2) : "0",
     preferredVendor1: product.preferred_vendor1 ? product.preferred_vendor1.toString() : "",
     vendorItemCode: product.vendor_item_code || "",
     saCashback1stPurchase: product.sa_cashback_1st ? parseFloat(product.sa_cashback_1st).toFixed(2) : "6",
@@ -90,7 +91,7 @@ export default function ManageItems() {
     cost_price: product.costPrice ? parseFloat(product.costPrice).toFixed(2) : null,
     selling_price1: product.sellingPrice1 ? parseFloat(product.sellingPrice1).toFixed(2) : null,
     selling_price2: product.sellingPrice2 ? parseFloat(product.sellingPrice2).toFixed(2) : null,
-    selling_price3: product.sellingPrice3 ? parseFloat(product.sellingPrice3).toFixed(2) : null,
+    selling_price3: product.sellingPrice3 ? parseFloat(product.selling_price3).toFixed(2) : null,
     qty1_min: parseInt(product.qty1Min) || null,
     qty1_max: parseInt(product.qty1Max) || null,
     qty2_min: product.qty2Min ? parseInt(product.qty2Min) : null,
@@ -109,6 +110,7 @@ export default function ManageItems() {
     order_level: product.orderLevel ? parseInt(product.orderLevel) : null,
     alert_quantity: product.alertQuantity ? parseInt(product.alertQuantity) : null,
     reorder_active: product.reorderActive !== undefined ? product.reorderActive : true,
+    active: product.active !== undefined ? product.active : true, // Ensure new products are active by default
   })
 
   useEffect(() => {
@@ -116,13 +118,43 @@ export default function ManageItems() {
   }, [])
 
   useEffect(() => {
-    const filtered = products.filter(product =>
+    let sortedProducts = [...products].filter(product =>
       product.product_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       product.product_code.toLowerCase().includes(searchTerm.toLowerCase())
     )
-    setFilteredProducts(filtered)
+
+    if (sortConfig.key) {
+      sortedProducts.sort((a, b) => {
+        let aValue = a[sortConfig.key]
+        let bValue = b[sortConfig.key]
+
+        // Handle specific sorting logic
+        if (sortConfig.key === 'product_name' || sortConfig.key === 'product_code') {
+          aValue = aValue ? aValue.toLowerCase() : ''
+          bValue = bValue ? bValue.toLowerCase() : ''
+          return sortConfig.direction === 'asc'
+            ? aValue.localeCompare(bValue)
+            : bValue.localeCompare(aValue)
+        } else if (sortConfig.key === 'stock_units') {
+          aValue = parseInt(aValue) || 0
+          bValue = parseInt(bValue) || 0
+          return sortConfig.direction === 'asc'
+            ? aValue - bValue
+            : bValue - aValue
+        } else if (sortConfig.key === 'active') {
+          aValue = aValue ? 1 : 0
+          bValue = bValue ? 1 : 0
+          return sortConfig.direction === 'asc'
+            ? bValue - aValue // Active (true) first
+            : aValue - bValue // Inactive (false) first
+        }
+        return 0
+      })
+    }
+
+    setFilteredProducts(sortedProducts)
     setPage(0)
-  }, [searchTerm, products])
+  }, [searchTerm, products, sortConfig])
 
   const fetchProducts = async () => {
     setLoading(true)
@@ -160,7 +192,7 @@ export default function ManageItems() {
   }
 
   const handleAddProduct = (newProduct) => {
-    const snakeCaseProduct = toSnakeCaseProduct(newProduct)
+    const snakeCaseProduct = toSnakeCaseProduct({ ...newProduct, active: true }) // Ensure new product is active
     setProducts(prev => [...prev, snakeCaseProduct])
     setFilteredProducts(prev => [...prev, snakeCaseProduct])
     setOpenDialog(false)
@@ -214,6 +246,13 @@ export default function ManageItems() {
     } catch (err) {
       setError(err.message)
     }
+  }
+
+  const handleSort = (key) => {
+    setSortConfig(prev => ({
+      key,
+      direction: prev.key === key && prev.direction === 'asc' ? 'desc' : 'asc'
+    }))
   }
 
   const handleExport = async () => {
@@ -700,13 +739,45 @@ export default function ManageItems() {
         <Table aria-label="products table">
           <TableHead sx={{ bgcolor: "#f8f9fa" }}>
             <TableRow>
-              <TableCell><strong>Product Name</strong></TableCell>
-              <TableCell><strong>Product Code</strong></TableCell>
+              <TableCell
+                onClick={() => handleSort('product_name')}
+                sx={{ cursor: 'pointer' }}
+              >
+                <strong>Product Name</strong>
+                {sortConfig.key === 'product_name' && (
+                  sortConfig.direction === 'asc' ? <ArrowUpward fontSize="small" /> : <ArrowDownward fontSize="small" />
+                )}
+              </TableCell>
+              <TableCell
+                onClick={() => handleSort('product_code')}
+                sx={{ cursor: 'pointer'}}
+              >
+                <strong>Product Code</strong>
+                {sortConfig.key === 'product_code' && (
+                  sortConfig.direction === 'asc' ? <ArrowUpward fontSize="small" /> : <ArrowDownward fontSize="small" />
+                )}
+              </TableCell>
               <TableCell><strong>Category</strong></TableCell>
               <TableCell><strong>Cost Price</strong></TableCell>
               <TableCell><strong>Selling Price</strong></TableCell>
-              <TableCell><strong>Stock Units</strong></TableCell>
-              <TableCell><strong>Active</strong></TableCell>
+              <TableCell
+                onClick={() => handleSort('stock_units')}
+                sx={{ cursor: 'pointer'}}
+              >
+                <strong>Stock Units</strong>
+                {sortConfig.key === 'stock_units' && (
+                  sortConfig.direction === 'asc' ? <ArrowUpward fontSize="small" /> : <ArrowDownward fontSize="small" />
+                )}
+              </TableCell>
+              <TableCell
+                onClick={() => handleSort('active')}
+                sx={{ cursor: 'pointer' }}
+              >
+                <strong>Active</strong>
+                {sortConfig.key === 'active' && (
+                  sortConfig.direction === 'asc' ? <ArrowUpward fontSize="small" /> : <ArrowDownward fontSize="small" />
+                )}
+              </TableCell>
               <TableCell><strong>Actions</strong></TableCell>
             </TableRow>
           </TableHead>

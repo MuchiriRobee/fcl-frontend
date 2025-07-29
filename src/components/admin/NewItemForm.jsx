@@ -258,19 +258,6 @@ export default function NewItemForm({ onSubmit, editItem = null }) {
     }
   }, [editItem])
 
-  // Auto-fill vendorItemCode when supplier is selected
-  useEffect(() => {
-    if (formData.preferredVendor1) {
-      const supplier = suppliers.find(s => s.id === parseInt(formData.preferredVendor1))
-      setFormData(prev => ({
-        ...prev,
-        vendorItemCode: supplier ? supplier.code || "" : ""
-      }))
-    } else {
-      setFormData(prev => ({ ...prev, vendorItemCode: "" }))
-    }
-  }, [formData.preferredVendor1, suppliers])
-
   // Calculate profits
   useEffect(() => {
     const costPriceExclVat = Number.parseFloat(formData.costPrice) || 0
@@ -394,8 +381,6 @@ export default function NewItemForm({ onSubmit, editItem = null }) {
     if (formData.productBarcode && formData.productBarcode.length > 50) newErrors.productBarcode = "Product barcode must be less than 50 characters"
     if (formData.etimsRefCode && formData.etimsRefCode.length > 50) newErrors.etimsRefCode = "eTIMS ref code must be less than 50 characters"
     if (formData.packSize && formData.packSize.length > 50) newErrors.packSize = "Pack size must be less than 50 characters"
-    if (formData.vendorItemCode && formData.vendorItemCode.length > 50) newErrors.vendorItemCode = "Vendor item code must be less than 50 characters"
-    if (formData.image && formData.image.size > 5 * 1024 * 1024) newErrors.image = "Image size exceeds 5MB"
     setErrors(newErrors)
     return Object.keys(newErrors).length === 0
   }
@@ -1103,9 +1088,6 @@ export default function NewItemForm({ onSubmit, editItem = null }) {
                     name="vendorItemCode"
                     value={formData.vendorItemCode}
                     onChange={handleChange}
-                    error={!!errors.vendorItemCode}
-                    helperText={errors.vendorItemCode}
-                    inputProps={{ maxLength: 50 }}
                     sx={{
                       '& .MuiInputBase-root': { height: 56, bgcolor: '#fafafa' },
                       '& .MuiInputBase-root:hover': { bgcolor: '#f5f5f5' },
