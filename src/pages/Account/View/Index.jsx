@@ -624,7 +624,7 @@ const AccountPage = () => {
 
                 <TextField
                   fullWidth
-                  label="Phone"
+                  label="Contact Phone Number"
                   name="phone"
                   value={userData.phone}
                   onChange={handleUserDataChange}
@@ -838,7 +838,7 @@ const AccountPage = () => {
           </Box>
         )}
 
-        {/* Inbox Tab */}
+        {/* Inbox Tab 
         {activeTab === 2 && (
           <Box sx={{ py: 3 }}>
             <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 3 }}>
@@ -937,7 +937,7 @@ const AccountPage = () => {
             )}
           </Box>
         )}
-
+          */}
         {/* Settings Tab */}
         {activeTab === 3 && (
           <Box sx={{ py: 3 }}>
