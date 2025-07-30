@@ -519,7 +519,7 @@ const AccountPage = () => {
               iconPosition="start"
               sx={{ minHeight: 48, textTransform: "none" }}
             />
-            <Tab
+            {/*<Tab
               icon={
                 <Badge badgeContent={unreadCount} color="error">
                   <Inbox />
@@ -529,6 +529,7 @@ const AccountPage = () => {
               iconPosition="start"
               sx={{ minHeight: 48, textTransform: "none" }}
             />
+            */}
             <Tab
               icon={<Settings />}
               label="Settings"
