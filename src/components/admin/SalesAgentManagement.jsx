@@ -433,7 +433,7 @@ export default function SalesAgentManagement() {
                   <TableRow
                     key={agent.id}
                     hover
-                    onClick={() => navigate(`/agent/${agent.id}`)}
+                    onClick={() => navigate(`/admin/agents/${agent.id}`)}
                     sx={{ cursor: "pointer" }}
                   >
                     <TableCell>

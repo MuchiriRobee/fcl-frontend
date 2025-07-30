@@ -205,31 +205,72 @@ const NavigationBar = ({ isLoggedIn, currentUser, onLogout, isAdminPage }) => {
   const [registrationOpen, setRegistrationOpen] = useState(false)
   const [loginOpen, setLoginOpen] = useState(false)
   const [mobileSearchOpen, setMobileSearchOpen] = useState(false)
-
-  // State for user menu
+  const [cartItemsCount, setCartItemsCount] = useState(0)
+  const [localIsLoggedIn, setLocalIsLoggedIn] = useState(isLoggedIn)
+  const [localCurrentUser, setLocalCurrentUser] = useState(currentUser)
   const [userMenuAnchorEl, setUserMenuAnchorEl] = useState(null)
   const userMenuOpen = Boolean(userMenuAnchorEl)
-
-  // State for cart items count
-  const [cartItemsCount, setCartItemsCount] = useState(0)
-
-  // State for tooltips and dropdowns
   const [activeDropdown, setActiveDropdown] = useState("")
   const [activeCategoryDropdown, setActiveCategoryDropdown] = useState("")
+
+  // Initialize states from props and localStorage
+  useEffect(() => {
+    setLocalIsLoggedIn(isLoggedIn)
+    setLocalCurrentUser(currentUser)
+    const storedCartItems = JSON.parse(localStorage.getItem("cartItems")) || []
+    setCartItemsCount(storedCartItems.length)
+  }, [isLoggedIn, currentUser])
+
+  // Listen for localStorage changes (cartItems, currentUser)
+  useEffect(() => {
+    const handleStorageChange = (event) => {
+      if (event.key === "cartItems") {
+        const updatedCartItems = JSON.parse(event.newValue || "[]")
+        setCartItemsCount(updatedCartItems.length)
+      } else if (event.key === "currentUser") {
+        if (event.newValue) {
+          const user = JSON.parse(event.newValue)
+          setLocalIsLoggedIn(true)
+          setLocalCurrentUser(user)
+        } else {
+          setLocalIsLoggedIn(false)
+          setLocalCurrentUser(null)
+        }
+      }
+    }
+
+    window.addEventListener("storage", handleStorageChange)
+
+    // Poll localStorage for changes in same-tab scenarios
+    const interval = setInterval(() => {
+      const storedCartItems = JSON.parse(localStorage.getItem("cartItems") || "[]")
+      if (storedCartItems.length !== cartItemsCount) {
+        setCartItemsCount(storedCartItems.length)
+      }
+
+      const storedUser = localStorage.getItem("currentUser")
+      if (storedUser && !localCurrentUser) {
+        setLocalCurrentUser(JSON.parse(storedUser))
+        setLocalIsLoggedIn(true)
+      } else if (!storedUser && localCurrentUser) {
+        setLocalCurrentUser(null)
+        setLocalIsLoggedIn(false)
+      }
+    }, 500)
+
+    return () => {
+      window.removeEventListener("storage", handleStorageChange)
+      clearInterval(interval)
+    }
+  }, [cartItemsCount, localCurrentUser])
 
   // Debug categories changes
   useEffect(() => {
     console.log('[NavigationBar] Categories updated:', categories)
   }, [categories])
 
-  // Get cart items count from localStorage
-  useEffect(() => {
-    const storedCartItems = JSON.parse(localStorage.getItem("cartItems")) || []
-    setCartItemsCount(storedCartItems.length)
-  }, [])
-
   // Check if user is admin
-  const isAdmin = currentUser?.isAdmin || currentUser?.email?.toLowerCase().includes("admin")
+  const isAdmin = localCurrentUser?.isAdmin || localCurrentUser?.email?.toLowerCase().includes("admin")
 
   // Handle dropdown functions
   const handleDropdownOpen = (menuName) => setActiveDropdown(menuName)
@@ -239,7 +280,7 @@ const NavigationBar = ({ isLoggedIn, currentUser, onLogout, isAdminPage }) => {
   }
   const handleCategoryDropdownOpen = (menuName) => setActiveCategoryDropdown(menuName)
   const handleCategoryDropdownClose = () => setActiveCategoryDropdown("")
-  const handleTooltipOpen = (tooltipName) => {} // Simplified for brevity
+  const handleTooltipOpen = () => {} // Simplified for brevity
   const handleTooltipClose = () => {}
 
   const toggleDrawer = () => setDrawerOpen((prev) => !prev)
@@ -268,7 +309,7 @@ const NavigationBar = ({ isLoggedIn, currentUser, onLogout, isAdminPage }) => {
       navigate(`/products/subcategory/${subcategoryId}`)
       if (drawerOpen) toggleDrawer()
     }
-    // No navigation for parentCategoryId or categoryId, just keep dropdown open
+    handleDropdownClose()
   }
 
   const setMenuRef = (menuName, element) => {
@@ -285,12 +326,17 @@ const NavigationBar = ({ isLoggedIn, currentUser, onLogout, isAdminPage }) => {
   const handleLogout = () => {
     handleUserMenuClose()
     if (onLogout) onLogout()
+    localStorage.removeItem("currentUser")
+    setLocalIsLoggedIn(false)
+    setLocalCurrentUser(null)
     navigate("/")
   }
 
   const handleLoginSuccess = (userData) => {
     handleCloseLogin()
-    // The login component will handle navigation
+    setLocalIsLoggedIn(true)
+    setLocalCurrentUser(userData)
+    localStorage.setItem("currentUser", JSON.stringify(userData))
   }
 
   return (
@@ -461,15 +507,15 @@ const NavigationBar = ({ isLoggedIn, currentUser, onLogout, isAdminPage }) => {
                     </Tooltip>
                   )}
 
-                  <Tooltip title={isLoggedIn ? "My Account" : "Sign In"} arrow>
+                  <Tooltip title={localIsLoggedIn ? "My Account" : "Sign In"} arrow>
                     <IconButton
                       size={isMobile ? "small" : "medium"}
                       sx={{ color: theme.palette.primary.contrastText }}
-                      onClick={isLoggedIn ? handleUserMenuOpen : handleOpenLogin}
+                      onClick={localIsLoggedIn ? handleUserMenuOpen : handleOpenLogin}
                       onMouseEnter={() => handleTooltipOpen("profile")}
                       onMouseLeave={handleTooltipClose}
                     >
-                      {isLoggedIn ? (
+                      {localIsLoggedIn ? (
                         <Avatar
                           sx={{
                             width: isMobile ? 24 : 32,
@@ -478,7 +524,7 @@ const NavigationBar = ({ isLoggedIn, currentUser, onLogout, isAdminPage }) => {
                             fontSize: isMobile ? "0.75rem" : "1rem",
                           }}
                         >
-                          {currentUser?.username?.charAt(0) || <PersonIcon fontSize={isMobile ? "small" : "medium"} />}
+                          {localCurrentUser?.username?.charAt(0) || <PersonIcon fontSize={isMobile ? "small" : "medium"} />}
                         </Avatar>
                       ) : (
                         <PersonIcon fontSize={isMobile ? "small" : "medium"} />
@@ -508,13 +554,13 @@ const NavigationBar = ({ isLoggedIn, currentUser, onLogout, isAdminPage }) => {
                     </WalletButton>
                   )}
 
-                  {!isMobile && !isLoggedIn && !isAdminPage && (
+                  {!isMobile && !localIsLoggedIn && !isAdminPage && (
                     <RegisterButton onClick={handleOpenRegistration}>Register</RegisterButton>
                   )}
 
-                  {!isMobile && isLoggedIn && (
+                  {!isMobile && localIsLoggedIn && (
                     <Typography variant="body2" sx={{ ml: 1, fontWeight: "medium" }}>
-                      Hello, {currentUser?.username || "User"}
+                      Hello, {localCurrentUser?.username || "User"}
                     </Typography>
                   )}
                 </Box>
@@ -573,7 +619,6 @@ const NavigationBar = ({ isLoggedIn, currentUser, onLogout, isAdminPage }) => {
                             }
                             aria-haspopup="true"
                             aria-expanded={activeDropdown === parentCategory.id ? "true" : "false"}
-                            // Only open dropdown, no navigation
                             onClick={() => handleDropdownOpen(parentCategory.id)}
                           >
                             {parentCategory.name || 'N/A'}
@@ -700,7 +745,7 @@ const NavigationBar = ({ isLoggedIn, currentUser, onLogout, isAdminPage }) => {
               alignItems: "center",
             }}
           >
-            {isLoggedIn ? (
+            {localIsLoggedIn ? (
               <>
                 <Avatar
                   sx={{
@@ -710,10 +755,10 @@ const NavigationBar = ({ isLoggedIn, currentUser, onLogout, isAdminPage }) => {
                     bgcolor: theme.palette.secondary.main,
                   }}
                 >
-                  {currentUser?.username?.charAt(0) || <PersonIcon fontSize="large" />}
+                  {localCurrentUser?.username?.charAt(0) || <PersonIcon fontSize="large" />}
                 </Avatar>
                 <Typography variant="subtitle1" fontWeight="bold">
-                  Hello, {currentUser?.username || "User"}
+                  Hello, {localCurrentUser?.username || "User"}
                 </Typography>
                 {isAdmin && (
                   <Typography variant="caption" sx={{ color: "yellow", fontWeight: "bold" }}>
@@ -882,7 +927,7 @@ const NavigationBar = ({ isLoggedIn, currentUser, onLogout, isAdminPage }) => {
               </ListItemButton>
             </ListItem>
 
-            {isLoggedIn && (
+            {localIsLoggedIn && (
               <ListItem disablePadding>
                 <ListItemButton
                   onClick={() => {

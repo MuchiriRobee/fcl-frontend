@@ -20,9 +20,8 @@ import WalletPage from "./pages/Wallet/View/Index"
 import ForgotPasswordPage from "./components/ForgotPassword"
 import ResetPasswordPage from "./components/ResetPassword"
 import ProductsPage from "./components/admin/ProductsPage"
-import AdminPage from "./pages/Admin/View/Index" 
+import AdminPage from "./pages/Admin/View/Index"
 import CheckoutPage from "./pages/Checkout/View/Index"
-import SalesAgentPage from "./components/admin/SalesAgentPage"
 import { Typography, Box } from "@mui/material"
 import ErrorBoundary from "./components/admin/ErrorBoundary"
 
@@ -184,7 +183,6 @@ function App() {
                   <Route path="/RegistrationForm" element={<RegistrationForm />} />
                   <Route path="/account" element={<AccountPage />} />
                   <Route path="/wallet" element={<WalletPage />} />
-                  <Route path="/sales-agent" element={<SalesAgentPage />} />
                   <Route path="/confirm" element={<Confirm />} />
                   <Route path="/set-password" element={<SetPassword />} />
                   <Route path="/forgot-password" element={<ForgotPasswordPage />} />
@@ -192,10 +190,9 @@ function App() {
                   <Route path="/checkout" element={<CheckoutPage />} />
                   <Route path="/admin/*" element={<AdminPage />} />
                   <Route path="/products/subcategory/:subcategoryId" element={<ProductsPage />} />
-                  <Route path="/agent/:id" element={<SalesAgentPage />} />
                 </Routes>
               </main>
-              <Footer />          
+              <Footer />
             </div>
           </BrowserRouter>
         </CategoriesProvider>

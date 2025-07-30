@@ -15,7 +15,7 @@ import {
   Snackbar,
 } from "@mui/material"
 import { Add as AddIcon, List as ListIcon } from "@mui/icons-material"
-import { useNavigate } from "react-router-dom"
+import { useNavigate, Routes, Route } from "react-router-dom"
 import AdminNavigation from "../../../components/admin/AdminNavigation"
 import EnhancedDashboard from "../../../components/admin/EnhancedDashboard"
 import NewItemForm from "../../../components/admin/NewItemForm"
@@ -25,6 +25,8 @@ import InventoryManagement from "../../../components/admin/InventoryManagement"
 import SalesAgentManagement from "../../../components/admin/SalesAgentManagement"
 import SupplierManagement from "../../../components/admin/SupplierManagement"
 import CustomerManagement from "../../../components/admin/CustomerManagement"
+import SalesAgentPage from "../../../components/admin/SalesAgentPage"
+
 // Error Boundary Component
 import React from 'react';
 
@@ -421,70 +423,89 @@ const AdminPage = () => {
 
       {/* E-commerce Admin Content */}
       <Box component="main" sx={{ flexGrow: 1, bgcolor: "#f8fafc" }}>
-        {/* Dashboard - E-commerce Analytics */}
-        <TabPanel value={tabValue} index={0}>
-          <EnhancedDashboard />
-        </TabPanel>
+        <Routes>
+          <Route
+            path="/"
+            element={
+              <>
+                {/* Dashboard - E-commerce Analytics */}
+                <TabPanel value={tabValue} index={0}>
+                  <EnhancedDashboard />
+                </TabPanel>
 
-        {/* Item Master - E-commerce Product Management with CRUD */}
-        <TabPanel value={tabValue} index={1}>
-          {subTabValue === 0 && (
-            <NewItemForm onSubmit={handleNewItemSubmit} editItem={editingItem} items={items} />
-          )}
-          {subTabValue === 1 && (
-            <ManageItems
-              onEditItem={handleEditItem}
-              onAddNewItem={handleAddNewItem}
-              items={items}
-              setItems={setItems}
-            />
-          )}
-        </TabPanel>
+                {/* Item Master - E-commerce Product Management with CRUD */}
+                <TabPanel value={tabValue} index={1}>
+                  {subTabValue === 0 && (
+                    <NewItemForm onSubmit={handleNewItemSubmit} editItem={editingItem} items={items} />
+                  )}
+                  {subTabValue === 1 && (
+                    <ManageItems
+                      onEditItem={handleEditItem}
+                      onAddNewItem={handleAddNewItem}
+                      items={items}
+                      setItems={setItems}
+                    />
+                  )}
+                </TabPanel>
 
-        {/* Categories - E-commerce Category Management with CRUD */}
-        <TabPanel value={tabValue} index={2}>
-          <ErrorBoundary>
-            <CategoryManagement onCategoriesChange={handleCategoriesChange} />
-          </ErrorBoundary>
-        </TabPanel>
+                {/* Categories - E-commerce Category Management with CRUD */}
+                <TabPanel value={tabValue} index={2}>
+                  <ErrorBoundary>
+                    <CategoryManagement onCategoriesChange={handleCategoriesChange} />
+                  </ErrorBoundary>
+                </TabPanel>
 
-        {/* Sales - E-commerce Sales Management with CRUD */}
-        <TabPanel value={tabValue} index={3}>
-          <Paper sx={{ p: 4, textAlign: "center", borderRadius: 2 }}>
-            <Typography variant="h6" color="text.secondary" gutterBottom sx={{ fontFamily: "'Poppins', sans-serif" }}>
-              E-commerce Sales Dashboard with CRUD Operations
-            </Typography>
-            <Typography variant="body1" color="text.secondary" sx={{ fontFamily: "'Poppins', sans-serif" }}>
-              Create, Read, Update, Delete sales orders and manage customer transactions.
-            </Typography>
-          </Paper>
-        </TabPanel>
+                {/* Sales - E-commerce Sales Management with CRUD */}
+                <TabPanel value={tabValue} index={3}>
+                  <Paper sx={{ p: 4, textAlign: "center", borderRadius: 2 }}>
+                    <Typography variant="h6" color="text.secondary" gutterBottom sx={{ fontFamily: "'Poppins', sans-serif" }}>
+                      E-commerce Sales Dashboard with CRUD Operations
+                    </Typography>
+                    <Typography variant="body1" color="text.secondary" sx={{ fontFamily: "'Poppins', sans-serif" }}>
+                      Create, Read, Update, Delete sales orders and manage customer transactions.
+                    </Typography>
+                  </Paper>
+                </TabPanel>
 
-        {/* Inventory - E-commerce Stock Management with CRUD */}
-        <TabPanel value={tabValue} index={4}>
-          <InventoryManagement />
-        </TabPanel>
+                {/* Inventory - E-commerce Stock Management with CRUD */}
+                <TabPanel value={tabValue} index={4}>
+                  <InventoryManagement />
+                </TabPanel>
 
-        {/* Suppliers - E-commerce Vendor Management with CRUD */}
-        <TabPanel value={tabValue} index={5}>
-          <ErrorBoundary>
-            <SupplierManagement onSuppliersChange={handleSuppliersChange} />
-          </ErrorBoundary>
-        </TabPanel>
+                {/* Suppliers - E-commerce Vendor Management with CRUD */}
+                <TabPanel value={tabValue} index={5}>
+                  <ErrorBoundary>
+                    <SupplierManagement onSuppliersChange={handleSuppliersChange} />
+                  </ErrorBoundary>
+                </TabPanel>
 
-        {/* Sales Agents - E-commerce Team Management with CRUD */}
-        <TabPanel value={tabValue} index={6}>
-          <ErrorBoundary>
-            <SalesAgentManagement />
-          </ErrorBoundary>
-        </TabPanel>
+                {/* Sales Agents - E-commerce Team Management with CRUD */}
+                <TabPanel value={tabValue} index={6}>
+                  <ErrorBoundary>
+                    <SalesAgentManagement />
+                  </ErrorBoundary>
+                </TabPanel>
 
-        {/* Customers - E-commerce Customer Management with CRUD */}
-        <TabPanel value={tabValue} index={7}>
-           <ErrorBoundary>
-          <CustomerManagement />
-        </ErrorBoundary>
-        </TabPanel>
+                {/* Customers - E-commerce Customer Management with CRUD */}
+                <TabPanel value={tabValue} index={7}>
+                  <ErrorBoundary>
+                    <CustomerManagement />
+                  </ErrorBoundary>
+                </TabPanel>
+              </>
+            }
+          />
+          <Route
+            path="agents/:id"
+            element={
+              <TabPanel value={tabValue} index={6}>
+                <ErrorBoundary>
+                  <SalesAgentPage />
+                </ErrorBoundary>
+              </TabPanel>
+            }
+          />
+        </Routes>
       </Box>
     </Box>
   )
