@@ -391,9 +391,9 @@ const RegistrationForm = () => {
             />
 
             <Typography variant="body1" fontWeight="bold" gutterBottom sx={{ mt: 2 }}>
-              Phone Number
+              Contact Phone Number
               <Typography component="span" color="error" variant="body2">
-                (*SAFARICOM NUMBER ONLY)
+                
               </Typography>
             </Typography>
             <TextField
