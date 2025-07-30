@@ -939,7 +939,7 @@ const AccountPage = () => {
           </Box>
         )}
           */}
-        {/* Settings Tab */}
+        {/* Settings Tab 
         {activeTab === 3 && (
           <Box sx={{ py: 3 }}>
             <Typography variant="h6" component="h2" gutterBottom>
@@ -1008,6 +1008,7 @@ const AccountPage = () => {
             </Card>
           </Box>
         )}
+          */}
       </Paper>
 
       {/* Profile Picture Upload Dialog */}
