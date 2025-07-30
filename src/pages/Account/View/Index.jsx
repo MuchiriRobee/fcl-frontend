@@ -529,13 +529,14 @@ const AccountPage = () => {
               iconPosition="start"
               sx={{ minHeight: 48, textTransform: "none" }}
             />
-            */}
+            
             <Tab
               icon={<Settings />}
               label="Settings"
               iconPosition="start"
               sx={{ minHeight: 48, textTransform: "none" }}
             />
+            */}
           </Tabs>
         </Box>
 
