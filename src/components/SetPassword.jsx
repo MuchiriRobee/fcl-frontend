@@ -123,7 +123,7 @@ const SetPassword = () => {
           Set Your Password
         </Typography>
         <Typography variant="h6" component="h6" color="error" fontWeight="normal"  fontSize="" gutterBottom>
-          *Password must be atleast 8 characters long, must contain atleast one uppercase letter, one lowercase letter, one number and one special character.
+          *Password must be at least 8 characters long, must contain at least one uppercase letter, one lowercase letter, one number and one special character.
         </Typography>
 
         {status === 'loading' && <CircularProgress sx={{ display: 'block', mx: 'auto', my: 2 }} />}
