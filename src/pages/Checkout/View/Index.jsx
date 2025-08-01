@@ -474,7 +474,7 @@ export default function CheckoutPage() {
                 <Box sx={{ mb: 3 }}>
                   <TextField
                     fullWidth
-                    label="M-Pesa Phone Number *"
+                    label="Input paying Phone Number *"
                     value={mpesaPhone}
                     onChange={(e) => {
                       const value = e.target.value;
